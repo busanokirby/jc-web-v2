@@ -301,13 +301,11 @@
     <!-- Row 2, Right: TECHNICIAN & STATUS -->
     <div class="right-bottom">
       <div style="margin-top: 5px;">
+        <div style="text-align:center; font-size:10px; font-weight:bold; margin-bottom:3px;">
+          {{ device.technician_name_override or (device.created_by_user.full_name if device.created_by_user else '') }}
+        </div>
         <div class="line" style="width:60%; margin:0 auto; border-bottom:1px solid #999;"></div>
         <div style="text-align:center; font-size:9px; font-weight:bold; color:#d67d58; margin-bottom:15px;">TECHNICIAN IN CHARGE</div>
-
-        <div class="input-group">
-          <span class="label bold">TECHNICIAN:</span>
-          <div class="line">{{ device.technician_name_override or (device.created_by_user.full_name if device.created_by_user else '') }}</div>
-        </div>
 
         <div class="input-group">
           <span class="label bold">STATUS:</span>
