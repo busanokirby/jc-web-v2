@@ -1,9 +1,3 @@
-# Quick Update Script for Remote Store Computers
-## v2.0.1 Batch Deployment
-
-Save this file as `UPDATE_v2.0.1.ps1` and run on each store computer.
-
-```powershell
 # ============================================================
 # JC Icons Management System - v2.0.1 Update Script
 # Multiple Service Request Types Support
@@ -171,6 +165,7 @@ Write-Host "Version: v2.0.1" -ForegroundColor Cyan
 Write-Host "Changes:" -ForegroundColor Cyan
 Write-Host "  • Multiple service types support" -ForegroundColor Cyan
 Write-Host "  • Updated repair forms and templates" -ForegroundColor Cyan
+Write-Host "  • Secure password change feature" -ForegroundColor Cyan
 Write-Host "  • No database migration needed" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Cyan
@@ -178,7 +173,8 @@ Write-Host "  1. Open browser and go to http://localhost:5000" -ForegroundColor 
 Write-Host "  2. Login to the system" -ForegroundColor Cyan
 Write-Host "  3. Go to Repairs → Create New Repair Ticket" -ForegroundColor Cyan
 Write-Host "  4. Verify service types are now checkboxes (multiple selection)" -ForegroundColor Cyan
-Write-Host "  5. Create a test ticket and verify print preview" -ForegroundColor Cyan
+Write-Host "  5. Test password change: user dropdown → Change Password" -ForegroundColor Cyan
+Write-Host "  6. Create a test ticket and verify print preview" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Backup Info:" -ForegroundColor Cyan
 Write-Host "  DB Backup:      $ProjectPath\instance\app.db.backup.v2.0.0" -ForegroundColor Cyan
@@ -191,88 +187,3 @@ Start-Sleep -Seconds 3
 Start-Process "http://localhost:5000"
 
 Write-Host "✓ Done!" -ForegroundColor Green
-```
-
----
-
-## Usage Instructions
-
-### For Single Computer:
-
-1. Edit the script to set correct path:
-   ```powershell
-   $ProjectPath = "C:\path\to\jc-icons-management-system-v2"
-   ```
-
-2. Run the script:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File UPDATE_v2.0.1.ps1
-   ```
-
-### For Multiple Computers:
-
-#### Option A: USB/Network Drive Distribution
-1. Copy `UPDATE_v2.0.1.ps1` to USB or network location
-2. Run on each computer following "For Single Computer" steps
-
-#### Option B: Remote Execution
-```powershell
-# From main office computer
-$computers = @("STORE-PC-01", "STORE-PC-02", "STORE-PC-03")
-$scriptPath = "\\network\share\UPDATE_v2.0.1.ps1"
-
-foreach ($computer in $computers) {
-    Write-Host "Updating $computer..."
-    Invoke-Command -ComputerName $computer -FilePath $scriptPath
-}
-```
-
----
-
-## Pre-Update Checklist
-
-Before running the update script:
-
-- [ ] Backup database manually
-- [ ] Current application is running
-- [ ] Close any active repair tickets/forms
-- [ ] Internet connection is stable
-- [ ] Administrator access on the computer
-- [ ] Sufficient disk space (at least 500MB free)
-
----
-
-## Troubleshooting
-
-### Script won't run
-```powershell
-# If ExecutionPolicy blocks script
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope CurrentUser
-```
-
-### Can't find project path
-```powershell
-# Find the correct path
-Get-Item "C:\Program Files*\jc-icons*" -Recurse -ErrorAction SilentlyContinue
-```
-
-### Flask won't start
-```powershell
-# Check for port conflicts
-netstat -ano | findstr :5000
-
-# Try manual start
-cd C:\path\to\jc-icons-management-system-v2
-.\web2\Scripts\Activate.ps1
-python run.py
-```
-
----
-
-## Support Information
-
-**Update Duration:** 5-10 minutes per computer
-**Downtime:** Less than 1 minute
-**Rollback:** Automatic backup created (see script output)
-
-Contact support if issues persist after update.
