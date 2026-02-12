@@ -5,12 +5,14 @@
 
 ## 🎉 Release Highlights
 
-### Version 2.0.1 - Template Update
-This release introduces **multiple service types support** for repair tickets, allowing techn icians to select all applicable services for a single device repair.
+### Version 2.0.1 - Template & Security Update
+This release introduces **multiple service types support** for repair tickets and a **secure password change feature** for all users.
 
 **Key Features:**
 - ✅ Multiple service type selection (checkboxes instead of radio buttons)
-- ✅ 8 comprehensive service categories
+- ✅ 8 comprehensive service categories for repairs
+- ✅ Secure password change for all users
+- ✅ Password strength requirements and real-time validation
 - ✅ Automatic storage as comma-separated values
 - ✅ Updated print templates to display all services
 - ✅ Zero database migration required
@@ -20,7 +22,7 @@ This release introduces **multiple service types support** for repair tickets, a
 
 ## 📋 What Changed
 
-### Service Types Available
+### 1. Service Types (Repairs Module)
 ```
 1. Diagnostics               - Device testing & troubleshooting
 2. Hardware Repair           - Physical component repairs
@@ -33,7 +35,26 @@ This release introduces **multiple service types support** for repair tickets, a
 8. Maintenance/Cleaning      - Preventive maintenance
 ```
 
+### 2. Secure Password Change (Users Module)
+
+**New Features:**
+- Users can now change their own password from the user menu
+- Real-time password strength indicator
+- Visual requirement checklist:
+  - At least 8 characters
+  - At least one uppercase letter (A-Z)
+  - At least one lowercase letter (a-z)
+  - At least one number (0-9)
+- Current password verification required
+- Password confirmation matching
+- Prevention of reusing current password
+- Secure hashing with werkzeug
+
+**Accessible from:** User dropdown → "Change Password" menu
+
 ### Files Modified
+
+**Repairs Module (Service Types):**
 1. **templates/repairs/add_repairs.html** (✏️ Updated)
    - Changed service selection: Radio buttons → Checkboxes
    - Added 8 service type options
@@ -47,6 +68,23 @@ This release introduces **multiple service types support** for repair tickets, a
    - Modified `add_repair()` function
    - Uses `request.form.getlist()` for multiple selections
    - Stores services as comma-separated string
+
+**Users Module (Password Change):**
+4. **templates/users/change_password.html** (✨ NEW)
+   - New form with password strength indicator
+   - Real-time validation and requirements checklist
+   - Show/hide password toggle buttons
+   - Mobile-friendly responsive design
+
+5. **app/blueprints/users/routes.py** (✏️ Updated)
+   - New route: `/users/change-password` (GET/POST)
+   - Validates current password, new password strength
+   - Prevents password reuse
+   - Secure password update with hashing
+
+6. **templates/layouts/base.html** (✏️ Updated)
+   - Added "Change Password" link in user dropdown menu
+   - Added divider before logout option
 
 ### Database
 - ✅ **No schema changes** - Existing `service_type` field reused
@@ -103,6 +141,7 @@ powershell -ExecutionPolicy Bypass -File UPDATE_v2.0.1_Script.ps1
 
 After installation, verify:
 
+**Repairs Module:**
 - [ ] Application starts without errors
 - [ ] Login works normally
 - [ ] Repairs section loads
@@ -110,6 +149,20 @@ After installation, verify:
 - [ ] Can select **multiple service types**
 - [ ] Can select **only one service type**
 - [ ] Creating repair ticket works without error
+- [ ] Print ticket shows **all selected services** correctly
+- [ ] Existing repair records still display properly
+
+**Users Module (Password Change):**
+- [ ] User dropdown shows "Change Password" option
+- [ ] Password change form loads correctly
+- [ ] Password strength indicator works in real-time
+- [ ] Requirements checklist updates as user types
+- [ ] Cannot submit with weak password (< 8 chars, missing uppercase/lowercase/number)
+- [ ] Cannot submit if passwords don't match
+- [ ] Cannot reuse current password
+- [ ] Incorrect current password shows error
+- [ ] Valid password change succeeds and redirects to dashboard
+- [ ] New password allows login on next session
 - [ ] Print ticket shows **all selected services** correctly
 - [ ] Existing repair records still display properly
 - [ ] Database file is normal size

@@ -1,5 +1,5 @@
 # JC Icons Management System - Update to v2.0.1
-## Template Update - Multiple Service Request Types Support
+## Template & Security Update - Multiple Service Types + Secure Password Change
 
 **Release Date:** February 12, 2026
 **Version:** 2.0.1
@@ -9,18 +9,29 @@
 
 ## Overview
 
-Version 2.0.1 introduces an important update to the repair management system. The Service Request form now supports **multiple service types** instead of a single selection. This allows technicians to document all services that will be performed on a device in one repair ticket.
+Version 2.0.1 introduces two important updates:
+
+### 1. Multiple Service Request Types
+The Service Request form now supports **multiple service types** instead of a single selection. This allows technicians to document all services that will be performed on a device in one repair ticket.
+
+### 2. Secure Password Change for Users
+All users can now securely change their passwords with automatic strength validation. Passwords must meet security requirements including minimum length, uppercase/lowercase letters, and numbers.
 
 ### Changes Made:
 - ✅ Updated add repair form to use **checkboxes** for service types (multiple selection)
 - ✅ Added **8 service type options** for flexibility
 - ✅ Updated print ticket template to display **all selected services**
 - ✅ Backend updated to **store multiple service types** as comma-separated values
+- ✅ Added **secure password change** feature for all users
+- ✅ Real-time password strength validation with visual indicator
+- ✅ Password requirements checklist (length, case, numbers)
 - ✅ No database schema changes required
 
 ---
 
-## What's New - Service Types
+## What's New
+
+### Service Types (Repairs Module)
 
 The form now offers these service types (select all that apply):
 
@@ -34,6 +45,22 @@ The form now offers these service types (select all that apply):
 8. **Maintenance/Cleaning** - Preventive maintenance
 
 **Example:** A device might have "Diagnostics, Hardware Repair, Virus Removal" all selected in one ticket.
+
+### Password Change (Users Module)
+
+**Users can now access password change from:** User dropdown menu → "Change Password"
+
+**Features:**
+- Current password verification for security
+- Real-time password strength indicator
+- Visual requirements checklist:
+  - ✓ At least 8 characters
+  - ✓ At least one uppercase letter
+  - ✓ At least one lowercase letter
+  - ✓ At least one number (0-9)
+- Password confirmation field
+- Prevention of password reuse (can't use same password)
+- Secure password hashing with werkzeug
 
 ---
 
@@ -114,12 +141,30 @@ docker-compose up --build -d
 
 ### Step 5: Verify Update
 
+**Test Service Request Types (Repairs):**
 1. Open the application in a web browser
 2. Navigate to **Repairs → Create New Repair Ticket**
 3. Scroll to **"Service Request"** section
 4. Verify that **checkboxes** are displayed instead of radio buttons
 5. Test selecting **multiple service types** at once
 6. Create a test ticket and verify the print preview shows all selected services
+
+**Test Password Change (Users):**
+1. Click user dropdown in top-right corner
+2. Verify **"Change Password"** option appears
+3. Click "Change Password"
+4. Verify password change form displays with:
+   - Requirements checklist
+   - Password strength indicator
+   - Show/hide password toggles
+5. Test form validations:
+   - Try submitting without current password (should error)
+   - Try weak password < 8 chars (should error)
+   - Try password without uppercase (should error)
+   - Try password without numbers (should error)
+   - Try non-matching confirm password (should show error)
+6. Enter valid password meeting all requirements
+7. Verify success message and redirect to dashboard
 
 ### Step 6: Test Print Ticket
 
@@ -174,6 +219,7 @@ Copy-Item .\instance\app.db.backup.v2.0.0 .\instance\app.db -Force
 ### File Changes Summary
 The following files were modified in v2.0.1:
 
+**Repairs Module (Multiple Service Types):**
 1. **`templates/repairs/add_repairs.html`**
    - Changed service selection from radio buttons → checkboxes
    - Added 8 service type options
@@ -188,7 +234,28 @@ The following files were modified in v2.0.1:
    - Uses `request.form.getlist()` instead of `request.form.get()`
    - Joins multiple selections with commas
 
+**Users Module (Secure Password Change):**
+4. **`templates/users/change_password.html`** (NEW FILE)
+   - New password change form with real-time validation
+   - Password strength indicator with visual feedback
+   - Requirements checklist for security
+   - Show/hide password toggle buttons
+   - Mobile-responsive design
+
+5. **`app/blueprints/users/routes.py`**
+   - New route: `/users/change-password` (GET/POST methods)
+   - Validates current password before allowing change
+   - Enforces password strength requirements
+   - Prevents password reuse
+   - Secure password hashing with werkzeug
+
+6. **`templates/layouts/base.html`**
+   - Added "Change Password" link in user dropdown menu
+   - Added visual divider before logout button
+
 ### Data Format Example
+
+**Service Types:**
 ```
 Old Format (v2.0.0): "Repair"
 New Format (v2.0.1): "Diagnostics, Hardware Repair, Virus Removal"
@@ -200,6 +267,7 @@ New Format (v2.0.1): "Diagnostics, Hardware Repair, Virus Removal"
 
 After installation, verify these items:
 
+**Repairs Module:**
 - [ ] Web application starts without errors
 - [ ] Login works normally
 - [ ] Repairs section loads
@@ -210,6 +278,22 @@ After installation, verify these items:
 - [ ] Print ticket shows all selected services correctly
 - [ ] Existing repair records still display properly
 - [ ] Database file size is normal (no unexpected growth)
+
+**Users Module (Password Change):**
+- [ ] User dropdown menu is visible in top-right corner
+- [ ] "Change Password" option appears in dropdown
+- [ ] Password change form displays correctly with all fields
+- [ ] Password strength indicator shows in real-time
+- [ ] Requirements checklist updates as user types
+- [ ] Show/hide password toggles work correctly
+- [ ] Incorrect current password shows error message
+- [ ] Weak password (< 8 chars) shows error
+- [ ] Password without uppercase shows error
+- [ ] Password without numbers shows error
+- [ ] Non-matching passwords show error message
+- [ ] Strong password can be submitted successfully
+- [ ] User is redirected to dashboard after successful change
+- [ ] New password works on next login
 
 ---
 
@@ -243,6 +327,44 @@ git diff v2.0.0 v2.0.1 -- templates/repairs/print_ticket.html
 
 # If not updated, manually pull again
 git checkout v2.0.1 -- templates/repairs/print_ticket.html
+```
+
+### Issue: "Change Password" link doesn't appear in user dropdown
+
+**Solution:** Browser cache or template not updated
+```powershell
+# Clear browser cache
+# Hard refresh page (Ctrl+Shift+R)
+
+# Verify templates were updated
+git diff v2.0.0 v2.0.1 -- templates/layouts/base.html
+git checkout v2.0.1 -- templates/layouts/base.html
+```
+
+### Issue: Password change form shows error on submit
+
+**Solution:** Check routes.py was updated correctly
+```powershell
+# Verify routes file includes password validation imports
+git diff v2.0.0 v2.0.1 -- app/blueprints/users/routes.py
+
+# Check for Python syntax errors
+python -m py_compile app/blueprints/users/routes.py
+
+# Restart Flask application
+Stop-Process -Name python -ErrorAction SilentlyContinue
+python run.py
+```
+
+### Issue: Password strength indicator not working
+
+**Solution:** JavaScript not loaded or form not rendering correctly
+```powershell
+# Open browser developer console (F12)
+# Check for JavaScript errors
+# Clear browser cache and refresh page
+# Verify change_password.html file exists
+git ls-files | findstr "change_password"
 ```
 
 ---
