@@ -151,6 +151,8 @@ def add_repair():
             repair_cost=safe_decimal(request.form.get("repair_cost"), "0.00"),
             deposit_paid=safe_decimal(request.form.get("deposit_paid"), "0.00"),
             parts_cost=Decimal("0.00"),
+            created_by_user_id=current_user.id,
+            technician_name_override=(request.form.get("technician_name_override") or "").strip() or None,
         )
 
         recompute_repair_financials(d)

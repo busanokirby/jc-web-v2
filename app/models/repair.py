@@ -65,7 +65,11 @@ class Device(db.Model):
     motherboard = db.Column(db.String(100))
     power_supply = db.Column(db.String(50))
 
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    technician_name_override = db.Column(db.String(100), nullable=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
 
 
 class Technician(db.Model):

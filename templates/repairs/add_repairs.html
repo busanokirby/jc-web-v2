@@ -175,7 +175,7 @@
         </div>
         <div class="card-body">
             <div class="row mb-3">
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <label for="status" class="form-label">Initial Status</label>
                     <select class="form-select" id="status" name="status">
                         <option value="Received" selected>Received</option>
@@ -184,7 +184,7 @@
                         <option value="Waiting Parts">Waiting Parts</option>
                     </select>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <label for="priority" class="form-label">Priority</label>
                     <select class="form-select" id="priority" name="priority">
                         <option value="Low">Low</option>
@@ -192,6 +192,11 @@
                         <option value="High">High</option>
                         <option value="Emergency">Emergency</option>
                     </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="technician_name_override" class="form-label">Technician in Charge</label>
+                    <small class="text-muted d-block mb-2">Leave empty to use: {{ current_user.full_name }}</small>
+                    <input type="text" class="form-control" id="technician_name_override" name="technician_name_override" placeholder="Enter technician name if different">
                 </div>
             </div>
 
