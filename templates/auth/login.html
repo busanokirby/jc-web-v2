@@ -1,0 +1,138 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Login - JC Icons{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --jc-green: #1e7f43;
+        --jc-green-dark: #145c32;
+        --jc-green-light: #a8e6b0;
+    }
+    
+    body {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+    }
+    
+    main {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px 0;
+    }
+    
+    .login-card {
+        border: none;
+        border-top: 4px solid var(--jc-green);
+        border-radius: 10px;
+    }
+    
+    .login-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid var(--jc-green-light);
+    }
+    
+    .jc-logo {
+        height: 80px;
+        margin-bottom: 1rem;
+    }
+    
+    .login-header h3 {
+        color: var(--jc-green-dark);
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    
+    .login-header p {
+        color: var(--jc-green);
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+    
+    .btn-login {
+        background: linear-gradient(135deg, var(--jc-green) 0%, var(--jc-green-dark) 100%);
+        border: none;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-login:hover {
+        background: linear-gradient(135deg, var(--jc-green-dark) 0%, #0f3d21 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(30, 127, 67, 0.3);
+    }
+    
+    .form-control:focus {
+        border-color: var(--jc-green);
+        box-shadow: 0 0 0 0.2rem rgba(30, 127, 67, 0.15);
+    }
+    
+    .form-check-input:checked {
+        background-color: var(--jc-green);
+        border-color: var(--jc-green);
+    }
+    
+    .login-footer {
+        text-align: center;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e0e0e0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg login-card">
+                <div class="card-body p-5">
+                    <div class="login-header">
+                        <img src="{{ url_for('static', filename='images/jc-logo.png') }}" 
+                             alt="JC Icons Logo" class="jc-logo">
+                        <h3>JC ICONS</h3>
+                        <p>Computer Sales & Services</p>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('auth.login') }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   required autofocus>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   required>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                            <label class="form-check-label" for="remember">Remember me</label>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-login btn-lg">
+                                <i class="bi bi-box-arrow-in-right"></i> Login
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="login-footer">
+                        <small class="text-muted">Default: admin / admin123</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Settings - JC Icons{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">
+    <i class="bi bi-gear"></i> System Settings
+</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-toggles"></i> Feature Toggles</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('core.settings') }}">
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" 
+                               id="pos_enabled" name="pos_enabled" 
+                               {% if flags.POS_ENABLED %}checked{% endif %}>
+                        <label class="form-check-label" for="pos_enabled">
+                            <strong>POS Enabled</strong>
+                            <br><small class="text-muted">Enable Point of Sale module for all users</small>
+                        </label>
+                    </div>
+
+                    <hr>
+
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" 
+                               id="sales_can_edit_inventory" name="sales_can_edit_inventory" 
+                               {% if flags.SALES_CAN_EDIT_INVENTORY %}checked{% endif %}>
+                        <label class="form-check-label" for="sales_can_edit_inventory">
+                            <strong>SALES Can Edit Inventory</strong>
+                            <br><small class="text-muted">Allow SALES role to add/edit inventory and categories</small>
+                        </label>
+                    </div>
+
+                    <hr>
+
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" 
+                               id="tech_can_view_details" name="tech_can_view_details" 
+                               {% if flags.TECH_CAN_VIEW_DETAILS %}checked{% endif %}>
+                        <label class="form-check-label" for="tech_can_view_details">
+                            <strong>TECH Can View Details</strong>
+                            <br><small class="text-muted">Allow TECH role to view repair and customer details</small>
+                        </label>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Save Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-3">
+            <h6><i class="bi bi-info-circle"></i> How Toggles Work:</h6>
+            <ul class="mb-0">
+                <li><strong>POS Enabled OFF:</strong> Hides POS links and blocks /sales/pos routes with 403</li>
+                <li><strong>SALES Can Edit Inventory OFF:</strong> SALES role can view but not edit inventory</li>
+                <li><strong>ADMIN:</strong> Always has full access regardless of toggles</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,315 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Sales Reports - JC Icons{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-graph-up"></i> Sales Reports</h1>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('sales.sales_list') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-list"></i> Sales List
+        </a>
+        <a href="{{ url_for('sales.pos') }}" class="btn btn-outline-primary">
+            <i class="bi bi-cart-check"></i> New Sale
+        </a>
+        {% if current_user.role == 'ADMIN' %}
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#resetModal">
+            <i class="bi bi-trash"></i> Reset Sales
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Date Range Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="d-flex gap-2 align-items-end">
+            <div class="flex-grow-1">
+                <label class="form-label">Period</label>
+                <select name="days" class="form-select" onchange="this.form.submit()">
+                    <option value="7" {% if days_back == 7 %}selected{% endif %}>Last 7 days</option>
+                    <option value="14" {% if days_back == 14 %}selected{% endif %}>Last 14 days</option>
+                    <option value="30" {% if days_back == 30 %}selected{% endif %}>Last 30 days</option>
+                    <option value="60" {% if days_back == 60 %}selected{% endif %}>Last 60 days</option>
+                    <option value="90" {% if days_back == 90 %}selected{% endif %}>Last 90 days</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase small">Total Revenue</h6>
+                <h3 class="mb-0">₱{{ "%.2f"|format(total_revenue) }}</h3>
+                <small class="mt-2 d-block">{{ total_transactions }} transactions</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase small">Avg Transaction</h6>
+                <h3 class="mb-0">₱{{ "%.2f"|format(avg_transaction) }}</h3>
+                <small class="mt-2 d-block">Per sale</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase small">Items Sold</h6>
+                <h3 class="mb-0">{{ total_items_sold }}</h3>
+                <small class="mt-2 d-block">Total units</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase small">Transactions</h6>
+                <h3 class="mb-0">{{ total_transactions }}</h3>
+                <small class="mt-2 d-block">Total sales</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Daily Sales Trend -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Daily Sales Trend</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="dailyTrendChart" height="80"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Method Breakdown -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Payment Methods</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="paymentChart" height="130"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Products -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Top Products Sold</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Product Name</th>
+                        <th class="text-end">Units Sold</th>
+                        <th class="text-end">Revenue</th>
+                        <th class="text-end">% of Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set revenue_total = top_products|map(attribute='amount')|sum %}
+                    {% for product in top_products %}
+                    <tr>
+                        <td><strong>{{ product.name }}</strong></td>
+                        <td class="text-end">{{ product.qty }}</td>
+                        <td class="text-end">₱{{ "%.2f"|format(product.amount) }}</td>
+                        <td class="text-end">
+                            {% if revenue_total > 0 %}
+                                <span class="badge bg-secondary">{{ "%.1f"|format((product.amount / revenue_total) * 100) }}%</span>
+                            {% else %}
+                                <span class="badge bg-secondary">0%</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if top_products|length == 0 %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No sales data available</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Methods Detailed -->
+<div class="card">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Payment Method Summary</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Payment Method</th>
+                        <th class="text-end">Transactions</th>
+                        <th class="text-end">Total Amount</th>
+                        <th class="text-end">Avg Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payment_data %}
+                    <tr>
+                        <td><strong>{{ payment.method }}</strong></td>
+                        <td class="text-end">{{ payment.count }}</td>
+                        <td class="text-end">₱{{ "%.2f"|format(payment.total) }}</td>
+                        <td class="text-end">₱{{ "%.2f"|format(payment.total / payment.count if payment.count > 0 else 0) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if payment_data|length == 0 %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No payment data available</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Sales Modal -->
+<div class="modal fade" id="resetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle"></i> Reset All Sales Data
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-danger fw-bold mb-3">⚠️ This action cannot be undone!</p>
+                <p>This will permanently delete:</p>
+                <ul>
+                    <li>All sales records</li>
+                    <li>All sale items</li>
+                    <li>All payment records</li>
+                    <li>All invoices</li>
+                </ul>
+                <p class="text-muted">Are you absolutely sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('sales.reset_sales') }}" style="display: inline;">
+                    <input type="hidden" name="confirm" value="yes">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Delete All Sales Data
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+<script id="daily-trend-data" type="application/json">
+{{ daily_trend | tojson }}
+</script>
+<script id="payment-data-json" type="application/json">
+{{ payment_data | tojson }}
+</script>
+<script>
+// Daily Sales Trend Chart
+const dailyTrendData = JSON.parse(document.getElementById('daily-trend-data').textContent);
+if (dailyTrendData.length > 0) {
+    const dailyCtx = document.getElementById('dailyTrendChart').getContext('2d');
+    new Chart(dailyCtx, {
+        type: 'line',
+        data: {
+            labels: dailyTrendData.map(d => d.date),
+            datasets: [{
+                label: 'Daily Revenue (₱)',
+                data: dailyTrendData.map(d => d.total),
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#0d6efd',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₱' + value.toFixed(0);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Payment Method Chart
+const paymentData = JSON.parse(document.getElementById('payment-data-json').textContent);
+if (paymentData.length > 0) {
+    const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+    new Chart(paymentCtx, {
+        type: 'doughnut',
+        data: {
+            labels: paymentData.map(p => p.method),
+            datasets: [{
+                data: paymentData.map(p => p.total),
+                backgroundColor: [
+                    '#0d6efd',
+                    '#198754',
+                    '#fd7e14',
+                    '#dc3545',
+                    '#6c757d'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return '₱' + context.parsed.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

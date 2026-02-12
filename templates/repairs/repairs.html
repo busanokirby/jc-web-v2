@@ -1,0 +1,125 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Repairs - JC Icons{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-wrench"></i> Repairs Management</h1>
+    <a href="{{ url_for('repairs.add_repair') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> New Repair
+    </a>
+</div>
+
+<!-- Search form -->
+<form method="GET" class="row g-2 mb-3">
+    <div class="col-md-4 position-relative">
+        <input type="text" id="repairs-search" name="q" class="form-control" placeholder="Search by ticket, customer, model..." value="{{ q or '' }}" autocomplete="off">
+        <div id="repairs-search-results" class="list-group position-absolute w-100" style="z-index: 1050; display: none;"></div>
+    </div>
+    <div class="col-md-2">
+        <select name="status" class="form-select">
+            <option value="">All Statuses</option>
+            <option value="Received" {% if status == 'Received' %}selected{% endif %}>Received</option>
+            <option value="Diagnosing" {% if status == 'Diagnosing' %}selected{% endif %}>Diagnosing</option>
+            <option value="Repairing" {% if status == 'Repairing' %}selected{% endif %}>Repairing</option>
+            <option value="Waiting Parts" {% if status == 'Waiting Parts' %}selected{% endif %}>Waiting Parts</option>
+            <option value="Ready" {% if status == 'Ready' %}selected{% endif %}>Ready</option>
+            <option value="Completed" {% if status == 'Completed' %}selected{% endif %}>Completed</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}">
+    </div>
+    <div class="col-md-2">
+        <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}">
+    </div>
+    <div class="col-md-2 d-grid">
+        <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i> Search</button>
+    </div>
+</form>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Ticket #</th>
+                                <th>Customer</th>
+                                <th>Device</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Received</th>
+                                <th>Total Cost</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for device in devices %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('repairs.repair_detail', device_id=device.id) }}" class="text-decoration-none fw-bold">
+                                        {{ device.ticket_number }}
+                                    </a>
+                                </td>
+                                <td>{{ device.owner.name }}</td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ device.brand }} {{ device.model }}<br>
+                                        {{ device.device_type|title }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ device.status }}</span>
+                                </td>
+                                <td>
+                                    {% if device.priority == 'Emergency' %}
+                                        <span class="badge bg-danger">{{ device.priority }}</span>
+                                    {% elif device.priority == 'High' %}
+                                        <span class="badge bg-warning text-dark">{{ device.priority }}</span>
+                                    {% elif device.priority == 'Normal' %}
+                                        <span class="badge bg-info">{{ device.priority }}</span>
+                                    {% else %}
+                                        <span class="badge bg-success">{{ device.priority }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ device.received_date|datetimeformat }}</td>
+                                <td><strong>{{ device.total_cost|currency }}</strong></td>
+                                <td>
+                                    <a href="{{ url_for('repairs.repair_detail', device_id=device.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
+                                    No repair tickets found
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_css %}
+<style>
+    /* Autocomplete dropdown styling */
+    #repairs-search-results .list-group-item {
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/repairs_autocomplete.js') }}"></script>
+{% endblock %}
+
+{% endblock %}

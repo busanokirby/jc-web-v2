@@ -1,0 +1,37 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Page Not Found (404) - JC Icons{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card border-warning">
+            <div class="card-body text-center p-5">
+                <div style="font-size: 4rem; color: #ffc107; margin-bottom: 1rem;">
+                    <i class="bi bi-question-circle-fill"></i>
+                </div>
+                
+                <h2 class="card-title">Page Not Found</h2>
+                <p class="card-text text-muted mb-4">
+                    The page you are looking for does not exist.
+                </p>
+                
+                <div class="alert alert-info">
+                    <p class="mb-0"><strong>This could mean:</strong></p>
+                    <ul class="mb-0 mt-2">
+                        <li>The page URL is incorrect or has expired</li>
+                        <li>The page has been moved or removed</li>
+                        <li>A required module has not been implemented yet</li>
+                    </ul>
+                </div>
+                
+                <div class="mt-4">
+                    <a href="{{ url_for('core.dashboard') }}" class="btn btn-primary">
+                        <i class="bi bi-house"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

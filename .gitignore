@@ -1,0 +1,58 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+dist/
+build/
+
+# Flask & Database
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+.env.prod
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE specific
+.project
+.pydevproject
+*.sublime-project
+*.sublime-workspace
+
+# Virtual environments
+web2/
+
+# Temporary files
+*.tmp
+*.temp

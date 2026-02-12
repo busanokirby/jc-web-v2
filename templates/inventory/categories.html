@@ -1,0 +1,38 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Categories - Inventory{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Categories</h1>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST" class="mb-3" action="{{ url_for('inventory.categories') }}">
+            <div class="input-group">
+                <input name="name" class="form-control" placeholder="New category name">
+                <button class="btn btn-primary">Add Category</button>
+            </div>
+        </form>
+
+        <ul class="list-group">
+            {% for c in categories %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>{{ c.name }}</strong>
+                    <div class="text-muted small">Products: {{ c.products|selectattr('is_active')|list|length }}</div>
+                </div>
+                <div>
+                    <form method="POST" action="{{ url_for('inventory.delete_category', category_id=c.id) }}" style="display:inline">
+                        <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete category permanently? This will only work if no active products exist in the category.')">Delete</button>
+                    </form>
+                </div>
+            </li>
+            {% else %}
+            <li class="list-group-item text-muted">No categories defined</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

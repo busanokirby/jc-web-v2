@@ -1,0 +1,78 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Sales History - JC Icons{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-receipt"></i> Sales History</h1>
+    <a href="{{ url_for('sales.pos') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> New Sale
+    </a>
+</div>
+
+{% if sales %}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Invoice</th>
+                    <th>Date</th>
+                    <th>Items</th>
+                    <th>Subtotal</th>
+                    <th>Discount</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in sales %}
+                <tr>
+                    <td><strong>{{ sale.invoice_no }}</strong></td>
+                    <td>{{ sale.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <span class="badge bg-info">{{ sale.items|length }}</span>
+                    </td>
+                    <td>₱{{ "%.2f"|format(sale.subtotal) }}</td>
+                    <td>
+                        {% if sale.discount > 0 %}
+                        <span class="text-danger">-₱{{ "%.2f"|format(sale.discount) }}</span>
+                        {% else %}
+                        ₱0.00
+                        {% endif %}
+                    </td>
+                    <td><strong>₱{{ "%.2f"|format(sale.total) }}</strong></td>
+                    <td>
+                        <span class="badge {% if sale.status == 'PAID' %}bg-success{% elif sale.status == 'PARTIAL' %}bg-warning{% elif sale.status == 'VOID' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ sale.status }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('sales.invoice', sale_id=sale.id) }}" class="btn btn-sm btn-outline-primary" title="View Invoice">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    No sales records found.
+    <a href="{{ url_for('sales.pos') }}" class="alert-link">Create your first sale</a>
+</div>
+{% endif %}
+
+<style>
+    tbody tr {
+        transition: background-color 0.15s ease-in-out;
+    }
+    tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}

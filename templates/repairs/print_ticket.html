@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JC Icons - Intake Form</title>
+
+  <style>
+    /* ================= PAGE SETUP ================= */
+    @page { size: 8.5in 13in; margin: 0; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11px;
+      margin: 0;
+      padding: 0;
+      background-color: #fff;
+      color: #000;
+      width: 8.5in;
+      height: 13in;
+    }
+
+    .page-container {
+      width: 8.5in;
+      height: 13in;
+      position: relative;
+      padding: 0.4in;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ================= UTILITIES ================= */
+    .row { display: flex; width: 100%; gap: 15px; }
+    .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .bold { font-weight: bold; }
+
+    .input-group { display: flex; margin-bottom: 4px; align-items: flex-end; }
+    .label { font-weight: bold; white-space: nowrap; margin-right: 5px; color: #333; }
+    .line {
+      border-bottom: 1px solid #333;
+      flex-grow: 1;
+      min-height: 14px;
+      padding-left: 5px;
+      font-weight: bold;
+    }
+
+    .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin: 3px 0; }
+    .cb-item { display: flex; align-items: center; gap: 4px; }
+    .box { width: 12px; height: 12px; border: 1px solid #000; display: inline-block; line-height: 10px; text-align: center; font-size: 10px; }
+
+    /* ================= HEADERS ================= */
+    .header-main {
+      background-color: #2ea863;
+      color: white;
+      padding: 10px 15px;
+      display: flex;
+      align-items: center;
+      margin-bottom: 2px;
+    }
+    .logo-placeholder {
+      width: 70px; height: 55px;
+      border-radius: 50%;
+      margin-right: 15px;
+      display: flex; justify-content: center; align-items: center; color: white; font-weight: bold;
+    }
+    .header-text h1 { margin: 0; font-size: 18px; font-weight: 900; letter-spacing: 1px; }
+    .header-text p { margin: 0; font-size: 9px; opacity: 0.9; }
+
+    .contact-bar {
+      text-align: center; font-size: 9px; font-weight: bold; color: #555;
+      margin-bottom: 15px; padding-bottom: 5px; border-bottom: 1px solid #ddd;
+    }
+
+    .section-title {
+      color: #2ea863; font-weight: bold; font-size: 12px; text-transform: uppercase;
+      margin-bottom: 5px; margin-top: 10px;
+    }
+
+    /* ================= FORM TITLE ================= */
+    .form-title-row {
+      display: flex; justify-content: center; align-items: flex-end; position: relative; margin-bottom: 10px;
+    }
+    .main-heading { font-size: 14px; font-weight: bold; text-align: center; }
+    .acquisition-date {
+      position: absolute; right: 0; bottom: 0; display: flex; align-items: flex-end; font-size: 10px;
+    }
+
+    /* ================= BOXES ================= */
+    .grey-box {
+      background-color: #eef2f5; border: 1px solid #ccc; padding: 10px; height: 100%;
+    }
+    .auth-box { border: 1px solid #ccc; padding: 8px; }
+    .auth-text { font-size: 9px; color: #444; margin-bottom: 15px; }
+    .sig-line { width: 300px; border-top: 1px solid #000; margin: 20px auto 0; text-align: center; font-size: 9px; padding-top: 2px; }
+
+    .description-lines .line { margin-top: 10px; border-bottom: 1px solid #999; }
+
+    /* ================= GRID ALIGNMENT ================= */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 6px 8px;
+      align-items: start;
+    }
+    .left-top    { grid-column: 1; grid-row: 1; }
+    .right-top   { grid-column: 2; grid-row: 1; }
+    .left-bottom { grid-column: 1; grid-row: 2; }
+    .right-bottom{ grid-column: 2; grid-row: 2; }
+
+    /* ================= DIVIDER ================= */
+    .cut-line { margin: 16px 0; border-top: 2px dashed #999; width: 100%; }
+
+    /* ================= CLAIM STUB ================= */
+    .stub-header {
+      background-color: #2ea863; color: white; padding: 5px 10px;
+      display: flex; align-items: center; position: relative;
+    }
+    .qr-code {
+      width: 60px; height: 60px; background: white;
+      position: absolute; right: 10px; top: 2px;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .qr-code img { width: 100%; height: 100%; display: block; }
+
+    .legal-terms { font-size: 8px; color: #333; line-height: 1.1; margin-top: 5px; }
+    .legal-terms h4 { margin: 4px 0 2px; font-size: 8px; color: #2ea863; text-transform: uppercase; }
+    .legal-terms ul { margin: 0; padding-left: 12px; }
+    .legal-terms li { margin-bottom: 1px; }
+
+    .bottom-sigs { display: flex; justify-content: space-between; margin-top: 25px; align-items: flex-end; }
+    .bottom-sig-line { border-top: 1px solid #000; width: 40%; text-align: center; font-size: 8px; padding-top: 2px; }
+
+    /* ================= PRINT BUTTON ================= */
+    @media print { .no-print { display: none; } }
+    .no-print {
+      position: fixed; top: 10px; right: 10px; z-index: 999;
+      background: white; padding: 10px; border: 1px solid #ccc;
+    }
+  </style>
+</head>
+
+<body>
+
+{% set brand_lc = (device.brand or '')|lower %}
+
+<div class="no-print">
+  <button onclick="window.print()"
+          style="padding:10px 20px; background:#2ea863; color:#fff; border:none; cursor:pointer; font-weight: bold;">
+    🖨️ Print Form
+  </button>
+  <a href="{{ url_for('repairs.repair_detail', device_id=device.id) }}"
+     style="display:inline-block; margin-left:10px; padding:10px 20px; background:#6c757d; color:#fff; border:none; cursor:pointer; text-decoration:none; border-radius:4px; font-weight: bold;">
+    ← Back
+  </a>
+</div>
+
+<div class="page-container">
+
+  <!-- HEADER -->
+  <div class="header-main">
+    <div class="logo-placeholder">
+      <img
+        src="{{ url_for('static', filename='images/jc-logo.png') }}"
+        alt="JC Icons Logo"
+        style="height: 60px; width: 60px; border-radius: 50%;"
+      >
+    </div>
+    <div class="header-text">
+      <h1>JC ICONS COMPUTER SALES &amp; SERVICES</h1>
+      <p>J.A CLARIN COR. HONTANOSAS, POBLACION 3, TAGBILARAN CITY</p>
+    </div>
+  </div>
+
+  <div class="contact-bar">
+    CONTACT NO. (038) 411-2134 | 09985771468 | 09208036494
+  </div>
+
+  <!-- TITLE -->
+  <div class="form-title-row">
+    <div class="section-title" style="position:absolute; left:0;">CLIENT INFORMATION</div>
+    <div class="main-heading">REPAIR SERVICE – CLIENT INTAKE FORM</div>
+
+    <div class="acquisition-date">
+      <span class="label" style="font-size:10px; color:#666;">ACQUISITION DATE</span>
+      <div class="line" style="width:80px; text-align:center;">
+        {% if device.received_date %}{{ device.received_date.strftime('%m/%d/%Y') }}{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- CLIENT INFO -->
+  <div class="input-group">
+    <span class="label">Full Name:</span>
+    <div class="line">{{ device.owner.name if device.owner else '' }}</div>
+  </div>
+  <div class="input-group">
+    <span class="label">Company Name (if applicable):</span>
+    <div class="line">{{ device.owner.business_name if device.owner else '' }}</div>
+  </div>
+  <div class="input-group">
+    <span class="label">Phone Number:</span>
+    <div class="line">{{ device.owner.phone if device.owner else '' }}</div>
+  </div>
+  <div class="input-group">
+    <span class="label">Email Address:</span>
+    <div class="line">{{ (device.owner.email if device.owner else '') }}</div>
+  </div>
+  <div class="input-group">
+    <span class="label">Address:</span>
+    <div class="line">{{ device.owner.address if device.owner else '' }}</div>
+  </div>
+
+  <!-- ================= MAIN 2×2 GRID ================= -->
+  <div class="main-grid" style="margin-top: 10px;">
+
+    <!-- Row 1, Left: DEVICE DETAILS -->
+    <div class="left-top">
+      <div class="grey-box">
+        <div class="section-title" style="margin-top:0;">DEVICE DETAILS</div>
+
+        <div class="input-group">
+          <span class="label">Device:</span>
+          <div class="line">{{ (device.brand or '') ~ ' ' ~ (device.model or '') }}</div>
+        </div>
+
+        <div class="input-group">
+          <span class="label">Ticket #:</span>
+          <div class="line">{{ device.ticket_number or '' }}</div>
+        </div>
+        <div class="input-group">
+          <span class="label">Serial Number:</span>
+          <div class="line">{{ device.serial_number or '' }}</div>
+        </div>
+
+        <div class="input-group">
+          <span class="label">Approximate Age of the Device:</span>
+          <div class="line">{{ device.device_age or '' }}</div>
+        </div>
+
+        <div class="input-group">
+          <span class="label" style="color:#cc4444;">Is the device under warranty?</span>
+          <div class="checkbox-group" style="margin:0;">
+            <div class="cb-item"><span class="box">{% if device.is_warranty_repair == 'yes' %}✓{% endif %}</span> Yes</div>
+            <div class="cb-item"><span class="box">{% if device.is_warranty_repair == 'no' %}✓{% endif %}</span> No</div>
+            <div class="cb-item"><span class="box">{% if device.is_warranty_repair == 'unsure' %}✓{% endif %}</span> Unsure</div>
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-top: 20px;">
+          <span class="label" style="color:#2ea863; text-transform:uppercase;">ACCESSORIES:</span>
+          <div class="line">{{ device.accessories or '' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 1, Right: SERVICE REQUEST -->
+    <div class="right-top">
+      <div class="section-title" style="margin-top:0;">SERVICE REQUEST</div>
+      <div style="font-size:10px; font-weight:bold; margin-bottom:5px;">Type of Service Needed:</div>
+
+      <div class="checkbox-group" style="flex-direction:column; gap:3px;">
+        <div class="cb-item"><span class="box">{% if 'Diagnostics' in (device.service_type or '') %}✓{% endif %}</span> Diagnostics</div>
+        <div class="cb-item"><span class="box">{% if 'Hardware Repair' in (device.service_type or '') %}✓{% endif %}</span> Hardware Repair</div>
+        <div class="cb-item"><span class="box">{% if 'Software Repair' in (device.service_type or '') %}✓{% endif %}</span> Software Repair</div>
+        <div class="cb-item"><span class="box">{% if 'OS Installation/Reinstallation' in (device.service_type or '') %}✓{% endif %}</span> OS Installation/Reinstallation</div>
+        <div class="cb-item"><span class="box">{% if 'Virus Removal' in (device.service_type or '') %}✓{% endif %}</span> Virus Removal</div>
+        <div class="cb-item"><span class="box">{% if 'Data Backup/Recovery' in (device.service_type or '') %}✓{% endif %}</span> Data Backup/Recovery</div>
+        <div class="cb-item"><span class="box">{% if 'Upgrade (RAM/SSD)' in (device.service_type or '') %}✓{% endif %}</span> Upgrade (RAM/SSD)</div>
+        <div class="cb-item"><span class="box">{% if 'Maintenance/Cleaning' in (device.service_type or '') %}✓{% endif %}</span> Maintenance/Cleaning</div>
+      </div>
+
+      <div class="section-title" style="color:#d67d58; margin-top: 15px;">PROBLEM DESCRIPTION</div>
+      <div style="font-size:9px; margin-bottom:2px;">
+        <span class="bold">DESCRIBE THE ISSUE(S)</span> (Error messages, paper jams, print quality issues, connectivity problems, etc.)
+      </div>
+
+      <div class="description-lines">
+        <div class="line" style="border-bottom:.5px solid #666; font-weight:normal;">{{ device.issue_description or '' }}</div>
+        <div class="line"></div>
+        <div class="line"></div>
+      </div>
+    </div>
+
+    <!-- Row 2, Left: AUTHORIZATION & APPROVAL -->
+    <div class="left-bottom">
+      <div class="section-title">AUTHORIZATION &amp; APPROVAL</div>
+      <div class="auth-box">
+        <div class="label" style="color:#2ea863; font-size:9px; margin-bottom:5px;">CLIENT AGREEMENT:</div>
+        <div class="auth-text">
+          <div class="cb-item"><span class="box">✓</span> I authorize the service provider to perform diagnostics, testing, and necessary handling of my device.</div>
+          <div class="cb-item" style="margin-top:3px;"><span class="box">✓</span> I confirm that I have read, understood, and agreed to the Legal Terms &amp; Service Agreement.</div>
+        </div>
+        <div class="sig-line">SIGNATURE OVER PRINTED NAME</div>
+      </div>
+    </div>
+
+    <!-- Row 2, Right: TECHNICIAN & STATUS -->
+    <div class="right-bottom">
+      <div style="margin-top: 22px;">
+        <div class="line" style="width:60%; margin:0 auto; border-bottom:1px solid #999;"></div>
+        <div style="text-align:center; font-size:9px; font-weight:bold; color:#d67d58; margin-bottom:15px;">TECHNICIAN IN CHARGE</div>
+
+        <div class="input-group">
+          <span class="label bold">STATUS:</span>
+          <div class="line">{{ device.status or 'Received' }}</div>
+        </div>
+        <div class="input-group">
+          <span class="label bold">DATE RELEASED:</span>
+          <div class="line"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+
+  <!-- CUT -->
+  <div class="cut-line"></div>
+
+  <!-- ================= CLAIM STUB ================= -->
+  <div class="section-title" style="color:#000; font-size:14px; margin-bottom:5px;">CLAIM STUB</div>
+
+  <div class="stub-header">
+    <!-- Logo -->
+    <div class="logo-placeholder">
+      <img
+        src="{{ url_for('static', filename='images/jc-logo.png') }}"
+        alt="JC Icons Logo"
+        style="height: 60px; width: 60px; border-radius: 50%;"
+      >
+    </div>
+
+    <!-- Business Info -->
+    <div>
+      <div style="font-weight:900; font-size:14px;">
+        JC ICONS COMPUTER SALES &amp; SERVICES
+      </div>
+      <div style="font-size:8px;">
+        J.A CLARIN COR. HONTANOSAS, POBLACION 3, TAGBILARAN CITY
+      </div>
+      <div style="font-size:8px; margin-top:2px;">
+        CONTACT NO. (038) 411-2134 | 09985771468 | 09208036494
+      </div>
+    </div>
+
+    <!-- QR Code -->
+    <div class="qr-code">
+      <img
+        src="{{ url_for('static', filename='images/qr-code.png') }}"
+        alt="QR Code"
+      />
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:10px;">
+    <div class="col">
+      <div class="section-title" style="font-size:9px;">CLIENT INFORMATION</div>
+      <div class="input-group">
+        <span class="label" style="font-size:9px;">Full Name:</span>
+        <div class="line">{{ device.owner.name if device.owner else '' }}</div>
+      </div>
+      <div class="input-group">
+        <span class="label" style="font-size:9px;">Company Name (if applicable):</span>
+        <div class="line">{{ device.owner.business_name if device.owner else '' }}</div>
+      </div>
+      <div class="input-group">
+        <span class="label" style="font-size:9px;">Email:</span>
+        <div class="line">{{ (device.owner.email if device.owner else '') }}</div>
+      </div>
+      <div class="input-group">
+        <span class="label" style="font-size:9px;">Address:</span>
+        <div class="line">{{ device.owner.address if device.owner else '' }}</div>
+      </div>
+    </div>   
+
+    <!-- STUB DISPLAY ONLY -->
+    <div class="col">
+      <div class="section-title" style="font-size:9px;">UNIT SUMMARY</div>
+
+      <div class="input-group">
+        <span class="label" style="font-size:9px;">Ticket #:</span>
+        <div class="line">{{ device.ticket_number or '' }}</div>
+      </div>
+
+      <div class="input-group">
+        <span class="label" style="font-size:9px;">Device:</span>
+        <div class="line">{{ (device.brand or '') ~ ' ' ~ (device.model or '') }}</div>
+      </div>
+
+      <div class="input-group">
+        <span class="label" style="font-size:9px;">Serial No:</span>
+        <div class="line">{{ device.serial_number or '' }}</div>
+      </div>
+
+      <div class="input-group">
+        <span class="label" style="font-size:9px;">Date In:</span>
+        <div class="line">
+          {% if device.received_date %}{{ device.received_date.strftime('%m/%d/%Y') }}{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEGAL TERMS -->
+  <div class="section-title" style="font-size:10px; margin-top: 10px;">LEGAL TERMS &amp; SERVICE AGREEMENT</div>
+
+  <div class="legal-terms">
+    <div class="row" style="gap: 20px;">
+      <div class="col">
+        <h4>Diagnostic &amp; Service Fees</h4>
+        <ul>
+          <li>Diagnostic checking is provided <strong>free of charge</strong>.</li>
+          <li>Repair costs are estimates only and may change if additional issues are discovered.</li>
+          <li>If required repair cost exceeds approved amount, no work is done without authorization.</li>
+          <li>Units deemed non-repairable shall be returned free-of-charge.</li>
+        </ul>
+
+        <h4>Authorization to Repair</h4>
+        <ul>
+          <li>By signing this form, client authorizes <strong>JC Icons Computer Sales and Services</strong> to perform diagnostic testing, repair, and maintenance.</li>
+          <li>The client certifies they are the <strong>authorized</strong> owner of the equipment.</li>
+          <li>The client authorizes the use of <strong>replacement parts</strong> (new/refurbished/third-party).</li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <h4>Data &amp; Software Disclaimer</h4>
+        <ul>
+          <li>JC Icons is <strong>not responsible for data loss</strong>, software corruption, or configuration changes.</li>
+          <li>The client is responsible for <strong>backing up all data</strong> before service.</li>
+        </ul>
+
+        <h4>Limited Warranty on Repairs</h4>
+        <ul>
+          <li>Repairs are warranted for <strong>30 days</strong> covering <strong>labor and replaced parts only</strong>.</li>
+          <li>Warranty does <strong>not</strong> cover consumables (ink/toner), misuse, or unrelated new issues.</li>
+          <li>Warranty is void if serviced by another party.</li>
+        </ul>
+
+        <h4 style="color:#d67d58;">Abandoned Equipment</h4>
+        <ul>
+          <li>Client must pick up equipment timely.</li>
+          <li>Printers not picked up within <strong>180 days</strong> of completion/decline may be considered <strong>abandoned</strong> and disposed of without further notice.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 15px; font-size: 9px; font-weight: bold;">Client Acknowledgment</div>
+  <div style="font-size: 8px;">By signing below, the client confirms they have read, understand, and agree to all terms and conditions listed above.</div>
+
+  <div class="bottom-sigs">
+    <div class="bottom-sig-line">CLIENT SIGNATURE OVER PRINTED NAME \ DATE</div>
+    <div class="bottom-sig-line">AUTHORIZED REPRESENTATIVE</div>
+  </div>
+
+</div><!-- /page-container -->
+
+<script>
+  // Auto-redirect to repair detail after printing
+  window.addEventListener('afterprint', function() {
+    window.location.href = "{{ url_for('repairs.repair_detail', device_id=device.id) }}";
+  });
+</script>
+
+</body>
+</html>

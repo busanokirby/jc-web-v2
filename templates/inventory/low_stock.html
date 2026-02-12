@@ -1,0 +1,42 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Low Stock{% endblock %}
+
+{% block content %}
+<h1>Low Stock Items</h1>
+<div class="mb-3">
+    <a class="btn btn-outline-secondary" href="?format=csv">Export CSV</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Name</th>
+                        <th>Stock</th>
+                        <th>Threshold</th>
+                        <th>Reorder To</th>
+                        <th>Suggested Qty</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows if r.low %}
+                    <tr>
+                        <td>{{ r.product.sku or '' }}</td>
+                        <td>{{ r.product.name }}</td>
+                        <td>{{ r.product.stock_on_hand }}</td>
+                        <td>{{ r.threshold }}</td>
+                        <td>{{ r.product.reorder_to }}</td>
+                        <td><strong>{{ r.reorder_qty }}</strong></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center text-muted">No low stock items</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Edit {{ user.full_name }} - JC Icons{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="mb-3">
+        <i class="bi bi-pencil-square"></i> Edit User Account
+    </h1>
+    <a href="{{ url_for('users.users') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Users
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               value="{{ user.username }}" disabled>
+                        <small class="text-muted">Username cannot be changed</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="full_name" class="form-label">Full Name *</label>
+                        <input type="text" class="form-control" id="full_name" name="full_name" 
+                               value="{{ user.full_name }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Role *</label>
+                        <select class="form-select" id="role" name="role" required 
+                                {% if is_self %}disabled{% endif %}>
+                            {% for r in roles %}
+                            <option value="{{ r }}" {% if user.role == r %}selected{% endif %}>
+                                {{ r }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if is_self %}
+                        <small class="text-muted">You cannot change your own role</small>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                                   {% if user.is_active %}checked{% endif %}
+                                   {% if is_self %}disabled{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                Account Active
+                            </label>
+                        </div>
+                        {% if is_self %}
+                        <small class="text-muted">You cannot deactivate your own account</small>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Account Created</label>
+                            <p class="form-control-plaintext">{{ user.created_at|datetimeformat('%B %d, %Y %I:%M %p') }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Updated</label>
+                            <p class="form-control-plaintext">{{ user.updated_at|datetimeformat('%B %d, %Y %I:%M %p') }}</p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Save Changes
+                        </button>
+                        <a href="{{ url_for('users.users') }}" class="btn btn-outline-secondary">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Quick Actions</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('users.reset_password', user_id=user.id) }}" class="mb-2">
+                    <button type="submit" class="btn btn-warning w-100" 
+                            onclick="return confirm('Reset password for this user? They will receive a temporary password.')">
+                        <i class="bi bi-key"></i> Reset Password
+                    </button>
+                </form>
+
+                {% if user.is_active %}
+                <form method="POST" action="{{ url_for('users.toggle_status', user_id=user.id) }}" class="mb-2">
+                    <button type="submit" class="btn btn-warning w-100" 
+                            onclick="return confirm('Deactivate this user? They will not be able to log in.')">
+                        <i class="bi bi-lock"></i> Deactivate Account
+                    </button>
+                </form>
+                {% else %}
+                <form method="POST" action="{{ url_for('users.toggle_status', user_id=user.id) }}" class="mb-2">
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-unlock"></i> Activate Account
+                    </button>
+                </form>
+                {% endif %}
+
+                {% if user.id != current_user.id %}
+                <form method="POST" action="{{ url_for('users.delete_user', user_id=user.id) }}">
+                    <button type="submit" class="btn btn-danger w-100" 
+                            onclick="return confirm('Permanently delete this user? This cannot be undone.')">
+                        <i class="bi bi-trash"></i> Delete User
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card bg-light mt-3">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Account Information</h6>
+                <small class="d-block text-muted">
+                    <strong>Status:</strong> {{ 'Active' if user.is_active else 'Inactive' }}<br>
+                    <strong>Role:</strong> {{ user.role }}<br>
+                    <strong>Last Login:</strong> Not tracked
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}User Created - JC Icons{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-check-circle-fill text-success"></i> User Created Successfully</h1>
+    <a href="{{ url_for('users.users') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-list"></i> Back to Users
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card border-success mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">New User Account Details</h5>
+                
+                <div class="row mb-3">
+                    <div class="col-sm-4">
+                        <strong>Username:</strong>
+                    </div>
+                    <div class="col-sm-8">
+                        <code>{{ username }}</code>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-4">
+                        <strong>Full Name:</strong>
+                    </div>
+                    <div class="col-sm-8">
+                        {{ full_name }}
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-sm-4">
+                        <strong>Role:</strong>
+                    </div>
+                    <div class="col-sm-8">
+                        <span class="badge bg-primary">{{ role }}</span>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="alert alert-warning d-flex align-items-center" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <div>
+                        <strong>Important:</strong> Share this temporary password securely with the user. They must change it on their first login.
+                    </div>
+                </div>
+
+                <div class="card bg-light border-secondary mb-3">
+                    <div class="card-body">
+                        <label class="form-label mb-2">
+                            <strong>Temporary Password:</strong>
+                        </label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="password-field" value="{{ password }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" id="copy-btn" onclick="copyToClipboard()">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                        </div>
+                        <div class="form-text mt-2">
+                            Click "Copy" to copy the password to clipboard
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" class="text-center">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check"></i> Done
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function copyToClipboard() {
+    const field = document.getElementById('password-field');
+    const btn = document.getElementById('copy-btn');
+    
+    field.select();
+    field.setSelectionRange(0, 99999);
+    
+    try {
+        document.execCommand('copy');
+        
+        // Show feedback
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check-circle"></i> Copied!';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-outline-secondary');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+        }, 2000);
+    } catch (err) {
+        alert('Failed to copy. Please copy manually.');
+    }
+}
+</script>
+{% endblock %}

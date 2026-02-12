@@ -1,0 +1,203 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Stock In{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Stock In</h1>
+    <div>
+        <a class="btn btn-outline-secondary" href="{{ url_for('inventory.products') }}"><i class="bi bi-arrow-left"></i> Back to Products</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label">Product</label>
+
+                    {% if selected_product_id %}
+                    {# Show selected product as read-only with option to change #}
+                    {% set sel = products|selectattr('id','equalto', selected_product_id)|list %}
+                    {% if sel and sel|length %}
+                    <div id="selected-product" class="d-flex align-items-center">
+                        <input type="hidden" name="product_id" value="{{ selected_product_id }}">
+                        <div class="me-3">
+                            <strong>{{ sel[0].name }}</strong>
+                            <div class="small text-muted">Stock: {{ sel[0].stock_on_hand }}</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="change-product">Change</button>
+                    </div>
+                    {% else %}
+                    <select name="product_id" class="form-select">
+                        {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }} (Stock: {{ p.stock_on_hand }})</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+                    {% else %}
+                    <select name="product_id" class="form-select">
+                        {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }} (Stock: {{ p.stock_on_hand }})</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+
+                    <div id="product-select-wrapper" style="display:none; margin-top:8px;">
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="product-search" class="form-control" placeholder="Type to search products...">
+                            <button class="btn btn-outline-secondary" type="button" id="product-search-btn"><i class="bi bi-search"></i> Search</button>
+                        </div>
+                        <ul class="list-group mt-2" id="product-search-results" style="max-height:220px; overflow:auto;">
+                            {% for p in products %}
+                            <li class="list-group-item list-group-item-action product-search-item" data-id="{{ p.id }}">{{ p.name }} (Stock: {{ p.stock_on_hand }})</li>
+                            {% endfor %}
+                        </ul>
+                        <div id="product-search-none" class="mt-2 text-muted small" style="display:none;">No products found.</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" name="qty" class="form-control" required min="1" value="1">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Notes</label>
+                    <input type="text" name="notes" class="form-control">
+                </div>
+                <div class="col-12 text-end">
+                    <button id="add-stock-btn" class="btn btn-primary" type="submit">Add Stock</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const changeBtn = document.getElementById('change-product');
+    const wrapper = document.getElementById('product-select-wrapper');
+    const searchInput = document.getElementById('product-search');
+    const searchBtn = document.getElementById('product-search-btn');
+    const results = document.getElementById('product-search-results');
+    const noResults = document.getElementById('product-search-none');
+
+    function showWrapper() {
+        wrapper.style.display = 'block';
+        if (searchInput) { searchInput.focus(); searchInput.select(); }
+        // run a search if there is already a query
+        if (searchInput && searchInput.value.trim()) filterResults(searchInput.value);
+    }
+
+    function hideWrapper() {
+        wrapper.style.display = 'none';
+        if (noResults) noResults.style.display = 'none';
+    }
+
+    function filterResults(q) {
+        if (!results) return;
+        const items = Array.from(results.querySelectorAll('.product-search-item'));
+        const term = q.trim().toLowerCase();
+        let any = false;
+        items.forEach(li => {
+            if (!term || li.textContent.toLowerCase().includes(term)) {
+                li.style.display = '';
+                any = true;
+            } else {
+                li.style.display = 'none';
+            }
+        });
+        if (noResults) noResults.style.display = any ? 'none' : 'block';
+    }
+
+    if (changeBtn && wrapper) {
+        changeBtn.addEventListener('click', function(){
+            if (wrapper.style.display === 'none' || wrapper.style.display === '') showWrapper();
+            else hideWrapper();
+        });
+    }
+
+    if (searchInput && results) {
+        // keep live filter, but also support explicit search
+        searchInput.addEventListener('input', function(){
+            filterResults(this.value);
+        });
+
+        // Enter key triggers search
+        searchInput.addEventListener('keydown', function(e){
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                filterResults(this.value);
+            }
+        });
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', function(){
+                filterResults(searchInput ? searchInput.value : '');
+                searchInput && searchInput.focus();
+            });
+        }
+
+        const items = Array.from(results.querySelectorAll('.product-search-item'));
+        items.forEach(li => {
+            li.addEventListener('click', function(){
+                const id = this.dataset.id;
+                const name = this.textContent.trim();
+                // Update hidden input and selected display
+                let hidden = document.querySelector('input[name="product_id"]');
+                if (!hidden) {
+                    // if not present, create hidden input inside the form
+                    hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'product_id';
+                    hidden.required = true;
+                    this.closest('form').appendChild(hidden);
+                }
+                hidden.value = id;
+
+                // ensure submit button is enabled
+                updateSubmitState();
+
+                const sel = document.getElementById('selected-product');
+                if (sel) {
+                    const strong = sel.querySelector('strong');
+                    const small = sel.querySelector('.small');
+                    if (strong) strong.textContent = name.split(' (Stock')[0];
+                    if (small) small.textContent = '';
+                }
+
+                hideWrapper();
+            });
+        });
+
+        // If a select exists, update submit state on change
+        const selectEl = document.querySelector('select[name="product_id"]');
+        if (selectEl) {
+            selectEl.addEventListener('change', updateSubmitState);
+        }
+
+    }
+
+    function updateSubmitState() {
+        const addBtn = document.getElementById('add-stock-btn');
+        if (!addBtn) return;
+        // check for either a select or hidden input with a value
+        const sel = document.querySelector('select[name="product_id"]');
+        const hidden = document.querySelector('input[name="product_id"]');
+        let has = false;
+        if (sel) {
+            has = !!sel.value;
+        } else if (hidden) {
+            has = !!hidden.value;
+        }
+        addBtn.disabled = !has;
+        if (hidden && hidden.required !== has) hidden.required = has;
+    }
+
+    // initial state
+    updateSubmitState();
+});
+</script>
+{% endblock %}
+{% endblock %}

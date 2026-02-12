@@ -1,0 +1,268 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Dashboard - JC Icons{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="bi bi-speedometer2"></i> Dashboard
+    </h1>
+    <div>
+        <span class="badge bg-primary">{{ current_user.role }}</span>
+    </div>
+</div>
+
+
+
+<!-- ADMIN DASHBOARD -->
+{% if current_user.role == 'ADMIN' %}
+<div class="row mt-4">
+    <!-- Repairs Card -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('repairs.repairs') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-wrench-adjustable" style="font-size: 3rem; color: #0d6efd;"></i>
+                    <h5 class="card-title mt-3">Repairs & Maintenance</h5>
+                    <p class="card-text text-muted">Full system administration</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('repairs.repairs') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-list"></i> View All
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Card -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('inventory.products') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-box-seam" style="font-size: 3rem; color: var(--jc-green);"></i>
+                    <h5 class="card-title mt-3">Inventory</h5>
+                    <p class="card-text text-muted">Products & stock management</p>
+                </a>
+                <div class="mt-3">
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('inventory.add_product') }}">
+                        <i class="bi bi-plus-circle"></i> Add Product
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sales / POS Card -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('sales.pos') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-cart3" style="font-size: 3rem; color: #198754;"></i>
+                    <h5 class="card-title mt-3">Sales / POS</h5>
+                    <p class="card-text text-muted">Transactions & reporting</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('sales.pos') }}" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-plus-circle"></i> New Sale
+                    </a>
+                    <a href="{{ url_for('sales.reports') }}" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-graph-up"></i> Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <!-- Users Management Card -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('users.users') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-people" style="font-size: 3rem; color: #fd7e14;"></i>
+                    <h5 class="card-title mt-3">User Management</h5>
+                    <p class="card-text text-muted">Create & manage users</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('users.users') }}" class="btn btn-sm btn-outline-warning">
+                        <i class="bi bi-list"></i> Manage Users
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customers Card -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-person-vcard" style="font-size: 3rem; color: #6f42c1;"></i>
+                    <h5 class="card-title mt-3">Customers</h5>
+                    <p class="card-text text-muted">Customer database</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('customers.customers') }}" class="btn btn-sm btn-outline-purple">
+                        <i class="bi bi-list"></i> View Customers
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Card -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('core.settings') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-gear" style="font-size: 3rem; color: #6c757d;"></i>
+                    <h5 class="card-title mt-3">Settings</h5>
+                    <p class="card-text text-muted">System configuration</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('core.settings') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-sliders"></i> Configure
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SALES DASHBOARD -->
+{% elif current_user.role == 'SALES' %}
+<div class="row mt-4">
+    <!-- Sales / POS Card (Primary) -->
+    <div class="col-md-6">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <a href="{{ url_for('sales.pos') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-cart-check" style="font-size: 3rem; color: #198754;"></i>
+                    <h5 class="card-title mt-3">Point of Sale</h5>
+                    <p class="card-text text-muted">Process customer transactions</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('sales.pos') }}" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> New Sale
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sales Reports Card -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('sales.reports') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-graph-up" style="font-size: 3rem; color: #0d6efd;"></i>
+                    <h5 class="card-title mt-3">Sales Reports</h5>
+                    <p class="card-text text-muted">View analytics & trends</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('sales.reports') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-chart-line"></i> View Reports
+                    </a>
+                    <a href="{{ url_for('sales.sales_list') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-list"></i> Sales History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <!-- Inventory Card (Read-only) -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('inventory.products') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-box-seam" style="font-size: 3rem; color: var(--jc-green);"></i>
+                    <h5 class="card-title mt-3">Inventory</h5>
+                    <p class="card-text text-muted">View available products</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('inventory.products') }}" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-list"></i> View Products
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customers Card -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-person-vcard" style="font-size: 3rem; color: #6f42c1;"></i>
+                    <h5 class="card-title mt-3">Customers</h5>
+                    <p class="card-text text-muted">Customer information</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('customers.customers') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-list"></i> View Customers
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TECH DASHBOARD -->
+{% elif current_user.role == 'TECH' %}
+<div class="row mt-4">
+    <!-- Repairs Card (Primary) -->
+    <div class="col-md-8">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <a href="{{ url_for('repairs.repairs') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-wrench-adjustable" style="font-size: 3rem; color: #0d6efd;"></i>
+                    <h5 class="card-title mt-3">Repair Tickets</h5>
+                    <p class="card-text text-muted">Manage all repair requests</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('repairs.add_repair') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add Repair
+                    </a>
+                    <a href="{{ url_for('repairs.repairs') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-list"></i> View All
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customers Card -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block">
+                    <i class="bi bi-person-vcard" style="font-size: 3rem; color: #6f42c1;"></i>
+                    <h5 class="card-title mt-3">Customers</h5>
+                    <p class="card-text text-muted">Customer details</p>
+                </a>
+                <div class="mt-3">
+                    <a href="{{ url_for('customers.customers') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-list"></i> View
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="alert alert-warning">
+            <h5><i class="bi bi-exclamation-triangle"></i> Access Denied</h5>
+            <p class="mb-0">Your role does not have access to any modules. Please contact an administrator.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

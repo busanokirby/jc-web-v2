@@ -1,0 +1,282 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ device.ticket_number }} - Repair Detail - JC Icons{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="mb-2">
+                <i class="bi bi-tools"></i> {{ device.ticket_number }}
+            </h1>
+            <p class="text-muted mb-0">
+                <strong>Customer:</strong> {{ device.owner.name }} ({{ device.owner.customer_code }})<br>
+                <strong>Phone:</strong> {{ device.owner.phone }}<br>
+                <strong>Days in Shop:</strong> {{ days_in_shop }} days
+            </p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-secondary me-2">{{ device.status }}</span>
+            {% if device.priority == 'Emergency' %}
+                <span class="badge bg-danger">{{ device.priority }} Priority</span>
+            {% elif device.priority == 'High' %}
+                <span class="badge bg-warning text-dark">{{ device.priority }} Priority</span>
+            {% elif device.priority == 'Normal' %}
+                <span class="badge bg-info">{{ device.priority }} Priority</span>
+            {% else %}
+                <span class="badge bg-success">{{ device.priority }} Priority</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="btn-group" role="group">
+        <a href="{{ url_for('repairs.repairs') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Repairs
+        </a>
+        <a href="{{ url_for('repairs.print_ticket', device_id=device.id) }}" class="btn btn-outline-primary">
+            <i class="bi bi-printer"></i> Print Ticket
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Device Information -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-laptop"></i> Device Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Device Type:</strong> {{ device.device_type|title }}<br>
+                        <strong>Brand:</strong> {{ device.brand or 'N/A' }}<br>
+                        <strong>Model:</strong> {{ device.model or 'N/A' }}<br>
+                        <strong>Serial Number:</strong> {{ device.serial_number or 'N/A' }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Issue:</strong> {{ device.issue_description }}<br>
+                        <strong>Symptoms:</strong> {{ device.symptoms or 'None' }}<br>
+                        <strong>Device Age:</strong> {{ device.device_age or 'Not specified' }}<br>
+                        <strong>Warranty:</strong> {% if device.is_warranty_repair == 'yes' %}Yes{% elif device.is_warranty_repair == 'unsure' %}Unsure{% else %}No{% endif %}
+                    </div>
+                </div>
+                {% if device.accessories %}
+                <div class="mb-2">
+                    <strong>Accessories:</strong><br>
+                    <span class="text-muted">{{ device.accessories }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Status & Notes Update -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Update Repair Status</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('repairs.update_status', device_id=device.id) }}">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="Received" {% if device.status == 'Received' %}selected{% endif %}>Received</option>
+                                <option value="Diagnosing" {% if device.status == 'Diagnosing' %}selected{% endif %}>Diagnosing</option>
+                                <option value="Repairing" {% if device.status == 'Repairing' %}selected{% endif %}>Repairing</option>
+                                <option value="Waiting Parts" {% if device.status == 'Waiting Parts' %}selected{% endif %}>Waiting Parts</option>
+                                <option value="Ready" {% if device.status == 'Ready' %}selected{% endif %}>Ready</option>
+                                <option value="Completed" {% if device.status == 'Completed' %}selected{% endif %}>Completed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="diagnostic_fee" class="form-label">Diagnostic Fee</label>
+                            <input type="number" class="form-control" id="diagnostic_fee" name="diagnostic_fee" step="0.01" value="{{ device.diagnostic_fee or 0 }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="repair_cost" class="form-label">Repair Cost</label>
+                            <input type="number" class="form-control" id="repair_cost" name="repair_cost" step="0.01" value="{{ device.repair_cost or 0 }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="technician_notes" class="form-label">Technician Notes</label>
+                        <textarea class="form-control" id="technician_notes" name="technician_notes" rows="3">{{ device.technician_notes or '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="solution_applied" class="form-label">Solution Applied</label>
+                        <textarea class="form-control" id="solution_applied" name="solution_applied" rows="3">{{ device.solution_applied or '' }}</textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Update Repair
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Parts Used -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-box-seam"></i> Parts Used</h5>
+            </div>
+            <div class="card-body">
+                {% if device.parts_used_rows %}
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end">Line Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for part in device.parts_used_rows %}
+                            <tr>
+                                <td>{{ part.product.name }}</td>
+                                <td class="text-end">{{ part.qty }}</td>
+                                <td class="text-end">{{ part.unit_price|currency }}</td>
+                                <td class="text-end fw-bold">{{ part.line_total|currency }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No parts added yet</p>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('repairs.add_part_used', device_id=device.id) }}" class="mt-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="product_id" class="form-label">Add Part</label>
+                            <select class="form-select" id="product_id" name="product_id" required>
+                                <option value="">-- Select Product --</option>
+                                {% for product in products %}
+                                <option value="{{ product.id }}">{{ product.name }} ({{ product.sell_price|currency }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="qty" class="form-label">Quantity</label>
+                            <input type="number" class="form-control" id="qty" name="qty" min="1" value="1" required>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-plus-circle"></i> Add Part
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: Financial Info & Actions -->
+    <div class="col-lg-4">
+        <!-- Financial Summary -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-cash-coin"></i> Financial Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-2">
+                    <div class="col-6">Diagnostic Fee:</div>
+                    <div class="col-6 text-end fw-bold">{{ device.diagnostic_fee|currency }}</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-6">Repair Cost:</div>
+                    <div class="col-6 text-end fw-bold">{{ device.repair_cost|currency }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-6">Parts Cost:</div>
+                    <div class="col-6 text-end fw-bold">{{ device.parts_cost|currency }}</div>
+                </div>
+                <hr>
+                <div class="row mb-2">
+                    <div class="col-6"><strong>Total Cost:</strong></div>
+                    <div class="col-6 text-end"><strong>{{ device.total_cost|currency }}</strong></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-6"><strong>Deposit Paid:</strong></div>
+                    <div class="col-6 text-end"><strong>{{ device.deposit_paid|currency }}</strong></div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-6"><strong>Balance Due:</strong></div>
+                    <div class="col-6 text-end">
+                        <strong class="{% if device.balance_due > 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ device.balance_due|currency }}
+                        </strong>
+                    </div>
+                </div>
+                <div class="mt-2 text-center">
+                    <span class="badge bg-{% if device.payment_status == 'Paid' %}success{% elif device.payment_status == 'Partial' %}warning{% else %}danger{% endif %}">
+                        {{ device.payment_status }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Record Payment -->
+        {% if device.balance_due > 0 %}
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-credit-card"></i> Record Payment</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('repairs.add_payment', device_id=device.id) }}">
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount</label>
+                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="payment_method" class="form-label">Payment Method</label>
+                        <select class="form-select" id="payment_method" name="payment_method">
+                            <option value="Cash">Cash</option>
+                            <option value="Card">Card</option>
+                            <option value="Check">Check</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-check-circle"></i> Record Payment
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Dates Info -->
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-calendar"></i> Dates</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <strong>Received Date:</strong><br>
+                    {{ device.received_date|datetimeformat }}
+                </div>
+                {% if device.estimated_completion %}
+                <div class="mb-2">
+                    <strong>Est. Completion:</strong><br>
+                    {{ device.estimated_completion|datetimeformat }}
+                </div>
+                {% endif %}
+                {% if device.actual_completion %}
+                <div class="mb-2">
+                    <strong>Completed Date:</strong><br>
+                    {{ device.actual_completion|datetimeformat }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

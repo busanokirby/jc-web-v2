@@ -1,0 +1,310 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Point of Sale - JC Icons{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-cart-check"></i> Point of Sale</h1>
+    <a href="{{ url_for('sales.sales_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-list"></i> Sales History
+    </a>
+</div>
+
+<div class="row">
+    <!-- Products Section -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Select Products</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Search Product</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="product-search-input" placeholder="Search by name or SKU..." autocomplete="off">
+                        <button class="btn btn-outline-secondary" type="button" id="product-search-btn">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                    <!-- Search results dropdown -->
+                    <div id="product-search-results" class="list-group mt-2" style="max-height: 250px; overflow-y: auto; display: none;">
+                        <!-- Results populated by JS -->
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">OR Select from List</label>
+                    <select id="product-select" class="form-select">
+                        <option value="">-- Choose a product --</option>
+                        {% for p in products %}
+                        {% if not p.is_service %}
+                        <option value="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.sell_price }}" data-stock="{{ p.stock_on_hand }}">
+                            {{ p.name }} (Stock: {{ p.stock_on_hand }}) - ₱{{ "%.2f"|format(p.sell_price) }}
+                        </option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" id="product-qty" class="form-control" value="1" min="1">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn btn-primary w-100" id="add-to-cart-btn">
+                            <i class="bi bi-plus-circle"></i> Add to Cart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Section -->
+    <div class="col-md-4">
+        <div class="card sticky-top">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Cart</h5>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                <div id="cart-items">
+                    <p class="text-muted text-center">Cart is empty</p>
+                </div>
+            </div>
+            <div class="card-footer bg-light">
+                <div class="mb-3">
+                    <div class="row mb-2">
+                        <div class="col-6"><strong>Subtotal:</strong></div>
+                        <div class="col-6 text-end"><span id="subtotal">₱0.00</span></div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6"><label class="form-label mb-0">Discount:</label></div>
+                        <div class="col-6">
+                            <input type="number" id="discount-input" class="form-control form-control-sm" value="0" min="0" step="0.01">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6"><strong>Total:</strong></div>
+                        <div class="col-6 text-end"><h5 class="mb-0" id="total">₱0.00</h5></div>
+                    </div>
+                    <hr>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Payment Method</label>
+                        </div>
+                        <div class="col-6">
+                            <select id="payment-method" class="form-select form-select-sm">
+                                <option value="Cash">Cash</option>
+                                <option value="Card">Card</option>
+                                <option value="Check">Check</option>
+                                <option value="Mobile">Mobile Money</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="checkout-form" method="POST" style="display: none;">
+                    <input type="hidden" id="items-input" name="items">
+                    <input type="hidden" id="discount-input-hidden" name="discount">
+                    <input type="hidden" id="payment-method-input" name="payment_method">
+                </form>
+
+                <button type="button" id="checkout-btn" class="btn btn-success w-100 btn-lg" disabled>
+                    <i class="bi bi-check-circle"></i> Checkout
+                </button>
+                <button type="button" id="clear-cart-btn" class="btn btn-outline-danger w-100 mt-2">
+                    <i class="bi bi-trash"></i> Clear Cart
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script id="products-data" type="application/json">
+{{ products | tojson }}
+</script>
+<script>
+let cart = [];
+const products = JSON.parse(document.getElementById('products-data').textContent);
+let productSelect, productQty, addBtn, checkoutBtn, clearBtn, discountInput, paymentMethodSelect, searchInput, searchBtn, searchResults;
+
+// Global functions for inline onclick handlers
+window.removeFromCart = function(idx) {
+    cart.splice(idx, 1);
+    updateCart();
+};
+
+window.updateQty = function(idx, qty) {
+    const q = parseInt(qty);
+    if (q > 0) {
+        cart[idx].qty = q;
+        updateCart();
+    }
+};
+
+window.selectFromSearch = function(productId, name, price, stock) {
+    productSelect.value = productId;
+    searchInput.value = name;
+    searchResults.style.display = 'none';
+    productQty.focus();
+    productQty.select();
+};
+
+function updateCart() {
+    const cartItemsEl = document.getElementById('cart-items');
+    
+    if (cart.length === 0) {
+        cartItemsEl.innerHTML = '<p class="text-muted text-center">Cart is empty</p>';
+        checkoutBtn.disabled = true;
+    } else {
+        cartItemsEl.innerHTML = cart.map((item, idx) => `
+            <div class="card mb-2">
+                <div class="card-body p-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div style="flex: 1;">
+                            <strong>${item.product_name}</strong>
+                            <div class="small text-muted">₱${item.price.toFixed(2)} × ${item.qty} = ₱${(item.price * item.qty).toFixed(2)}</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFromCart(${idx})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <div class="mt-2">
+                        <input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" onchange="updateQty(${idx}, this.value)">
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        checkoutBtn.disabled = false;
+    }
+
+    // Calculate totals
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const discount = parseFloat(discountInput.value) || 0;
+    const total = Math.max(0, subtotal - discount);
+
+    document.getElementById('subtotal').textContent = '₱' + subtotal.toFixed(2);
+    document.getElementById('total').textContent = '₱' + total.toFixed(2);
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    productSelect = document.getElementById('product-select');
+    productQty = document.getElementById('product-qty');
+    addBtn = document.getElementById('add-to-cart-btn');
+    checkoutBtn = document.getElementById('checkout-btn');
+    clearBtn = document.getElementById('clear-cart-btn');
+    discountInput = document.getElementById('discount-input');
+    paymentMethodSelect = document.getElementById('payment-method');
+    searchInput = document.getElementById('product-search-input');
+    searchBtn = document.getElementById('product-search-btn');
+    searchResults = document.getElementById('product-search-results');
+
+    // Add to cart
+    addBtn.addEventListener('click', function(){
+        const productId = parseInt(productSelect.value);
+        const qty = parseInt(productQty.value);
+
+        if (!productId) {
+            alert('Please select a product');
+            return;
+        }
+
+        if (qty <= 0) {
+            alert('Quantity must be greater than 0');
+            return;
+        }
+
+        const product = products.find(p => p.id === productId);
+        if (!product) return;
+
+        if (qty > product.stock_on_hand) {
+            alert(`Only ${product.stock_on_hand} in stock`);
+            return;
+        }
+
+        // Check if already in cart
+        const existing = cart.find(item => item.product_id === productId);
+        if (existing) {
+            existing.qty += qty;
+        } else {
+            cart.push({
+                product_id: productId,
+                product_name: product.name,
+                price: parseFloat(product.sell_price),
+                qty: qty
+            });
+        }
+
+        // Reset and refresh
+        productSelect.value = '';
+        productQty.value = '1';
+        updateCart();
+    });
+
+    // Search functionality
+    searchInput.addEventListener('input', function(){
+        const q = this.value.trim().toLowerCase();
+        if (q.length < 1) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        const results = products.filter(p => !p.is_service && (p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))));
+        if (results.length === 0) {
+            searchResults.innerHTML = '<div class="list-group-item">No products found</div>';
+            searchResults.style.display = 'block';
+            return;
+        }
+
+        searchResults.innerHTML = results.map(p => `
+            <button type="button" class="list-group-item list-group-item-action" onclick="selectFromSearch(${p.id}, '${p.name}', ${p.sell_price}, ${p.stock_on_hand})">
+                <div class="d-flex justify-content-between">
+                    <strong>${p.name}</strong>
+                    <span class="text-muted">₱${p.sell_price.toFixed(2)}</span>
+                </div>
+                <small class="text-muted">Stock: ${p.stock_on_hand}</small>
+            </button>
+        `).join('');
+        searchResults.style.display = 'block';
+    });
+
+    searchBtn.addEventListener('click', function(){
+        const q = searchInput.value.trim().toLowerCase();
+        if (q.length < 1) return;
+        const results = products.filter(p => !p.is_service && (p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))));
+        if (results.length > 0) {
+            selectFromSearch(results[0].id, results[0].name, results[0].sell_price, results[0].stock_on_hand);
+        }
+    });
+
+    // Clear cart
+    clearBtn.addEventListener('click', function(){
+        if (confirm('Clear the cart?')) {
+            cart = [];
+            updateCart();
+        }
+    });
+
+    // Checkout
+    checkoutBtn.addEventListener('click', function(){
+        if (cart.length === 0) {
+            alert('Cart is empty');
+            return;
+        }
+
+        document.getElementById('items-input').value = JSON.stringify(cart);
+        document.getElementById('discount-input-hidden').value = discountInput.value;
+        document.getElementById('payment-method-input').value = paymentMethodSelect.value;
+
+        document.getElementById('checkout-form').submit();
+    });
+
+    // Discount changes
+    discountInput.addEventListener('change', updateCart);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: jc_icons_postgres
+    environment:
+      POSTGRES_USER: jc_icons
+      POSTGRES_PASSWORD: jc_icons_dev_password
+      POSTGRES_DB: jc_icons_v2
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jc_icons"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Flask Application
+  app:
+    build: .
+    container_name: jc_icons_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: "false"
+      SECRET_KEY: "dev-secret-key-change-in-production"
+      DATABASE_URL: "postgresql://jc_icons:jc_icons_dev_password@postgres:5432/jc_icons_v2"
+      ADMIN_PASSWORD: "admin123"
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    command: flask run --host=0.0.0.0
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: jc_icons_network

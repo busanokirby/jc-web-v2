@@ -1,0 +1,440 @@
+From 2b1d4c3 Mon Feb 12 12:00:00 2026
+From: GitHub Copilot <copilot@example.com>
+Date: Thu, 12 Feb 2026 12:00:00 +0000
+Subject: [PATCH] feat(inventory): low-stock report, movements, adjust stock, reorder fields and tests
+
+---
+ app/models/inventory.py | 19 ++++++++++++++---
+ app/services/stock.py  | 47 ++++++++++++++++++++++++++++++++++++++++++++++
+ app/blueprints/inventory/__init__.py | 3 +++
+ app/blueprints/inventory/extra_routes.py | 186 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ app/blueprints/reports/routes.py | 14 ++++++++++++
+ app/__init__.py | 8 ++++++++
+ templates/inventory/movements.html | 80 ++++++++++++++++++++++++++++++++++++
+ templates/inventory/low_stock.html | 78 +++++++++++++++++++++++++++++++++++
+ templates/inventory/adjust_stock.html | 37 ++++++++++++++
+ tests/test_inventory_phase2.py | 44 ++++++++++++++++++++++++++
+ tests/conftest.py | 14 ++++++++++
+ 11 files changed, 520 insertions(+), 10 deletions(-)
+ create mode 100644 app/blueprints/inventory/extra_routes.py
+ create mode 100644 templates/inventory/movements.html
+ create mode 100644 templates/inventory/low_stock.html
+ create mode 100644 templates/inventory/adjust_stock.html
+ create mode 100644 tests/test_inventory_phase2.py
+
+--- a/app/models/inventory.py
++++ b/app/models/inventory.py
+@@
+     stock_on_hand = db.Column(db.Integer, default=0, nullable=False)  # strict stock
+-    specs_json = db.Column(db.Text)  # optional flexible specs
++    # Reorder settings
++    reorder_threshold = db.Column(db.Integer, default=5, nullable=False)
++    reorder_to = db.Column(db.Integer, default=20, nullable=False)
++
++    specs_json = db.Column(db.Text)  # optional flexible specs
+     is_active = db.Column(db.Boolean, default=True, nullable=False)
+@@
+     def __repr__(self) -> str:
+         return f"<Product {self.name} (stock={self.stock_on_hand})>"
+@@
+ class StockMovement(db.Model):
+@@
+     def __repr__(self) -> str:
+         return f"<StockMovement {self.movement_type} {self.qty} {self.reference_type}:{self.reference_id}>"
+---
+--- a/app/services/stock.py
++++ b/app/services/stock.py
+@@
+ def stock_in(product: Product, qty: int, notes: str = "") -> None:
+     if qty <= 0:
+         raise StockError("Quantity must be greater than 0.")
+     if product.is_service:
+         raise StockError("Cannot stock-in a service item.")
+
+     product.stock_on_hand += qty
+     db.session.add(StockMovement(
+         product_id=product.id,
+         movement_type="IN",
+         qty=qty,
+         reference_type="MANUAL",
+         reference_id=None,
+         notes=notes,
+     ))
+@@
+     product.stock_on_hand -= qty
+     db.session.add(StockMovement(
+         product_id=product.id,
+         movement_type="OUT",
+         qty=qty,
+         reference_type=reference_type,
+         reference_id=reference_id,
+         notes=notes,
+     ))
++
++
++def adjust_stock(product: Product, delta: int, notes: str = "") -> None:
++    """Adjust stock by positive or negative delta and record an ADJUST movement."""
++    if delta == 0:
++        raise StockError("Delta must be non-zero for adjust operation.")
++    if product.is_service:
++        raise StockError("Cannot adjust stock for a service item.")
++
++    if delta < 0 and product.stock_on_hand < abs(delta):
++        raise StockError(f"Not enough stock to reduce by {abs(delta)}. Available: {product.stock_on_hand}")
++
++    product.stock_on_hand += delta
++    db.session.add(StockMovement(
++        product_id=product.id,
++        movement_type="ADJUST",
++        qty=abs(delta),
++        reference_type="MANUAL",
++        reference_id=None,
++        notes=notes,
++    ))
+---
+--- a/app/blueprints/inventory/__init__.py
++++ b/app/blueprints/inventory/__init__.py
+@@
+ from . import routes  # noqa
++# Extra inventory routes for Phase 2
++from . import extra_routes  # noqa
+---
+--- a/app/blueprints/inventory/extra_routes.py
++++ b/app/blueprints/inventory/extra_routes.py
++from __future__ import annotations
++
++from flask import render_template, request, redirect, url_for, flash, Response
++from flask_login import login_required
++from app.services.authz import roles_required
++from app.extensions import db
++from app.models.inventory import Product, StockMovement
++from app.services.stock import adjust_stock
++from . import inventory_bp
++from datetime import datetime
++import csv
++from io import StringIO
++
++
++@inventory_bp.route('/movements')
++@login_required
++@roles_required('ADMIN', 'SALES')
++def movements():
++    q = request.args.get('q', '').strip()
++    product_id = request.args.get('product_id', type=int)
++    date_from = request.args.get('date_from', '')
++    date_to = request.args.get('date_to', '')
++
++    query = StockMovement.query.join(Product, StockMovement.product_id == Product.id)
++
++    if product_id:
++        query = query.filter(StockMovement.product_id == product_id)
++    if q:
++        query = query.filter(Product.name.ilike(f"%{q}%"))
++
++    if date_from:
++        try:
++            df = datetime.fromisoformat(date_from).date()
++            query = query.filter(StockMovement.created_at >= df)
++        except Exception:
++            pass
++    if date_to:
++        try:
++            dt = datetime.fromisoformat(date_to).date()
++            query = query.filter(StockMovement.created_at <= dt)
++        except Exception:
++            pass
++
++    rows = query.order_by(StockMovement.created_at.desc()).limit(200).all()
++    products = Product.query.order_by(Product.name).all()
++    return render_template('inventory/movements.html', rows=rows, products=products, q=q, product_id=product_id, date_from=date_from, date_to=date_to)
++
++
++@inventory_bp.route('/low-stock')
++@login_required
++@roles_required('ADMIN', 'SALES')
++def low_stock():
++    fmt = request.args.get('format', 'html')
++    low_threshold = request.args.get('low', None, type=int)
++
++    products = Product.query.order_by(Product.name).all()
++    rows = []
++    for p in products:
++        threshold = low_threshold if low_threshold is not None else p.reorder_threshold
++        low = p.stock_on_hand <= threshold
++        reorder_qty = max(0, p.reorder_to - p.stock_on_hand) if low else 0
++        rows.append({'product': p, 'low': low, 'threshold': threshold, 'reorder_qty': reorder_qty})
++
++    if fmt == 'csv':
++        si = StringIO()
++        cw = csv.writer(si)
++        cw.writerow(['SKU', 'Name', 'Stock', 'Threshold', 'Reorder To', 'Reorder Qty'])
++        for r in rows:
++            cw.writerow([r['product'].sku or '', r['product'].name, r['product'].stock_on_hand, r['threshold'], r['product'].reorder_to, r['reorder_qty']])
++        return Response(si.getvalue(), mimetype='text/csv', headers={'Content-Disposition': 'attachment; filename=low_stock.csv'})
++
++    return render_template('inventory/low_stock.html', rows=rows)
++
++
++@inventory_bp.route('/adjust', methods=['GET', 'POST'])
++@login_required
++@roles_required('ADMIN')
++def adjust_stock_page():
++    products = Product.query.order_by(Product.name).all()
++    if request.method == 'POST':
++        product_id = int(request.form.get('product_id'))
++        delta = int(request.form.get('delta') or 0)
++        notes = (request.form.get('notes') or '').strip()
++
++        product = Product.query.get_or_404(product_id)
++        try:
++            adjust_stock(product, delta, notes=notes)
++            db.session.commit()
++            flash('Stock adjusted successfully.', 'success')
++        except Exception as e:
++            db.session.rollback()
++            flash(str(e), 'danger')
++        return redirect(url_for('inventory.adjust_stock_page'))
++
++    return render_template('inventory/adjust_stock.html', products=products)
++
+---
+--- a/app/blueprints/reports/routes.py
++++ b/app/blueprints/reports/routes.py
+@@
+-    for p in products:
+-        value = float((p.cost_price or 0) * (p.stock_on_hand or 0))
+-        total_value += value
+-        rows.append({'id': p.id, 'name': p.name, 'sku': p.sku, 'category': p.category.name if p.category else None, 'stock': p.stock_on_hand, 'cost': float(p.cost_price or 0), 'value': value, 'low': p.stock_on_hand <= low_threshold})
+-
+-    if fmt == 'csv':
+-        si = StringIO()
+-        cw = csv.writer(si)
+-        cw.writerow(['SKU', 'Name', 'Category', 'Stock', 'Cost', 'Value'])
+-        for r in rows:
+-            cw.writerow([r['sku'] or '', r['name'], r['category'] or '', r['stock'], r['cost'], r['value']])
+-        output = si.getvalue()
+-        return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment; filename=inventory_report.csv'})
+-
+-    return render_template('reports/inventory.html', rows=rows, total_value=total_value, low_threshold=low_threshold)
++    for p in products:
++        value = float((p.cost_price or 0) * (p.stock_on_hand or 0))
++        total_value += value
++        reorder_qty = max(0, p.reorder_to - p.stock_on_hand) if p.stock_on_hand <= low_threshold else 0
++        rows.append({'id': p.id, 'name': p.name, 'sku': p.sku, 'category': p.category.name if p.category else None, 'stock': p.stock_on_hand, 'cost': float(p.cost_price or 0), 'value': value, 'low': p.stock_on_hand <= low_threshold, 'reorder_qty': reorder_qty, 'reorder_to': p.reorder_to})
++
++    if fmt == 'csv':
++        si = StringIO()
++        cw = csv.writer(si)
++        cw.writerow(['SKU', 'Name', 'Category', 'Stock', 'Cost', 'Value', 'Reorder To', 'Reorder Qty'])
++        for r in rows:
++            cw.writerow([r['sku'] or '', r['name'], r['category'] or '', r['stock'], r['cost'], r['value'], r['reorder_to'], r['reorder_qty']])
++        output = si.getvalue()
++        return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment; filename=inventory_report.csv'})
++
++    return render_template('reports/inventory.html', rows=rows, total_value=total_value, low_threshold=low_threshold)
+---
+--- a/app/__init__.py
++++ b/app/__init__.py
+@@
+-    from app.blueprints.repairs.routes import repairs_bp
+-    from app.blueprints.customers.routes import customers_bp
+-    from app.blueprints.users.routes import users_bp
+-    from app.blueprints.reports.routes import reports_bp
++    from app.blueprints.repairs.routes import repairs_bp
++    from app.blueprints.customers.routes import customers_bp
++    from app.blueprints.users.routes import users_bp
++    from app.blueprints.reports.routes import reports_bp
++    # Ensure inventory blueprint extra routes are imported so new endpoints are registered
++    from app.blueprints.inventory import extra_routes  # noqa
++    from app.blueprints.inventory.routes import inventory_bp
+@@
+     app.register_blueprint(repairs_bp, url_prefix='/repairs')
+     app.register_blueprint(customers_bp, url_prefix='/customers')
+     app.register_blueprint(users_bp, url_prefix='/users')
+     app.register_blueprint(reports_bp, url_prefix='/reports')
++    app.register_blueprint(inventory_bp, url_prefix='/inventory')
+---
+--- a/templates/inventory/movements.html
++++ b/templates/inventory/movements.html
++{% extends 'layouts/base.html' %}
++
++{% block title %}Stock Movements{% endblock %}
++
++{% block content %}
++<div class="d-flex justify-content-between align-items-center mb-4">
++    <h1>Stock Movements</h1>
++    <form class="d-flex" method="GET">
++        <input type="text" name="q" class="form-control me-2" placeholder="Product name..." value="{{ q }}">
++        <select name="product_id" class="form-select me-2">
++            <option value="">All products</option>
++            {% for p in products %}
++            <option value="{{ p.id }}" {% if product_id == p.id %}selected{% endif %}>{{ p.name }}</option>
++            {% endfor %}
++        </select>
++        <button class="btn btn-outline-secondary" type="submit">Filter</button>
++    </form>
++</div>
++
++<div class="card">
++    <div class="card-body">
++        <div class="table-responsive">
++            <table class="table table-sm">
++                <thead>
++                    <tr>
++                        <th>Date</th>
++                        <th>Product</th>
++                        <th>Type</th>
++                        <th>Qty</th>
++                        <th>Ref</th>
++                        <th>Notes</th>
++                    </tr>
++                </thead>
++                <tbody>
++                    {% for r in rows %}
++                    <tr>
++                        <td>{{ r.created_at|datetimeformat }}</td>
++                        <td>{{ r.product.name }}</td>
++                        <td>{{ r.movement_type }}</td>
++                        <td>{{ r.qty }}</td>
++                        <td>{{ r.reference_type }}{% if r.reference_id %}:{{ r.reference_id }}{% endif %}</td>
++                        <td>{{ r.notes }}</td>
++                    </tr>
++                    {% else %}
++                    <tr><td colspan="6" class="text-center text-muted">No movements found</td></tr>
++                    {% endfor %}
++                </tbody>
++            </table>
++        </div>
++    </div>
++</div>
++{% endblock %}
+---
+--- a/templates/inventory/low_stock.html
++++ b/templates/inventory/low_stock.html
++{% extends 'layouts/base.html' %}
++
++{% block title %}Low Stock{% endblock %}
++
++{% block content %}
++<h1>Low Stock Items</h1>
++<div class="mb-3">
++    <a class="btn btn-outline-secondary" href="?format=csv">Export CSV</a>
++</div>
++<div class="card">
++    <div class="card-body">
++        <div class="table-responsive">
++            <table class="table table-sm">
++                <thead>
++                    <tr>
++                        <th>SKU</th>
++                        <th>Name</th>
++                        <th>Stock</th>
++                        <th>Threshold</th>
++                        <th>Reorder To</th>
++                        <th>Suggested Qty</th>
++                    </tr>
++                </thead>
++                <tbody>
++                    {% for r in rows if r.low %}
++                    <tr>
++                        <td>{{ r.product.sku or '' }}</td>
++                        <td>{{ r.product.name }}</td>
++                        <td>{{ r.product.stock_on_hand }}</td>
++                        <td>{{ r.threshold }}</td>
++                        <td>{{ r.product.reorder_to }}</td>
++                        <td><strong>{{ r.reorder_qty }}</strong></td>
++                    </tr>
++                    {% else %}
++                    <tr><td colspan="6" class="text-center text-muted">No low stock items</td></tr>
++                    {% endfor %}
++                </tbody>
++            </table>
++        </div>
++    </div>
++</div>
++{% endblock %}
+---
+--- a/templates/inventory/adjust_stock.html
++++ b/templates/inventory/adjust_stock.html
++{% extends 'layouts/base.html' %}
++
++{% block title %}Adjust Stock{% endblock %}
++
++{% block content %}
++<h1>Adjust Stock</h1>
++<div class="card">
++    <div class="card-body">
++        <form method="POST">
++            <div class="mb-3">
++                <label class="form-label">Product</label>
++                <select name="product_id" class="form-select">
++                    {% for p in products %}
++                    <option value="{{ p.id }}">{{ p.name }} (Stock: {{ p.stock_on_hand }})</option>
++                    {% endfor %}
++                </select>
++            </div>
++            <div class="mb-3">
++                <label class="form-label">Delta (positive to add, negative to reduce)</label>
++                <input type="number" name="delta" class="form-control" required>
++            </div>
++            <div class="mb-3">
++                <label class="form-label">Notes</label>
++                <input type="text" name="notes" class="form-control">
++            </div>
++            <div>
++                <button class="btn btn-primary" type="submit">Apply</button>
++            </div>
++        </form>
++    </div>
++</div>
++{% endblock %}
+---
+--- a/tests/test_inventory_phase2.py
++++ b/tests/test_inventory_phase2.py
+@@
+ import csv
+ 
+@@
+ def test_low_stock_page_and_csv(logged_in_client):
+     client = logged_in_client
+     resp = client.get('/inventory/low-stock')
+     assert resp.status_code == 200
+     assert b'Low Stock' in resp.data
+@@
+ def test_adjust_stock_and_movement(logged_in_client):
+     client = logged_in_client
+     # Get product id
+     resp = client.get('/inventory/products')
+     assert resp.status_code == 200
+@@
+     resp_post = client.post('/inventory/adjust', data={'product_id': p.id, 'delta': '5', 'notes': 'Test add'}, follow_redirects=True)
+     assert resp_post.status_code == 200
+     p = Product.query.get(p.id)
+     assert p.stock_on_hand == initial + 5
+@@
+ def test_movements_page(logged_in_client):
+     client = logged_in_client
+     resp = client.get('/inventory/movements')
+     assert resp.status_code == 200
+     assert b'Stock Movements' in resp.data
+---
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@
+         d = Device.query.filter_by(ticket_number='T-100').first()
+         if not d:
+             d = Device(ticket_number='T-100', customer_id=c.id, device_type='laptop', brand='ACME', model='Pro', issue_description='Test issue')
+             d.total_cost = 100.00
+             db.session.add(d)
+-
+-        db.session.commit()
++
++        # Create a sample product with low stock and reorder settings for inventory tests
++        from app.models.inventory import Product
++        p = Product.query.filter_by(name='Test Product').first()
++        if not p:
++            p = Product(name='Test Product', sku='TP-001', cost_price=10.00, sell_price=15.00, stock_on_hand=2, reorder_threshold=5, reorder_to=20)
++            db.session.add(p)
++
++        db.session.commit()
+*** End Patch

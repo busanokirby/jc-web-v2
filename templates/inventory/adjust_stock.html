@@ -1,0 +1,68 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Adjust Stock{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Adjust Stock</h1>
+    <div>
+        <a class="btn btn-outline-secondary" href="{{ url_for('inventory.products') }}"><i class="bi bi-arrow-left"></i> Back to Products</a>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3 d-flex align-items-center">
+                <div style="flex:1">
+                    <label class="form-label">Product</label>
+                    <select name="product_id" id="adjust-product-select" class="form-select">
+                        {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }} (Stock: {{ p.stock_on_hand }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if current_user.role == 'ADMIN' %}
+                <div class="ms-3" style="white-space:nowrap;">
+                    <button id="delete-product-btn" type="button" class="btn btn-outline-danger mt-4">Delete</button>
+                </div>
+                {% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Delta (positive to add, negative to reduce)</label>
+                <input type="number" name="delta" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Notes</label>
+                <input type="text" name="notes" class="form-control">
+            </div>
+            <div class="d-flex justify-content-end">
+                <button class="btn btn-primary" type="submit">Apply</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const delBtn = document.getElementById('delete-product-btn');
+    if (!delBtn) return;
+    delBtn.addEventListener('click', async function(){
+        const sel = document.getElementById('adjust-product-select');
+        const pid = sel.value;
+        if (!pid) return alert('No product selected');
+        if (!confirm('Delete product? This will mark it inactive and hide it from lists. Continue?')) return;
+        try {
+            const res = await fetch(`/inventory/products/${pid}/delete`, { method: 'POST' });
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to delete product');
+            }
+        } catch (err) {
+            alert('Error deleting product');
+        }
+    });
+});
+</script>
+{% endblock %}

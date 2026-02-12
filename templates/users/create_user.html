@@ -1,0 +1,94 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Create New User - JC Icons{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="mb-3">
+        <i class="bi bi-person-plus"></i> Create New User Account
+    </h1>
+    <a href="{{ url_for('users.users') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Users
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username *</label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               value="{{ form_data.get('username', '') if form_data else '' }}"
+                               placeholder="e.g., john.smith" required autofocus>
+                        <small class="text-muted">Must be unique, at least 3 characters, lowercase preferred</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="full_name" class="form-label">Full Name *</label>
+                        <input type="text" class="form-control" id="full_name" name="full_name" 
+                               value="{{ form_data.get('full_name', '') if form_data else '' }}"
+                               placeholder="e.g., John Smith" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Role *</label>
+                        <select class="form-select" id="role" name="role" required>
+                            {% for r in roles %}
+                            <option value="{{ r }}" {% if form_data and form_data.get('role') == r %}selected{% endif %}>
+                                {{ r }}
+                                {% if r == 'ADMIN' %}
+                                    - Full system access
+                                {% elif r == 'SALES' %}
+                                    - Customer and sales management
+                                {% elif r == 'TECH' %}
+                                    - Repair technician access
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Temporary Password:</strong> A secure temporary password will be auto-generated. 
+                        Share it with the user securely and instruct them to change it on first login.
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Create User
+                        </button>
+                        <a href="{{ url_for('users.users') }}" class="btn btn-outline-secondary">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title text-muted">User Roles</h6>
+                <ul class="list-unstyled">
+                    <li class="mb-3">
+                        <strong class="text-danger">ADMIN</strong>
+                        <small class="d-block text-muted">Full system access, user management, settings</small>
+                    </li>
+                    <li class="mb-3">
+                        <strong class="text-primary">SALES</strong>
+                        <small class="d-block text-muted">Customer management, sales tracking, reports</small>
+                    </li>
+                    <li>
+                        <strong class="text-info">TECH</strong>
+                        <small class="d-block text-muted">Repair management, device tracking, diagnostics</small>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

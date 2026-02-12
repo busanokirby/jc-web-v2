@@ -1,0 +1,52 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Stock Movements{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Stock Movements</h1>
+    <form class="d-flex" method="GET">
+        <input type="text" name="q" class="form-control me-2" placeholder="Product name..." value="{{ q }}">
+        <select name="product_id" class="form-select me-2">
+            <option value="">All products</option>
+            {% for p in products %}
+            <option value="{{ p.id }}" {% if product_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-outline-secondary" type="submit">Filter</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Product</th>
+                        <th>Type</th>
+                        <th>Qty</th>
+                        <th>Ref</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td>{{ r.created_at|datetimeformat }}</td>
+                        <td>{{ r.product.name }}</td>
+                        <td>{{ r.movement_type }}</td>
+                        <td>{{ r.qty }}</td>
+                        <td>{{ r.reference_type }}{% if r.reference_id %}:{{ r.reference_id }}{% endif %}</td>
+                        <td>{{ r.notes }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center text-muted">No movements found</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

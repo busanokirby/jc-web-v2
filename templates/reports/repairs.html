@@ -1,0 +1,57 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Repairs Report - JC Icons{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-graph-up"></i> Repairs by Status</h1>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('reports.repairs_report', date_from=date_from, date_to=date_to, format='csv') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-download"></i> Export CSV
+        </a>
+    </div>
+</div>
+
+<form method="GET" class="row g-2 mb-3">
+    <div class="col-md-3">
+        <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}" placeholder="From">
+    </div>
+    <div class="col-md-3">
+        <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}" placeholder="To">
+    </div>
+    <div class="col-md-2 d-grid">
+        <button class="btn btn-primary" type="submit">
+            <i class="bi bi-filter"></i> Apply
+        </button>
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Count</th>
+                        <th>Total Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td>{{ r.status }}</td>
+                        <td>{{ r.count }}</td>
+                        <td>{{ r.total_cost|currency }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center text-muted py-4">No data available</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
