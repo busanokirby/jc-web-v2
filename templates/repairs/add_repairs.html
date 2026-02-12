@@ -194,8 +194,10 @@
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label for="technician_name_override" class="form-label">Technician in Charge</label>
-                    <small class="text-muted d-block mb-2">Leave empty to use: {{ current_user.full_name }}</small>
+                    <label for="technician_name_override" class="form-label">
+                        Technician in Charge
+                        <i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-title="Leave empty to use: {{ current_user.full_name }}"></i>
+                    </label>
                     <input type="text" class="form-control" id="technician_name_override" name="technician_name_override" placeholder="Enter technician name if different">
                 </div>
             </div>

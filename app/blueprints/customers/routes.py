@@ -49,6 +49,45 @@ def _tech_can_access_customer(customer_id: int) -> bool:
     return has_repair
 
 
+@customers_bp.route("/add", methods=["GET", "POST"])
+@login_required
+@roles_required("ADMIN", "SALES", "TECH")
+def add_customer():
+    """Add a new customer"""
+    if request.method == "POST":
+        phone = (request.form.get("phone") or "").strip()
+        if not phone:
+            flash("Phone number is required.", "danger")
+            return redirect(url_for("customers.add_customer"))
+        
+        # Check if customer already exists
+        existing = Customer.query.filter_by(phone=phone).first()
+        if existing:
+            flash(f"Customer with phone {phone} already exists.", "warning")
+            return redirect(url_for("customers.customer_detail", customer_id=existing.id))
+        
+        # Create new customer
+        from app.services.codes import generate_customer_code
+        customer = Customer(
+            customer_code=generate_customer_code(),
+            name=(request.form.get("name") or "").strip() or "Unknown",
+            email=(request.form.get("email") or "").strip() or None,
+            phone=phone,
+            address=(request.form.get("address") or "").strip() or None,
+            business_name=(request.form.get("business_name") or "").strip() or None,
+            customer_type=request.form.get("customer_type", "Individual"),
+            created_by_user_id=current_user.id,
+        )
+        
+        db.session.add(customer)
+        db.session.commit()
+        
+        flash(f"Customer '{customer.name}' created successfully.", "success")
+        return redirect(url_for("customers.customer_detail", customer_id=customer.id))
+    
+    return render_template("customers/add_customer.html")
+
+
 @customers_bp.route("/")
 @login_required
 @roles_required("ADMIN", "SALES", "TECH")
