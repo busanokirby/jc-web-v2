@@ -1,0 +1,279 @@
+# JC Icons Management System - Update to v2.0.1
+## Template Update - Multiple Service Request Types Support
+
+**Release Date:** February 12, 2026
+**Version:** 2.0.1
+**Previous Version:** 2.0.0
+
+---
+
+## Overview
+
+Version 2.0.1 introduces an important update to the repair management system. The Service Request form now supports **multiple service types** instead of a single selection. This allows technicians to document all services that will be performed on a device in one repair ticket.
+
+### Changes Made:
+- ✅ Updated add repair form to use **checkboxes** for service types (multiple selection)
+- ✅ Added **8 service type options** for flexibility
+- ✅ Updated print ticket template to display **all selected services**
+- ✅ Backend updated to **store multiple service types** as comma-separated values
+- ✅ No database schema changes required
+
+---
+
+## What's New - Service Types
+
+The form now offers these service types (select all that apply):
+
+1. **Diagnostics** - Device testing and troubleshooting
+2. **Hardware Repair** - Physical component repairs
+3. **Software Repair** - Software/application fixes
+4. **OS Installation/Reinstallation** - Operating system setup
+5. **Virus Removal** - Malware/virus removal
+6. **Data Backup/Recovery** - Data management services
+7. **Upgrade (RAM/SSD)** - Hardware component upgrades
+8. **Maintenance/Cleaning** - Preventive maintenance
+
+**Example:** A device might have "Diagnostics, Hardware Repair, Virus Removal" all selected in one ticket.
+
+---
+
+## Installation Instructions for Remote Store Computers
+
+### Prerequisites
+- Git installed on the computer
+- Python 3.8+ installed
+- Access to the repository
+
+
+### Step 1: Backup Current System
+
+```powershell
+# Open PowerShell in the jc-icons-management-system-v2 directory
+cd C:\path\to\jc-icons-management-system-v2
+
+# Create a backup of the database
+Copy-Item .\instance\app.db .\instance\app.db.backup.v2.0.0
+
+# Create a backup of the entire project directory
+Copy-Item . -Recurse -Destination "..\jc-icons-management-system-v2.backup.v2.0.0" -Force
+```
+
+### Step 2: Pull Latest Changes from Repository
+
+```powershell
+# Navigate to project directory
+cd C:\path\to\jc-icons-management-system-v2
+
+# Add/update remote if needed (only if it's a new setup)
+git remote add origin <repository-url>  # Replace with actual repo URL
+
+# Fetch latest changes
+git fetch origin
+
+# Check out the v2.0.1 tag
+git checkout v2.0.1
+```
+
+### Step 3: Activate Virtual Environment
+
+```powershell
+# Activate the virtual environment
+.\web2\Scripts\Activate.ps1
+
+# Verify activation (should show (web2) in prompt)
+```
+
+### Step 4: Restart Flask Application
+
+**Option A: If running as a service/background process**
+
+```powershell
+# Stop the current Flask application
+Stop-Process -Name "python" -ErrorAction SilentlyContinue
+
+# Remove old Python processes
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# Wait a moment
+Start-Sleep -Seconds 3
+
+# Restart the Flask app
+python run.py
+
+# Or if using the task runner
+# Run the "Run Flask App" task in VS Code
+```
+
+**Option B: If using Docker**
+
+```powershell
+# Rebuild the Docker image
+docker-compose down
+docker-compose up --build -d
+```
+
+### Step 5: Verify Update
+
+1. Open the application in a web browser
+2. Navigate to **Repairs → Create New Repair Ticket**
+3. Scroll to **"Service Request"** section
+4. Verify that **checkboxes** are displayed instead of radio buttons
+5. Test selecting **multiple service types** at once
+6. Create a test ticket and verify the print preview shows all selected services
+
+### Step 6: Test Print Ticket
+
+1. Create a test repair ticket with multiple service types selected
+2. Click **"Create Repair Ticket & Print Form"**
+3. In the Print Ticket page, verify:
+   - All selected service types have **checkmarks (✓)**
+   - Unselected services are **blank**
+   - Layout is clean and printable
+
+---
+
+## Rollback Instructions
+
+If you encounter any issues, follow these steps to revert to v2.0.0:
+
+```powershell
+cd C:\path\to\jc-icons-management-system-v2
+
+# Stop the application
+Stop-Process -Name python -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 3
+
+# Check out the previous version
+git checkout v2.0.0
+
+# Activate virtual environment
+.\web2\Scripts\Activate.ps1
+
+# Restart the application
+python run.py
+```
+
+**Database Rollback (if needed):**
+```powershell
+# Delete current database
+Remove-Item .\instance\app.db -Force
+
+# Restore from backup
+Copy-Item .\instance\app.db.backup.v2.0.0 .\instance\app.db -Force
+```
+
+---
+
+## Important Notes
+
+### Database Compatibility
+- ✅ **No database migrations required**
+- Service types are stored as **comma-separated strings** in the existing `service_type` field
+- Existing repair records remain compatible with the new format
+
+### File Changes Summary
+The following files were modified in v2.0.1:
+
+1. **`templates/repairs/add_repairs.html`**
+   - Changed service selection from radio buttons → checkboxes
+   - Added 8 service type options
+   - Updated labels and help text
+
+2. **`templates/repairs/print_ticket.html`**
+   - Updated print template to display all selected services
+   - Added logic to check multiple service types
+
+3. **`app/blueprints/repairs/routes.py`**
+   - Updated `add_repair()` function to handle multiple selections
+   - Uses `request.form.getlist()` instead of `request.form.get()`
+   - Joins multiple selections with commas
+
+### Data Format Example
+```
+Old Format (v2.0.0): "Repair"
+New Format (v2.0.1): "Diagnostics, Hardware Repair, Virus Removal"
+```
+
+---
+
+## Testing Checklist
+
+After installation, verify these items:
+
+- [ ] Web application starts without errors
+- [ ] Login works normally
+- [ ] Repairs section loads
+- [ ] Service types appear as checkboxes (not radio buttons)
+- [ ] Can select multiple service types
+- [ ] Can select only one service type
+- [ ] Create repair ticket without error
+- [ ] Print ticket shows all selected services correctly
+- [ ] Existing repair records still display properly
+- [ ] Database file size is normal (no unexpected growth)
+
+---
+
+## Troubleshooting
+
+### Issue: Service types show as radio buttons (old format)
+
+**Solution:** Browser cache issue
+```powershell
+# Clear browser cache (or open in Private/Incognito mode)
+# Hard refresh page (Ctrl+Shift+R or Cmd+Shift+R)
+```
+
+### Issue: Application won't start after update
+
+**Solution:** Check error logs
+```powershell
+# Check for Python errors
+python -m py_compile app/blueprints/repairs/routes.py
+
+# Reinstall dependencies
+pip install -r requirements.txt
+```
+
+### Issue: Print ticket doesn't show selected services
+
+**Solution:** Verify print_ticket.html was updated
+```powershell
+# Check file was updated
+git diff v2.0.0 v2.0.1 -- templates/repairs/print_ticket.html
+
+# If not updated, manually pull again
+git checkout v2.0.1 -- templates/repairs/print_ticket.html
+```
+
+---
+
+## Support & Questions
+
+If you encounter issues during the update:
+
+1. Check the troubleshooting section above
+2. Review the git log for changes: `git log --oneline v2.0.0..v2.0.1`
+3. Compare current and previous versions: `git diff v2.0.0 v2.0.1`
+4. Restore from backup and contact support if issues persist
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 2.0.1 | Feb 12, 2026 | Multiple service types support, template update |
+| 2.0.0 | Feb 12, 2026 | Initial baseline version |
+
+---
+
+## Installation Time Estimate
+- **Backup:** 2-3 minutes
+- **Git pull & checkout:** 1-2 minutes
+- **Flask restart:** 30 seconds
+- **Verification:** 3-5 minutes
+- **Total:** ~6-10 minutes
+
+---
+
+**Note:** No downtime required if using proper backup procedures. The application can be restarted immediately after git checkout.
