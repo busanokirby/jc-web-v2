@@ -15,11 +15,13 @@ class Customer(db.Model):
     address = db.Column(db.Text)
     business_name = db.Column(db.String(100))
     customer_type = db.Column(db.String(20), default="Individual")  # Individual, Business, Government
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     loyalty_points = db.Column(db.Integer, default=0)
 
     devices = db.relationship("Device", backref="owner", lazy=True, cascade="all, delete-orphan")
     sales = db.relationship("Sale", backref="customer", lazy=True, cascade="all, delete-orphan")
+    created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
 
     def __repr__(self) -> str:
         return f"<Customer {self.customer_code} {self.name}>"

@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from flask import render_template, request, redirect, url_for, flash, Response
 import json
-from flask_login import login_required
+from flask_login import login_required, current_user
 
 from app.extensions import db
 from app.models.customer import Customer
@@ -117,6 +117,7 @@ def add_repair():
                 address=(request.form.get("customer_address") or "").strip() or None,
                 business_name=(request.form.get("business_name") or "").strip() or None,
                 customer_type=request.form.get("customer_type", "Individual"),
+                created_by_user_id=current_user.id,
             )
             db.session.add(customer)
             db.session.flush()
