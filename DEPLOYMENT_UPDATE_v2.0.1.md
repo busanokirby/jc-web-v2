@@ -18,14 +18,14 @@ The Service Request form now supports **multiple service types** instead of a si
 All users can now securely change their passwords with automatic strength validation. Passwords must meet security requirements including minimum length, uppercase/lowercase letters, and numbers.
 
 ### Changes Made:
-- ✅ Updated add repair form to use **checkboxes** for service types (multiple selection)
-- ✅ Added **8 service type options** for flexibility
-- ✅ Updated print ticket template to display **all selected services**
-- ✅ Backend updated to **store multiple service types** as comma-separated values
-- ✅ Added **secure password change** feature for all users
-- ✅ Real-time password strength validation with visual indicator
-- ✅ Password requirements checklist (length, case, numbers)
-- ✅ No database schema changes required
+-  Updated add repair form to use **checkboxes** for service types (multiple selection)
+-  Added **8 service type options** for flexibility
+-  Updated print ticket template to display **all selected services**
+-  Backend updated to **store multiple service types** as comma-separated values
+-  Added **secure password change** feature for all users
+-  Real-time password strength validation with visual indicator
+-  Password requirements checklist (length, case, numbers)
+-  No database schema changes required
 
 ---
 
@@ -212,7 +212,7 @@ Copy-Item .\instance\app.db.backup.v2.0.0 .\instance\app.db -Force
 ## Important Notes
 
 ### Database Compatibility
-- ✅ **No database migrations required**
+-  **No database migrations required**
 - Service types are stored as **comma-separated strings** in the existing `service_type` field
 - Existing repair records remain compatible with the new format
 

@@ -271,7 +271,8 @@ source venv/bin/activate
 
 ## License
 
-Proprietary - JC Icons Management System
+This project is proprietary software for JC Icons Management System.
+All rights reserved. Unauthorized copying is prohibited.
 
 ## Support
 

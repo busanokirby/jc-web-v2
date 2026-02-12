@@ -105,7 +105,7 @@ python run.py
 ## 8️⃣ HTTPS Setup (Before Going Live)
 
 ### For **Heroku**:
-✅ Automatic - free HTTPS included
+ Automatic - free HTTPS included
 
 ### For **Self-Hosted** (Linux):
 
@@ -270,7 +270,7 @@ pg_restore backup.sql.gz
 
 ---
 
-## ✅ Security Checklist
+##  Security Checklist
 
 - [ ] SECRET_KEY generated and set
 - [ ] FLASK_ENV=production
@@ -291,11 +291,11 @@ pg_restore backup.sql.gz
 
 Once all checks pass, your application is:
 
-✅ **Secure** - Industry-standard security practices  
-✅ **Hardened** - Protected against common attacks  
-✅ **Monitored** - Audit trail for all activities  
-✅ **Documented** - Complete security documentation  
-✅ **Compliant** - OWASP best practices  
+ **Secure** - Industry-standard security practices  
+ **Hardened** - Protected against common attacks  
+ **Monitored** - Audit trail for all activities  
+ **Documented** - Complete security documentation  
+ **Compliant** - OWASP best practices  
 
 **Ready for production deployment!**
 

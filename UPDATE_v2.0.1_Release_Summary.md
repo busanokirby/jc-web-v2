@@ -9,14 +9,14 @@
 This release introduces **multiple service types support** for repair tickets and a **secure password change feature** for all users.
 
 **Key Features:**
-- ✅ Multiple service type selection (checkboxes instead of radio buttons)
-- ✅ 8 comprehensive service categories for repairs
-- ✅ Secure password change for all users
-- ✅ Password strength requirements and real-time validation
-- ✅ Automatic storage as comma-separated values
-- ✅ Updated print templates to display all services
-- ✅ Zero database migration required
-- ✅ Backward compatible with existing records
+-  Multiple service type selection (checkboxes instead of radio buttons)
+-  8 comprehensive service categories for repairs
+-  Secure password change for all users
+-  Password strength requirements and real-time validation
+-  Automatic storage as comma-separated values
+-  Updated print templates to display all services
+- Zero database migration required
+- Backward compatible with existing records
 
 ---
 
@@ -87,9 +87,9 @@ This release introduces **multiple service types support** for repair tickets an
    - Added divider before logout option
 
 ### Database
-- ✅ **No schema changes** - Existing `service_type` field reused
-- ✅ **Backward compatible** - All existing repair records remain valid
-- ✅ **Auto-compatible** - Old format "Repair" coexists with new "Diagnostics, Hardware Repair, Virus Removal"
+- **No schema changes** - Existing `service_type` field reused
+-  **Backward compatible** - All existing repair records remain valid
+-  **Auto-compatible** - Old format "Repair" coexists with new "Diagnostics, Hardware Repair, Virus Removal"
 
 ---
 
@@ -137,7 +137,7 @@ powershell -ExecutionPolicy Bypass -File UPDATE_v2.0.1_Script.ps1
 
 ---
 
-## ✅ Testing Checklist
+##  Testing Checklist
 
 After installation, verify:
 
@@ -315,12 +315,12 @@ For issues or questions:
 
 ## ✨ Quality Assurance
 
-- ✅ Code reviewed and tested
-- ✅ Print templates verified for all combinations
-- ✅ Database compatibility validated
-- ✅ Rollback procedures tested
-- ✅ Documentation comprehensive
-- ✅ Deployment automated and tested
+-  Code reviewed and tested
+-  Print templates verified for all combinations
+-  Database compatibility validated
+-  Rollback procedures tested
+-  Documentation comprehensive
+-  Deployment automated and tested
 
 ---
 
