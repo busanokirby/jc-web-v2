@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from flask import render_template, request, redirect, url_for, flash, session
-from flask_login import login_required
+from flask_login import login_required, current_user
 from sqlalchemy import or_
 from string import ascii_letters, digits
 import secrets
@@ -9,6 +9,7 @@ import secrets
 from app.extensions import db
 from app.models.user import User
 from app.services.authz import roles_required
+from app.services.security import is_valid_password, get_password_strength
 
 from . import users_bp
 
@@ -189,7 +190,6 @@ def edit_user(user_id: int):
     user = User.query.get_or_404(user_id)
     
     # Prevent editing own role/status
-    from flask_login import current_user
     is_self = (user.id == current_user.id) if current_user else False
     
     if request.method == "POST":
@@ -233,7 +233,6 @@ def delete_user(user_id: int):
     user = User.query.get_or_404(user_id)
     
     # Prevent self-deletion
-    from flask_login import current_user
     if user.id == current_user.id:
         flash("You cannot delete your own account.", "danger")
         return redirect(url_for("users.users"))
@@ -254,7 +253,6 @@ def toggle_status(user_id: int):
     user = User.query.get_or_404(user_id)
     
     # Prevent deactivating self
-    from flask_login import current_user
     if user.id == current_user.id:
         flash("You cannot deactivate your own account.", "danger")
         return redirect(url_for("users.users"))
@@ -265,3 +263,56 @@ def toggle_status(user_id: int):
     status = "activated" if user.is_active else "deactivated"
     flash(f"User '{user.username}' has been {status}.", "success")
     return redirect(url_for("users.users"))
+
+
+@users_bp.route("/change-password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    """Allow logged-in users to change their password"""
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "").strip()
+        new_password = request.form.get("new_password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
+        
+        # Validate current password
+        if not current_password:
+            flash("Current password is required.", "danger")
+            return render_template("users/change_password.html")
+        
+        if not current_user.check_password(current_password):
+            flash("Current password is incorrect.", "danger")
+            return render_template("users/change_password.html")
+        
+        # Validate new password is provided
+        if not new_password:
+            flash("New password is required.", "danger")
+            return render_template("users/change_password.html")
+        
+        # Validate password confirmation
+        if new_password != confirm_password:
+            flash("New passwords do not match.", "danger")
+            return render_template("users/change_password.html")
+        
+        # Validate new password is not same as current
+        if current_user.check_password(new_password):
+            flash("New password must be different from current password.", "danger")
+            return render_template("users/change_password.html")
+        
+        # Validate password strength
+        if not is_valid_password(new_password):
+            score, message = get_password_strength(new_password)
+            flash(f"Password does not meet security requirements. {message}", "danger")
+            return render_template("users/change_password.html")
+        
+        # Update password
+        try:
+            current_user.set_password(new_password)
+            db.session.commit()
+            flash("Your password has been changed successfully.", "success")
+            return redirect(url_for("core.dashboard"))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"An error occurred while changing your password: {str(e)}", "danger")
+            return render_template("users/change_password.html")
+    
+    return render_template("users/change_password.html")
