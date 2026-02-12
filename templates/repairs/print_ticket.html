@@ -90,24 +90,26 @@
     .grey-box {
       background-color: #eef2f5; border: 1px solid #ccc; padding: 10px; height: 100%;
     }
-    .auth-box { border: 1px solid #ccc; padding: 15px; min-height: 120px; display: flex; flex-direction: column; justify-content: space-between; }
+    .auth-box { border: 1px solid #ccc; padding: 15px; min-height: 165px; display: flex; flex-direction: column; justify-content: space-between; }
     .auth-text { font-size: 9px; color: #444; margin-bottom: 15px; flex: 1; }
     .sig-line { width: 300px; border-top: 1px solid #000; margin: 20px auto 0; text-align: center; font-size: 9px; padding-top: 2px; }
 
-    .description-lines .line { margin-top: 10px; border-bottom: 1px solid #999; }
+    .description-lines .line { margin-top: 5px; border-bottom: 1px solid #999; }
 
     /* ================= GRID ALIGNMENT ================= */
     .main-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto auto;
-      gap: 6px 8px;
-      align-items: start;
+      grid-template-rows: min-content min-content; /* keeps rows tight */
+      row-gap: 4px;   /* reduce vertical spacing */
+      column-gap: 8px; /* keep horizontal spacing reasonable */
+      align-items: start; /* ensures items hug the top of each cell */
     }
+
     .left-top    { grid-column: 1; grid-row: 1; }
     .right-top   { grid-column: 2; grid-row: 1; }
-    .left-bottom { grid-column: 1; grid-row: 2; }
-    .right-bottom{ grid-column: 2; grid-row: 2; }
+    .left-bottom { grid-column: 1; grid-row: 2; margin-top: -100px; } /* pull closer */
+    .right-bottom{ grid-column: 2; grid-row: 2; margin-top: 0px; }
 
     /* ================= DIVIDER ================= */
     .cut-line { margin: 16px 0; border-top: 2px dashed #999; width: 100%; }
@@ -285,7 +287,7 @@
 
     <!-- Row 2, Left: AUTHORIZATION & APPROVAL -->
     <div class="left-bottom">
-      <div class="section-title">AUTHORIZATION &amp; APPROVAL</div>
+      <div class="section-title" style="margin-top: -5px;">AUTHORIZATION &amp; APPROVAL</div>
       <div class="auth-box">
         <div class="label" style="color:#2ea863; font-size:9px; margin-bottom:5px;">CLIENT AGREEMENT:</div>
         <div class="auth-text">
@@ -298,7 +300,7 @@
 
     <!-- Row 2, Right: TECHNICIAN & STATUS -->
     <div class="right-bottom">
-      <div style="margin-top: 22px;">
+      <div style="margin-top: 5px;">
         <div class="line" style="width:60%; margin:0 auto; border-bottom:1px solid #999;"></div>
         <div style="text-align:center; font-size:9px; font-weight:bold; color:#d67d58; margin-bottom:15px;">TECHNICIAN IN CHARGE</div>
 
