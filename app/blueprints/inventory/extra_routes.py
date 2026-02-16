@@ -70,26 +70,3 @@ def low_stock():
         return Response(si.getvalue(), mimetype='text/csv', headers={'Content-Disposition': 'attachment; filename=low_stock.csv'})
 
     return render_template('inventory/low_stock.html', rows=rows)
-
-
-@inventory_bp.route('/adjust', methods=['GET', 'POST'])
-@login_required
-@roles_required('ADMIN')
-def adjust_stock_page():
-    products = Product.query.order_by(Product.name).all()
-    if request.method == 'POST':
-        product_id = int(request.form.get('product_id'))
-        delta = int(request.form.get('delta') or 0)
-        notes = (request.form.get('notes') or '').strip()
-
-        product = Product.query.get_or_404(product_id)
-        try:
-            adjust_stock(product, delta, notes=notes)
-            db.session.commit()
-            flash('Stock adjusted successfully.', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(str(e), 'danger')
-        return redirect(url_for('inventory.adjust_stock_page'))
-
-    return render_template('inventory/adjust_stock.html', products=products)

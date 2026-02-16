@@ -59,6 +59,15 @@
             border-top: 3px solid var(--jc-green-light);
             margin-top: auto;
         }
+        
+        @media print {
+            .alert {
+                display: none !important;
+            }
+            .d-print-none {
+                display: none !important;
+            }
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>

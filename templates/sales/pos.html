@@ -183,8 +183,8 @@
 <script>
 let cart = [];
 const products = JSON.parse(document.getElementById('products-data').textContent);
-let productSelect, productQty, productPrice, addBtn, checkoutBtn, clearBtn, discountInput, paymentMethodSelect, 
-    searchInput, searchBtn, searchResults, customerSelect, overridePriceCheck;
+let productSelect, productQty, addBtn, checkoutBtn, clearBtn, discountInput, paymentMethodSelect, 
+    searchInput, searchBtn, searchResults, customerSelect;
 
 // Global functions for inline onclick handlers
 window.removeFromCart = function(idx) {
@@ -200,19 +200,8 @@ window.updateQty = function(idx, qty) {
     }
 };
 
-window.updatePrice = function(idx, price) {
-    const p = parseFloat(price);
-    if (p >= 0) {
-        cart[idx].price = p;
-        updateCart();
-    }
-};
-
 window.selectFromSearch = function(productId, name, price, stock, isService) {
     productSelect.value = productId;
-    productPrice.value = price.toFixed(2);
-    productPrice.readOnly = true;
-    overridePriceCheck.checked = false;
     searchInput.value = name;
     searchResults.style.display = 'none';
     productQty.focus();
@@ -245,9 +234,6 @@ function updateCart() {
                         <div class="col">
                             <input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" onchange="updateQty(${idx}, this.value)" placeholder="Qty">
                         </div>
-                        <div class="col">
-                            <input type="number" class="form-control form-control-sm" value="${item.price.toFixed(2)}" step="0.01" min="0" onchange="updatePrice(${idx}, this.value)" placeholder="Price">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -267,7 +253,6 @@ function updateCart() {
 document.addEventListener('DOMContentLoaded', function(){
     productSelect = document.getElementById('product-select');
     productQty = document.getElementById('product-qty');
-    productPrice = document.getElementById('product-price');
     addBtn = document.getElementById('add-to-cart-btn');
     checkoutBtn = document.getElementById('checkout-btn');
     clearBtn = document.getElementById('clear-cart-btn');
@@ -277,32 +262,11 @@ document.addEventListener('DOMContentLoaded', function(){
     searchBtn = document.getElementById('product-search-btn');
     searchResults = document.getElementById('product-search-results');
     customerSelect = document.getElementById('customer-select');
-    overridePriceCheck = document.getElementById('override-price-check');
 
     // Product selection
     productSelect.addEventListener('change', function(){
         if (this.value) {
-            const option = this.options[this.selectedIndex];
-            productPrice.value = parseFloat(option.dataset.price).toFixed(2);
-            productPrice.readOnly = true;
-            overridePriceCheck.checked = false;
             productQty.focus();
-        } else {
-            productPrice.value = '';
-        }
-    });
-
-    // Price override toggle
-    overridePriceCheck.addEventListener('change', function(){
-        productPrice.readOnly = !this.checked;
-        if (this.checked) {
-            productPrice.focus();
-            productPrice.select();
-        } else {
-            const option = productSelect.options[productSelect.selectedIndex];
-            if (option) {
-                productPrice.value = parseFloat(option.dataset.price).toFixed(2);
-            }
         }
     });
 
@@ -310,7 +274,6 @@ document.addEventListener('DOMContentLoaded', function(){
     addBtn.addEventListener('click', function(){
         const productId = parseInt(productSelect.value);
         const qty = parseInt(productQty.value);
-        const price = parseFloat(productPrice.value);
 
         if (!productId) {
             alert('Please select a product');
@@ -322,11 +285,6 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
 
-        if (price < 0) {
-            alert('Price cannot be negative');
-            return;
-        }
-
         const product = products.find(p => p.id === productId);
         if (!product) return;
 
@@ -335,7 +293,10 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
 
-        // Check if already in cart
+        // Use product's sell_price directly
+        const price = product.sell_price;
+
+        // Check if already in cart with same price
         const existing = cart.find(item => item.product_id === productId && item.price === price);
         if (existing) {
             existing.qty += qty;
@@ -351,9 +312,7 @@ document.addEventListener('DOMContentLoaded', function(){
         // Reset and refresh
         productSelect.value = '';
         productQty.value = '1';
-        productPrice.value = '';
         searchInput.value = '';
-        overridePriceCheck.checked = false;
         updateCart();
     });
 
@@ -422,9 +381,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // Enter key support
     productQty.addEventListener('keypress', function(e){
-        if (e.key === 'Enter') addBtn.click();
-    });
-    productPrice.addEventListener('keypress', function(e){
         if (e.key === 'Enter') addBtn.click();
     });
 
