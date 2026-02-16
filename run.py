@@ -37,4 +37,13 @@ if __name__ == '__main__':
     print(f"Debug mode: {debug}")
     print(f"Server: {host}:{port}")
     
-    app.run(debug=debug, host=host, port=port)
+    # SSL/HTTPS support - optional
+    ssl_cert = "C:/Users/User36/flask_certs/flask-cert.pem"
+    ssl_key = "C:/Users/User36/flask_certs/flask-key.pem"
+    
+    if Path(ssl_cert).exists() and Path(ssl_key).exists():
+        print(f"HTTPS enabled - Certificate: {ssl_cert}")
+        app.run(debug=debug, host=host, port=port, ssl_context=(ssl_cert, ssl_key))
+    else:
+        print("Running on HTTP (no SSL certificates found)")
+        app.run(debug=debug, host=host, port=port)
