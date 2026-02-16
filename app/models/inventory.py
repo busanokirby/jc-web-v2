@@ -50,7 +50,7 @@ class StockMovement(db.Model):
     __tablename__ = "stock_movement"
 
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id", ondelete="CASCADE"), nullable=False)
 
     movement_type = db.Column(db.String(10), nullable=False)  # IN / OUT / ADJUST
     qty = db.Column(db.Integer, nullable=False)  # always positive
@@ -59,7 +59,7 @@ class StockMovement(db.Model):
     notes = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    product = db.relationship("Product", backref="movements")
+    product = db.relationship("Product", backref="movements", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<StockMovement {self.movement_type} {self.qty} {self.reference_type}:{self.reference_id}>"

@@ -131,11 +131,22 @@ def add_category_quick():
 @roles_required('ADMIN')
 @require_inventory_edit_enabled
 def delete_product(product_id: int):
+    from app.models.inventory import StockMovement
+    
     p = Product.query.get_or_404(product_id)
-    # Hard delete the product completely
-    db.session.delete(p)
-    db.session.commit()
-    flash('Product deleted permanently.', 'success')
+    
+    try:
+        # Delete all stock movements for this product first (cascade cleanup)
+        StockMovement.query.filter_by(product_id=product_id).delete()
+        
+        # Hard delete the product completely
+        db.session.delete(p)
+        db.session.commit()
+        flash('Product deleted permanently.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting product: {str(e)}', 'danger')
+    
     return redirect(url_for('inventory.products'))
 
 
