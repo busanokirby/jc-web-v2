@@ -357,4 +357,12 @@ def update_part_qty(device_id: int, part_id: int):
     
     db.session.commit()
     
-    return {"success": True, "line_total": str(part.line_total)}
+    return {
+        "success": True,
+        "line_total": str(part.line_total),
+        "parts_cost": str(device.parts_cost),
+        "total_cost": str(device.total_cost),
+        "balance_due": str(device.balance_due),
+        "deposit_paid": str(device.deposit_paid),
+        "payment_status": device.payment_status
+    }

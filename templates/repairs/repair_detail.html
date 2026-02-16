@@ -339,6 +339,74 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
+<script>
+// Function to update financial summary sidebar
+function updateFinancialSummary(data) {
+    const formatCurrency = (value) => {
+        return '₱' + parseFloat(value).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    };
+    
+    // Find the financial summary card
+    const cards = document.querySelectorAll('.card');
+    let financialCard = null;
+    
+    for (let card of cards) {
+        const header = card.querySelector('.card-header');
+        if (header && header.textContent.includes('Financial Summary')) {
+            financialCard = card;
+            break;
+        }
+    }
+    
+    if (!financialCard) return;
+    
+    const cardBody = financialCard.querySelector('.card-body');
+    const rows = cardBody.querySelectorAll('.row');
+    
+    // Update Parts Cost (3rd row)
+    if (rows[2]) {
+        rows[2].querySelector('.col-6:last-child').textContent = formatCurrency(data.parts_cost);
+    }
+    
+    // Update Total Cost (after first divider, should be row 4)
+    if (rows[4]) {
+        const totalEl = rows[4].querySelector('.col-6:last-child strong');
+        if (totalEl) totalEl.textContent = formatCurrency(data.total_cost);
+    }
+    
+    // Update Deposit Paid (row 5)
+    if (rows[5]) {
+        const depositEl = rows[5].querySelector('.col-6:last-child strong');
+        if (depositEl) depositEl.textContent = formatCurrency(data.deposit_paid);
+    }
+    
+    // Update Balance Due (after second divider, row 7)
+    if (rows[7]) {
+        const balanceEl = rows[7].querySelector('.col-6:last-child strong');
+        if (balanceEl) {
+            balanceEl.textContent = formatCurrency(data.balance_due);
+            balanceEl.className = parseFloat(data.balance_due) > 0 ? 'text-danger' : 'text-success';
+        }
+    }
+    
+    // Update Payment Status Badge
+    const badgeContainer = financialCard.querySelector('.mt-2.text-center');
+    if (badgeContainer) {
+        const badgeClass = data.payment_status === 'Paid' ? 'bg-success' : 
+                          data.payment_status === 'Partial' ? 'bg-warning' : 'bg-danger';
+        badgeContainer.innerHTML = `<span class="badge ${badgeClass}">${data.payment_status}</span>`;
+    }
+    
+    // If balance due is now 0 or less, hide the payment form and show completion
+    const paymentCard = financialCard.nextElementSibling;
+    if (paymentCard && paymentCard.querySelector('.card-header') && paymentCard.querySelector('.card-header').textContent.includes('Record Payment')) {
+        if (parseFloat(data.balance_due) <= 0) {
+            paymentCard.style.display = 'none';
+        }
+    }
+}
+</script>
+
 <!-- Modal for Editing Part Quantity -->
 <div class="modal fade" id="editQtyModal" tabindex="-1" aria-labelledby="editQtyModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -410,7 +478,10 @@ document.addEventListener('DOMContentLoaded', function(){
                     const row = document.querySelector(`tr[data-part-id="${currentPartId}"]`);
                     row.dataset.qty = newQty;
                     row.querySelector('.qty-display').textContent = newQty;
-                    row.querySelector('.line-total-cell').textContent = data.line_total;
+                    row.querySelector('.line-total-cell').textContent = '₱' + parseFloat(data.line_total).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    
+                    // Update financial summary sidebar
+                    updateFinancialSummary(data);
                     
                     bootstrap.Modal.getInstance(editQtyModal).hide();
                     alert('Quantity updated successfully!');
