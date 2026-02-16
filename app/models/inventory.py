@@ -42,6 +42,14 @@ class Product(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Relationship to stock movements with cascade delete
+    stock_movements = db.relationship(
+        "StockMovement",
+        backref="product",
+        cascade="all, delete-orphan",
+        lazy=True
+    )
+
     def __repr__(self) -> str:
         return f"<Product {self.name} (stock={self.stock_on_hand})>"
 
@@ -58,8 +66,6 @@ class StockMovement(db.Model):
     reference_id = db.Column(db.Integer)  # sale_id or device_id
     notes = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    product = db.relationship("Product", backref="movements", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<StockMovement {self.movement_type} {self.qty} {self.reference_type}:{self.reference_id}>"
