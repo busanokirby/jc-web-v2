@@ -8,6 +8,7 @@ from app.extensions import db
 from app.models.customer import Customer
 from app.models.repair import Device
 from app.services.authz import roles_required
+from app.services.codes import generate_customer_code
 from app.services.guards import require_tech_can_view_details
 
 from . import customers_bp
@@ -220,6 +221,7 @@ def add_customer():
     
     try:
         customer = Customer(
+            customer_code=generate_customer_code(),
             name=name,
             phone=phone,
             email=email,
