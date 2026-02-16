@@ -395,7 +395,10 @@ document.addEventListener('DOMContentLoaded', function(){
             const formData = new FormData();
             formData.append('qty', newQty);
             
-            const res = await fetch('{{ url_for("repairs.update_part_qty", device_id=device.id, part_id="PART_ID") }}'.replace('PART_ID', currentPartId), {
+            const baseUrl = '{{ url_for("repairs.update_part_qty", device_id=device.id, part_id=0) }}';
+            const updateUrl = baseUrl.replace('/0/', `/${currentPartId}/`);
+            
+            const res = await fetch(updateUrl, {
                 method: 'POST',
                 body: formData
             });

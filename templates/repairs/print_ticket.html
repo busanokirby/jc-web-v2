@@ -66,10 +66,10 @@
       display: flex; justify-content: center; align-items: center; color: white; font-weight: bold;
     }
     .header-text h1 { margin: 0; font-size: 18px; font-weight: 900; letter-spacing: 1px; }
-    .header-text p { margin: 0; font-size: 9px; opacity: 0.9; }
+    .header-text p { margin: 0; font-size: 10px; opacity: 1; }
 
     .contact-bar {
-      text-align: center; font-size: 9px; font-weight: bold; color: #555;
+      text-align: center; font-size: 13px; font-weight: bold; color: #555;
       margin-bottom: 15px; padding-bottom: 5px; border-bottom: 1px solid #ddd;
     }
 
@@ -113,7 +113,7 @@
     .right-bottom{ grid-column: 2; grid-row: 2; margin-top: 0px; }
 
     /* ================= DIVIDER ================= */
-    .cut-line { margin: 16px 0; border-top: 2px dashed #999; width: 100%; }
+    .cut-line { margin: 4px 0; border-top: 2px dashed #999; width: 100%; }
 
     /* ================= CLAIM STUB ================= */
     .stub-header {
@@ -127,13 +127,13 @@
     }
     .qr-code img { width: 100%; height: 100%; display: block; }
 
-    .legal-terms { font-size: 8px; color: #333; line-height: 1.1; margin-top: 5px; }
-    .legal-terms h4 { margin: 4px 0 2px; font-size: 8px; color: #2ea863; text-transform: uppercase; }
+    .legal-terms { font-size: 12px; color: #333; line-height: 1.1; margin-top: 5px; }
+    .legal-terms h4 { margin: 4px 0 2px; font-size: 9.5px; color: #2ea863; text-transform: uppercase; }
     .legal-terms ul { margin: 0; padding-left: 12px; }
     .legal-terms li { margin-bottom: 1px; }
 
-    .bottom-sigs { display: flex; justify-content: space-between; margin-top: 25px; align-items: flex-end; }
-    .bottom-sig-line { border-top: 1px solid #000; width: 40%; text-align: center; font-size: 8px; padding-top: 2px; }
+    .bottom-sigs { display: flex; justify-content: space-between; margin-top: 30px; align-items: flex-end; }
+    .bottom-sig-line { border-top: 1px solid #000; width: 40%; text-align: center; font-size: 8px; padding-top: 4px; }
 
     /* ================= PRINT BUTTON ================= */
     @media print { .no-print { display: none; } }
@@ -325,7 +325,7 @@
   <div class="cut-line"></div>
 
   <!-- ================= CLAIM STUB ================= -->
-  <div class="section-title" style="color:#000; font-size:14px; margin-bottom:5px;">CLAIM STUB</div>
+  <div class="section-title" style="color:#000; font-size:14px; margin-bottom:-3px;">CLAIM STUB</div>
 
   <div class="stub-header">
     <!-- Logo -->
@@ -345,8 +345,8 @@
       <div style="font-size:8px;">
         J.A CLARIN COR. HONTANOSAS, POBLACION 3, TAGBILARAN CITY
       </div>
-      <div style="font-size:8px; margin-top:2px;">
-        CONTACT NO. (038) 411-2134 | 09985771468 | 09208036494
+      <div style="font-size:13px; margin-top:2px;">
+        <strong>CONTACT NO. (038) 411-2134 | 09985771468 | 09208036494</strong>  
       </div>
     </div>
 
@@ -361,7 +361,7 @@
 
   <div class="row" style="margin-top:10px;">
     <div class="col">
-      <div class="section-title" style="font-size:9px;">CLIENT INFORMATION</div>
+      <div class="section-title" style="font-size:10px;">CLIENT INFORMATION</div>
       <div class="input-group">
         <span class="label" style="font-size:9px;">Full Name:</span>
         <div class="line">{{ device.owner.name if device.owner else '' }}</div>
@@ -382,7 +382,7 @@
 
     <!-- STUB DISPLAY ONLY -->
     <div class="col">
-      <div class="section-title" style="font-size:9px;">UNIT SUMMARY</div>
+      <div class="section-title" style="font-size:10px;">UNIT SUMMARY</div>
 
       <div class="input-group">
         <span class="label" style="font-size:9px;">Ticket #:</span>
@@ -453,8 +453,8 @@
     </div>
   </div>
 
-  <div style="margin-top: 15px; font-size: 9px; font-weight: bold;">Client Acknowledgment</div>
-  <div style="font-size: 8px;">By signing below, the client confirms they have read, understand, and agree to all terms and conditions listed above.</div>
+  <div style="margin-top: 15px; font-size: 10px; font-weight: bold;">Client Acknowledgment</div>
+  <div style="font-size: 10px;">By signing below, the client confirms they have read, understand, and agree to all terms and conditions listed above.</div>
 
   <div class="bottom-sigs">
     <div class="bottom-sig-line">CLIENT SIGNATURE OVER PRINTED NAME \ DATE</div>
