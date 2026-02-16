@@ -299,3 +299,62 @@ def add_payment(device_id: int):
     db.session.commit()
     flash(f"Payment of {amount} recorded via {payment_method}", "success")
     return redirect(url_for("repairs.repair_detail", device_id=device.id))
+
+
+@repairs_bp.route("/<int:device_id>/receipt", methods=["GET"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def print_receipt(device_id: int):
+    """Print payment receipt for a repair"""
+    device = Device.query.get_or_404(device_id)
+    
+    return render_template("repairs/receipt.html", device=device, now=datetime.now())
+
+
+@repairs_bp.route("/<int:device_id>/parts/<int:part_id>/update-qty", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def update_part_qty(device_id: int, part_id: int):
+    """Update quantity of a part used in repair"""
+    device = Device.query.get_or_404(device_id)
+    part = RepairPartUsed.query.get_or_404(part_id)
+    
+    if part.device_id != device_id:
+        return {"success": False, "message": "Part does not belong to this device"}, 400
+    
+    try:
+        new_qty = int(request.form.get("qty") or 0)
+    except Exception:
+        return {"success": False, "message": "Invalid quantity"}, 400
+    
+    if new_qty <= 0:
+        return {"success": False, "message": "Quantity must be greater than 0"}, 400
+    
+    old_qty = part.qty
+    qty_diff = new_qty - old_qty
+    
+    # Adjust stock if quantity changed
+    if qty_diff != 0:
+        try:
+            if qty_diff > 0:  # Need more stock
+                stock_out(part.product, qty_diff, reference_type="REPAIR", reference_id=device.id, notes=f"Qty adjustment for {part.product.name}")
+            else:  # Return stock
+                from app.services.stock import stock_in as stock_in_func
+                stock_in_func(part.product, abs(qty_diff), notes=f"Qty adjustment return for {part.product.name}")
+        except StockError as e:
+            db.session.rollback()
+            return {"success": False, "message": str(e)}, 400
+    
+    # Update part quantity and line total
+    part.qty = new_qty
+    part.line_total = part.unit_price * Decimal(new_qty)
+    
+    # Recalculate device parts cost
+    parts_total = sum((row.line_total for row in device.parts_used_rows), start=Decimal("0.00"))
+    device.parts_cost = parts_total
+    
+    recompute_repair_financials(device)
+    
+    db.session.commit()
+    
+    return {"success": True, "line_total": str(part.line_total)}

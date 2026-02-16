@@ -132,10 +132,10 @@ def add_category_quick():
 @require_inventory_edit_enabled
 def delete_product(product_id: int):
     p = Product.query.get_or_404(product_id)
-    # Soft delete (mark inactive)
-    p.is_active = False
+    # Hard delete the product completely
+    db.session.delete(p)
     db.session.commit()
-    flash('Product deleted (disabled).', 'success')
+    flash('Product deleted permanently.', 'success')
     return redirect(url_for('inventory.products'))
 
 
@@ -229,6 +229,60 @@ def stock_in_page():
         return redirect(url_for("inventory.stock_in_page"))
 
     return render_template("inventory/stock_in.html", products=products_list, selected_product_id=selected_product_id)
+
+
+@inventory_bp.route("/adjust-stock", methods=["GET", "POST"])
+@login_required
+@roles_required("ADMIN", "SALES")
+@require_inventory_edit_enabled
+def adjust_stock_page():
+    products_list = Product.query.filter_by(is_active=True, is_service=False).order_by(Product.name).all()
+    selected_product_id = request.args.get('product_id', type=int)
+
+    if request.method == "POST":
+        try:
+            product_id_val = request.form.get("product_id")
+            if not product_id_val:
+                flash("Please select a product.", "danger")
+                return redirect(url_for("inventory.adjust_stock_page"))
+            product_id = int(product_id_val)
+        except Exception:
+            flash("Please select a valid product.", "danger")
+            return redirect(url_for("inventory.adjust_stock_page"))
+
+        product = Product.query.get_or_404(product_id)
+
+        # Adjust stock
+        delta = int(request.form.get("delta") or 0)
+        notes = (request.form.get("notes") or "").strip()
+
+        try:
+            adjust_stock(product, delta, notes=notes)
+        except StockError as e:
+            db.session.rollback()
+            flash(str(e), "danger")
+            return redirect(url_for("inventory.adjust_stock_page"))
+
+        # Adjust price if provided
+        new_price = (request.form.get("sell_price") or "").strip()
+        if new_price:
+            try:
+                product.sell_price = safe_decimal(new_price, None)
+            except Exception:
+                db.session.rollback()
+                flash("Invalid price format.", "danger")
+                return redirect(url_for("inventory.adjust_stock_page"))
+
+        try:
+            db.session.commit()
+            flash("Product updated successfully!", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error updating product: {str(e)}", "danger")
+
+        return redirect(url_for("inventory.adjust_stock_page"))
+
+    return render_template("inventory/adjust_stock.html", products=products_list, selected_product_id=selected_product_id)
 
 
 @inventory_bp.route("/categories", methods=["GET", "POST"])

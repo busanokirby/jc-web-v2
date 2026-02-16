@@ -70,6 +70,8 @@ class Device(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
+    # Parts used with cascade delete to orphaned repair parts
+    parts_used_rows = db.relationship("RepairPartUsed", cascade="all, delete-orphan", lazy=True)
 
 
 class Technician(db.Model):
@@ -108,5 +110,4 @@ class RepairPartUsed(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    device = db.relationship("Device", backref="parts_used_rows")
     product = db.relationship("Product")

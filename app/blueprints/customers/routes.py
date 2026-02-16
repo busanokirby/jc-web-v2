@@ -198,3 +198,47 @@ def search_api():
         }
         for c in customers_list
     ])
+
+
+@customers_bp.route("/add", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "SALES")
+def add_customer():
+    """Add a new customer (API endpoint for POS)"""
+    name = (request.form.get("name") or "").strip()
+    phone = (request.form.get("phone") or "").strip()
+    email = (request.form.get("email") or "").strip() or None
+    address = (request.form.get("address") or "").strip() or None
+    
+    if not name or not phone:
+        return jsonify({"success": False, "message": "Name and phone are required"}), 400
+    
+    # Check if customer already exists by phone
+    existing = Customer.query.filter_by(phone=phone).first()
+    if existing:
+        return jsonify({"success": False, "message": "Customer with this phone already exists"}), 400
+    
+    try:
+        customer = Customer(
+            name=name,
+            phone=phone,
+            email=email,
+            address=address,
+            customer_type="Individual",
+            created_by_user_id=current_user.id
+        )
+        db.session.add(customer)
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "customer": {
+                "id": customer.id,
+                "name": customer.name,
+                "phone": customer.phone,
+                "email": customer.email
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500

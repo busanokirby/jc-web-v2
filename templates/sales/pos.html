@@ -24,13 +24,34 @@
                 <h5 class="mb-0"><i class="bi bi-person"></i> Customer (Optional)</h5>
             </div>
             <div class="card-body">
-                <label class="form-label">Select a customer for this sale</label>
-                <select id="customer-select" class="form-select">
+                <label class="form-label">Search and select a customer for this sale</label>
+                <div class="input-group mb-2">
+                    <input type="text" id="customer-search-input" class="form-control" placeholder="Type customer name or phone..." autocomplete="off">
+                    <button type="button" class="btn btn-outline-secondary" id="customer-search-btn">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+                <!-- Search results dropdown -->
+                <div id="customer-search-results" class="list-group" style="max-height: 200px; overflow-y: auto; display: none;">
+                    <!-- Results populated by JS -->
+                </div>
+                
+                <select id="customer-select" class="form-select" style="display: none;">
                     <option value="">-- Walk-in Customer --</option>
                     {% for customer in customers %}
                     <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.phone }})</option>
                     {% endfor %}
                 </select>
+                
+                <div id="selected-customer" class="alert alert-info mt-2" style="display: none;">
+                    Selected: <strong id="selected-customer-name"></strong>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="clear-customer-btn">Clear</button>
+                </div>
+
+                <hr>
+                <button type="button" class="btn btn-outline-primary w-100" id="add-customer-btn" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
+                    <i class="bi bi-plus-circle"></i> Add New Customer
+                </button>
                 <small class="text-muted d-block mt-2">Customer is optional. Select one to associate the sale with their account.</small>
             </div>
         </div>
@@ -76,28 +97,16 @@
                 </div>
 
                 <div class="row g-2 mb-3">
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label">Quantity</label>
                         <input type="number" id="product-qty" class="form-control" value="1" min="1">
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Unit Price</label>
-                        <input type="number" id="product-price" class="form-control" step="0.01" min="0" readonly>
-                        <small class="text-muted">Override the default price if needed</small>
-                    </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label">&nbsp;</label>
                         <button type="button" class="btn btn-primary w-100" id="add-to-cart-btn">
                             <i class="bi bi-plus-circle"></i> Add to Cart
                         </button>
                     </div>
-                </div>
-
-                <div id="price-override-section" style="display: none;" class="alert alert-info">
-                    <label class="form-check-label">
-                        <input type="checkbox" class="form-check-input" id="override-price-check">
-                        Override product price <small>(check to set a custom price)</small>
-                    </label>
                 </div>
             </div>
         </div>
@@ -418,6 +427,128 @@ document.addEventListener('DOMContentLoaded', function(){
     productPrice.addEventListener('keypress', function(e){
         if (e.key === 'Enter') addBtn.click();
     });
+
+    // Customer search functionality
+    const customerSearchInput = document.getElementById('customer-search-input');
+    const customerSearchBtn = document.getElementById('customer-search-btn');
+    const customerSearchResults = document.getElementById('customer-search-results');
+    const selectedCustomerDiv = document.getElementById('selected-customer');
+    const selectedCustomerName = document.getElementById('selected-customer-name');
+    const clearCustomerBtn = document.getElementById('clear-customer-btn');
+    const addCustomerBtn = document.getElementById('add-customer-btn');
+
+    customerSearchInput.addEventListener('input', function(){
+        const q = this.value.trim().toLowerCase();
+        if (q.length < 1) {
+            customerSearchResults.style.display = 'none';
+            return;
+        }
+
+        const options = Array.from(customerSelect.options).filter(opt => 
+            opt.value && (opt.text.toLowerCase().includes(q))
+        );
+
+        if (options.length === 0) {
+            customerSearchResults.innerHTML = '<div class="list-group-item">No customers found</div>';
+            customerSearchResults.style.display = 'block';
+            return;
+        }
+
+        customerSearchResults.innerHTML = options.map(opt => `
+            <button type="button" class="list-group-item list-group-item-action" onclick="selectCustomer('${opt.value}', '${opt.text}')">
+                ${opt.text}
+            </button>
+        `).join('');
+        customerSearchResults.style.display = 'block';
+    });
+
+    clearCustomerBtn.addEventListener('click', function(){
+        customerSelect.value = '';
+        selectedCustomerDiv.style.display = 'none';
+        customerSearchInput.value = '';
+    });
+
+    window.selectCustomer = function(customerId, customerName){
+        customerSelect.value = customerId;
+        selectedCustomerName.textContent = customerName;
+        selectedCustomerDiv.style.display = 'block';
+        customerSearchResults.style.display = 'none';
+        customerSearchInput.value = '';
+    };
+
+    // Handle add customer form submission
+    const addCustomerForm = document.getElementById('add-customer-form');
+    const addCustomerModal = document.getElementById('addCustomerModal');
+    const modalInstance = new bootstrap.Modal(addCustomerModal);
+
+    addCustomerForm.addEventListener('submit', function(e){
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        fetch('{{ url_for("customers.add_customer") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Add new customer to the select dropdown
+                const newOption = document.createElement('option');
+                newOption.value = data.customer.id;
+                newOption.text = `${data.customer.name} (${data.customer.phone})`;
+                customerSelect.appendChild(newOption);
+
+                // Select the new customer
+                selectCustomer(data.customer.id, newOption.text);
+
+                // Close the modal and reset the form
+                modalInstance.hide();
+                addCustomerForm.reset();
+                alert('Customer added successfully!');
+            } else {
+                alert('Error adding customer: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(err => {
+            alert('Error adding customer: ' + err);
+        });
+    });
 });
 </script>
+
+<!-- Modal for Adding New Customer -->
+<div class="modal fade" id="addCustomerModal" tabindex="-1" aria-labelledby="addCustomerLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addCustomerLabel">Add New Customer</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="add-customer-form">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="modal-customer-name" class="form-label">Full Name *</label>
+            <input type="text" class="form-control" id="modal-customer-name" name="name" required>
+          </div>
+          <div class="mb-3">
+            <label for="modal-customer-phone" class="form-label">Phone Number *</label>
+            <input type="tel" class="form-control" id="modal-customer-phone" name="phone" required>
+          </div>
+          <div class="mb-3">
+            <label for="modal-customer-email" class="form-label">Email Address</label>
+            <input type="email" class="form-control" id="modal-customer-email" name="email">
+          </div>
+          <div class="mb-3">
+            <label for="modal-customer-address" class="form-label">Address</label>
+            <textarea class="form-control" id="modal-customer-address" name="address" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Customer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

@@ -1,10 +1,10 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %}Adjust Stock{% endblock %}
+{% block title %}Adjust Stock & Price{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Adjust Stock</h1>
+    <h1>Adjust Stock & Price</h1>
     <div>
         <a class="btn btn-outline-secondary" href="{{ url_for('inventory.products') }}"><i class="bi bi-arrow-left"></i> Back to Products</a>
     </div>
@@ -16,8 +16,11 @@
                 <div style="flex:1">
                     <label class="form-label">Product</label>
                     <select name="product_id" id="adjust-product-select" class="form-select">
+                        <option value="">-- Select a product --</option>
                         {% for p in products %}
-                        <option value="{{ p.id }}">{{ p.name }} (Stock: {{ p.stock_on_hand }})</option>
+                        <option value="{{ p.id }}" {% if p.id == selected_product_id %}selected{% endif %}>
+                            {{ p.name }} (Stock: {{ p.stock_on_hand }}, Price: ₱{{ "%.2f"|format(p.sell_price) }})
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -28,19 +31,27 @@
                 {% endif %}
             </div>
             <div class="mb-3">
-                <label class="form-label">Delta (positive to add, negative to reduce)</label>
-                <input type="number" name="delta" class="form-control" required>
+                <label class="form-label">Stock Adjustment (positive to add, negative to reduce)</label>
+                <input type="number" name="delta" class="form-control" value="0" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">New Selling Price (optional - leave blank to keep current)</label>
+                <div class="input-group">
+                    <span class="input-group-text">₱</span>
+                    <input type="number" name="sell_price" class="form-control" step="0.01" min="0" placeholder="e.g., 1500.00">
+                </div>
             </div>
             <div class="mb-3">
                 <label class="form-label">Notes</label>
-                <input type="text" name="notes" class="form-control">
+                <input type="text" name="notes" class="form-control" placeholder="Optional notes for this adjustment">
             </div>
             <div class="d-flex justify-content-end">
-                <button class="btn btn-primary" type="submit">Apply</button>
+                <button class="btn btn-primary" type="submit">Apply Changes</button>
             </div>
         </form>
     </div>
 </div>
+{% endblock %}
 {% endblock %}
 {% block extra_js %}
 <script>
