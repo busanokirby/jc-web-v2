@@ -100,26 +100,51 @@ def repairs_search_api():
 @login_required
 @roles_required("ADMIN", "TECH")
 def add_repair():
+    customers = Customer.query.order_by(Customer.name).all()
+    
     if request.method == "POST":
-        # Customer info (simple: lookup by phone)
-        phone = (request.form.get("customer_phone") or "").strip()
-        if not phone:
-            flash("Customer phone is required.", "danger")
-            return redirect(url_for("repairs.add_repair"))
-
-        customer = Customer.query.filter_by(phone=phone).first()
-        if not customer:
-            customer = Customer(
-                customer_code=generate_customer_code(),
-                name=(request.form.get("customer_name") or "").strip() or "Unknown",
-                email=(request.form.get("customer_email") or "").strip() or None,
-                phone=phone,
-                address=(request.form.get("customer_address") or "").strip() or None,
-                business_name=(request.form.get("business_name") or "").strip() or None,
-                customer_type=request.form.get("customer_type", "Individual"),
-                created_by_user_id=current_user.id,
-            )
-            db.session.add(customer)
+        # Get customer selection mode
+        customer_mode = request.form.get("customer_mode", "existing")
+        customer = None
+        
+        if customer_mode == "existing":
+            # Use existing customer
+            customer_id = request.form.get("existing_customer_id")
+            if not customer_id:
+                flash("Please select a customer.", "danger")
+                return redirect(url_for("repairs.add_repair"))
+            customer = Customer.query.get_or_404(int(customer_id))
+        else:
+            # Create or update customer
+            phone = (request.form.get("customer_phone") or "").strip()
+            if not phone:
+                flash("Customer phone number is required.", "danger")
+                return redirect(url_for("repairs.add_repair"))
+            
+            customer = Customer.query.filter_by(phone=phone).first()
+            
+            if customer:
+                # Update existing customer if requested
+                update_customer = request.form.get("update_customer_details", "no") == "yes"
+                if update_customer:
+                    customer.name = (request.form.get("customer_name") or "").strip() or customer.name
+                    customer.email = (request.form.get("customer_email") or "").strip() or customer.email
+                    customer.address = (request.form.get("customer_address") or "").strip() or customer.address
+                    customer.business_name = (request.form.get("business_name") or "").strip() or customer.business_name
+                    customer.customer_type = request.form.get("customer_type", customer.customer_type)
+            else:
+                # Create new customer
+                customer = Customer(
+                    customer_code=generate_customer_code(),
+                    name=(request.form.get("customer_name") or "").strip() or "Unknown",
+                    email=(request.form.get("customer_email") or "").strip() or None,
+                    phone=phone,
+                    address=(request.form.get("customer_address") or "").strip() or None,
+                    business_name=(request.form.get("business_name") or "").strip() or None,
+                    customer_type=request.form.get("customer_type", "Individual"),
+                    created_by_user_id=current_user.id,
+                )
+                db.session.add(customer)
             db.session.flush()
 
         device_type = request.form.get("device_type")
@@ -160,9 +185,10 @@ def add_repair():
         db.session.commit()
 
         flash(f"Repair ticket created: {d.ticket_number}", "success")
+        # Redirect to print ticket with option to add receipt
         return redirect(url_for("repairs.print_ticket", device_id=d.id))
 
-    return render_template("repairs/add_repairs.html")
+    return render_template("repairs/add_repairs.html", customers=customers)
 
 
 @repairs_bp.route("/<int:device_id>")

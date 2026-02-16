@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import json
 
 from app.extensions import db
+from app.models.customer import Customer
 from app.models.inventory import Product
 from app.models.sales import Sale, SaleItem, SalePayment
 from app.services.authz import roles_required
@@ -25,111 +26,115 @@ from . import sales_bp
 @require_pos_enabled
 def pos():
     """
-    POS with multi-item cart support
+    Point of Sale - multi-item cart with optional customer details
     """
     products_list = Product.query.filter_by(is_active=True).order_by(Product.name).all()
+    customers = Customer.query.order_by(Customer.name).all()
 
     if request.method == "POST":
         try:
             items_json = request.form.get("items", "[]")
             items = json.loads(items_json)
             if not items:
-                flash("Cart is empty", "danger")
+                flash("Your cart is empty. Please add items before completing the sale.", "danger")
                 return redirect(url_for("sales.pos"))
+            
+            # Optional customer info
+            customer_id = request.form.get("customer_id")
+            if customer_id:
+                try:
+                    customer_id = int(customer_id)
+                except (ValueError, TypeError):
+                    customer_id = None
+            
             discount = safe_decimal(request.form.get("discount") or "0", "0.00")
             payment_method = request.form.get("payment_method", "Cash")
+            
             subtotal = Decimal("0.00")
             items_with_products = []
+            
             for item in items:
                 product_id = int(item.get("product_id"))
                 qty = int(item.get("qty"))
+                item_price = safe_decimal(item.get("price"), None)  # Allow price override
+                
                 if qty <= 0:
-                    flash("Invalid quantity", "danger")
+                    flash("Invalid quantity. Please enter a quantity greater than 0.", "danger")
                     return redirect(url_for("sales.pos"))
+                
                 product = Product.query.get_or_404(product_id)
-                if qty > product.stock_on_hand:
-                    flash(f"Insufficient stock for {product.name}", "danger")
+                
+                # Check stock only for non-services
+                if not product.is_service and qty > product.stock_on_hand:
+                    flash(f"Not enough stock for {product.name}. Available: {product.stock_on_hand}", "danger")
                     return redirect(url_for("sales.pos"))
-                unit_price = safe_decimal(product.sell_price, "0.00")
+                
+                # Use provided price or product's sell price
+                unit_price = item_price if item_price is not None else safe_decimal(product.sell_price, "0.00")
                 line_total = unit_price * Decimal(qty)
                 subtotal += line_total
-                items_with_products.append({"product": product, "qty": qty, "unit_price": unit_price, "line_total": line_total})
+                
+                items_with_products.append({
+                    "product": product,
+                    "qty": qty,
+                    "unit_price": unit_price,
+                    "line_total": line_total
+                })
+            
             total = max(Decimal("0.00"), subtotal - discount)
-            sale = Sale(invoice_no=generate_invoice_no(), status="PAID", subtotal=subtotal, discount=discount, tax=Decimal("0.00"), total=total)
+            
+            # Create sale with optional customer
+            sale = Sale(
+                invoice_no=generate_invoice_no(),
+                customer_id=customer_id,
+                status="PAID",
+                subtotal=subtotal,
+                discount=discount,
+                tax=Decimal("0.00"),
+                total=total
+            )
             db.session.add(sale)
             db.session.flush()
+            
+            # Add items to sale
             for item_data in items_with_products:
                 product = item_data["product"]
                 qty = item_data["qty"]
                 unit_price = item_data["unit_price"]
                 line_total = item_data["line_total"]
-                sale_item = SaleItem(sale_id=sale.id, product_id=product.id, qty=qty, unit_price=unit_price, line_total=line_total)
+                
+                sale_item = SaleItem(
+                    sale_id=sale.id,
+                    product_id=product.id,
+                    qty=qty,
+                    unit_price=unit_price,
+                    line_total=line_total
+                )
                 db.session.add(sale_item)
-                try:
-                    stock_out(product, qty, reference_type="SALE", reference_id=sale.id, notes=f"Invoice {sale.invoice_no}")
-                except StockError as e:
-                    db.session.rollback()
-                    flash(str(e), "danger")
-                    return redirect(url_for("sales.pos"))
+                
+                # Deduct stock for non-services
+                if not product.is_service:
+                    try:
+                        stock_out(product, qty, reference_type="SALE", reference_id=sale.id, notes=f"Invoice {sale.invoice_no}")
+                    except StockError as e:
+                        db.session.rollback()
+                        flash(f"Stock error: {str(e)}", "danger")
+                        return redirect(url_for("sales.pos"))
+            
+            # Record payment
             db.session.add(SalePayment(sale_id=sale.id, amount=total, method=payment_method))
             db.session.commit()
-            flash(f"Sale recorded! Invoice: {sale.invoice_no}", "success")
+            
+            flash(f"Sale completed! Invoice: {sale.invoice_no}", "success")
             return redirect(url_for("sales.invoice", sale_id=sale.id))
+            
+        except json.JSONDecodeError:
+            flash("Invalid cart data. Please try again.", "danger")
+            return redirect(url_for("sales.pos"))
         except Exception as e:
             db.session.rollback()
-            flash(f"Error: {str(e)}", "danger")
+            flash(f"Error processing sale: {str(e)}", "danger")
             return redirect(url_for("sales.pos"))
-
-        if qty <= 0:
-            flash("Quantity must be greater than 0.", "danger")
-            return redirect(url_for("sales.pos"))
-
-        product = Product.query.get_or_404(product_id)
-        unit_price = safe_decimal(product.sell_price, "0.00")
-        line_total = unit_price * Decimal(qty)
-
-        sale = Sale(
-            invoice_no=generate_invoice_no(),
-            status="PAID",
-            subtotal=line_total,
-            discount=Decimal("0.00"),
-            tax=Decimal("0.00"),
-            total=line_total,
-        )
-
-        db.session.add(sale)
-        db.session.flush()
-
-        sale_item = SaleItem(
-            sale_id=sale.id,
-            product_id=product.id,
-            qty=qty,
-            unit_price=unit_price,
-            line_total=line_total,
-        )
-        db.session.add(sale_item)
-
-        # Strict stock deduction (services don’t reduce stock)
-        try:
-            stock_out(product, qty, reference_type="SALE", reference_id=sale.id, notes=f"Invoice {sale.invoice_no}")
-        except StockError as e:
-            db.session.rollback()
-            flash(str(e), "danger")
-            return redirect(url_for("sales.pos"))
-
-        # Payment record
-        if paid_amount <= 0:
-            paid_amount = line_total  # default full pay if not provided
-
-        db.session.add(SalePayment(
-            sale_id=sale.id,
-            amount=paid_amount,
-            method=payment_method,
-        ))
-
-        db.session.commit()
-        flash(f"Sale recorded! Invoice: {sale.invoice_no}", "success")
-        return redirect(url_for("sales.invoice", sale_id=sale.id))
 
     # Convert products to JSON for frontend
     products_json = [{
@@ -141,7 +146,7 @@ def pos():
         "is_service": p.is_service
     } for p in products_list]
     
-    return render_template("sales/pos.html", products=products_json)
+    return render_template("sales/pos.html", products=products_json, customers=customers)
 
 
 @sales_bp.route("/list")

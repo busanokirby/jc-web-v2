@@ -68,58 +68,42 @@ def repairs_report():
 @roles_required("ADMIN")
 def financial_report():
     """Financial summary: sales totals, payments, outstanding balances"""
+    from app.models.sales import Sale, SalePayment
+    
     date_from = request.args.get("date_from", "")
     date_to = request.args.get("date_to", "")
     fmt = request.args.get("format", "html")
 
-    sales_q = db.session.query(
-        func.coalesce(func.sum(Device.total_cost), 0).label("repairs_total")
-    )
-
-    sales_summary = db.session.query(
-        func.coalesce(func.sum(db.literal_column('sale.total')), 0).label('sales_total')
-    )
-
-    # Sales total
-    sales_total = 0
-    try:
-        sales_total = float(db.session.execute(db.select(func.coalesce(func.sum(db.session.query(db.literal_column('sale.total')).scalar_subquery()), 0))).scalar())
-    except Exception:
-        # Fallback: compute from Sale table if exists
-        from app.models.sales import Sale, SalePayment
-        s_query = db.session.query(func.coalesce(func.sum(Sale.total), 0).label('sales_total'))
-        if date_from:
-            try:
-                df = datetime.fromisoformat(date_from).date()
-                s_query = s_query.filter(Sale.created_at >= df)
-            except Exception:
-                pass
-        if date_to:
-            try:
-                dt = datetime.fromisoformat(date_to).date()
-                s_query = s_query.filter(Sale.created_at <= dt)
-            except Exception:
-                pass
-        sales_total = float(s_query.scalar() or 0)
-
-    # Payments total
-    payments_q = db.session.query(func.coalesce(func.sum(SalePayment.amount), 0)).select_from(db.table('sale_payment'))
-    # Instead use ORM
-    from app.models.sales import SalePayment
-    payments_q = db.session.query(func.coalesce(func.sum(SalePayment.amount), 0))
+    # Build date filters
+    date_filter_obj = {}
     if date_from:
         try:
             df = datetime.fromisoformat(date_from).date()
-            payments_q = payments_q.filter(SalePayment.paid_at >= df)
+            date_filter_obj['from'] = df
         except Exception:
             pass
     if date_to:
         try:
             dt = datetime.fromisoformat(date_to).date()
-            payments_q = payments_q.filter(SalePayment.paid_at <= dt)
+            date_filter_obj['to'] = dt
         except Exception:
             pass
-    payments_total = float(payments_q.scalar() or 0)
+
+    # Query sales total
+    sales_query = db.session.query(func.coalesce(func.sum(Sale.total), 0).label('total'))
+    if 'from' in date_filter_obj:
+        sales_query = sales_query.filter(Sale.created_at >= date_filter_obj['from'])
+    if 'to' in date_filter_obj:
+        sales_query = sales_query.filter(Sale.created_at <= date_filter_obj['to'])
+    sales_total = float(sales_query.scalar() or 0)
+
+    # Query payments total
+    payments_query = db.session.query(func.coalesce(func.sum(SalePayment.amount), 0).label('total'))
+    if 'from' in date_filter_obj:
+        payments_query = payments_query.filter(SalePayment.paid_at >= date_filter_obj['from'])
+    if 'to' in date_filter_obj:
+        payments_query = payments_query.filter(SalePayment.paid_at <= date_filter_obj['to'])
+    payments_total = float(payments_query.scalar() or 0)
 
     # Outstanding: sales_total - payments_total
     outstanding = max(0.0, sales_total - payments_total)

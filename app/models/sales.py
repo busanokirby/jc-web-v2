@@ -23,6 +23,7 @@ class Sale(db.Model):
 
     items = db.relationship("SaleItem", backref="sale", cascade="all, delete-orphan")
     payments = db.relationship("SalePayment", backref="sale", cascade="all, delete-orphan")
+    customer = db.relationship("Customer", backref="sales_invoices", foreign_keys=[customer_id])
 
     def __repr__(self) -> str:
         return f"<Sale {self.invoice_no} total={self.total} status={self.status}>"

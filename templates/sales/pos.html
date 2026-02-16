@@ -4,24 +4,47 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-cart-check"></i> Point of Sale</h1>
-    <a href="{{ url_for('sales.sales_list') }}" class="btn btn-outline-secondary">
-        <i class="bi bi-list"></i> Sales History
-    </a>
+    <h1><i class="bi bi-cart-check"></i> Point of Sale System</h1>
+    <div>
+        <a href="{{ url_for('sales.sales_list') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-list"></i> Sales History
+        </a>
+        <a href="{{ url_for('sales.reports') }}" class="btn btn-outline-info">
+            <i class="bi bi-graph-up"></i> Reports
+        </a>
+    </div>
 </div>
 
 <div class="row">
     <!-- Products Section -->
     <div class="col-md-8">
+        <!-- Customer Section -->
         <div class="card mb-4">
             <div class="card-header bg-light">
-                <h5 class="mb-0">Select Products</h5>
+                <h5 class="mb-0"><i class="bi bi-person"></i> Customer (Optional)</h5>
+            </div>
+            <div class="card-body">
+                <label class="form-label">Select a customer for this sale</label>
+                <select id="customer-select" class="form-select">
+                    <option value="">-- Walk-in Customer --</option>
+                    {% for customer in customers %}
+                    <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.phone }})</option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted d-block mt-2">Customer is optional. Select one to associate the sale with their account.</small>
+            </div>
+        </div>
+
+        <!-- Products Section -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-box-seam"></i> Add Products</h5>
             </div>
             <div class="card-body">
                 <div class="mb-3">
-                    <label class="form-label">Search Product</label>
+                    <label class="form-label">Search for a product</label>
                     <div class="input-group">
-                        <input type="text" class="form-control" id="product-search-input" placeholder="Search by name or SKU..." autocomplete="off">
+                        <input type="text" class="form-control" id="product-search-input" placeholder="Type product name or SKU..." autocomplete="off">
                         <button class="btn btn-outline-secondary" type="button" id="product-search-btn">
                             <i class="bi bi-search"></i>
                         </button>
@@ -33,30 +56,48 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">OR Select from List</label>
+                    <label class="form-label">Or select from the list below</label>
                     <select id="product-select" class="form-select">
                         <option value="">-- Choose a product --</option>
                         {% for p in products %}
-                        {% if not p.is_service %}
-                        <option value="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.sell_price }}" data-stock="{{ p.stock_on_hand }}">
-                            {{ p.name }} (Stock: {{ p.stock_on_hand }}) - ₱{{ "%.2f"|format(p.sell_price) }}
+                        <option value="{{ p.id }}" 
+                                data-name="{{ p.name }}" 
+                                data-price="{{ p.sell_price }}" 
+                                data-stock="{{ p.stock_on_hand }}"
+                                data-is-service="{{ p.is_service }}">
+                            {% if not p.is_service %}
+                                {{ p.name }} (Stock: {{ p.stock_on_hand }}) - ₱{{ "%.2f"|format(p.sell_price) }}
+                            {% else %}
+                                {{ p.name }} (Service) - ₱{{ "%.2f"|format(p.sell_price) }}
+                            {% endif %}
                         </option>
-                        {% endif %}
                         {% endfor %}
                     </select>
                 </div>
 
-                <div class="row g-2">
-                    <div class="col-md-6">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4">
                         <label class="form-label">Quantity</label>
                         <input type="number" id="product-qty" class="form-control" value="1" min="1">
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label">Unit Price</label>
+                        <input type="number" id="product-price" class="form-control" step="0.01" min="0" readonly>
+                        <small class="text-muted">Override the default price if needed</small>
+                    </div>
+                    <div class="col-md-4">
                         <label class="form-label">&nbsp;</label>
                         <button type="button" class="btn btn-primary w-100" id="add-to-cart-btn">
                             <i class="bi bi-plus-circle"></i> Add to Cart
                         </button>
                     </div>
+                </div>
+
+                <div id="price-override-section" style="display: none;" class="alert alert-info">
+                    <label class="form-check-label">
+                        <input type="checkbox" class="form-check-input" id="override-price-check">
+                        Override product price <small>(check to set a custom price)</small>
+                    </label>
                 </div>
             </div>
         </div>
@@ -66,23 +107,23 @@
     <div class="col-md-4">
         <div class="card sticky-top">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Cart</h5>
+                <h5 class="mb-0"><i class="bi bi-cart"></i> Shopping Cart</h5>
             </div>
             <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                 <div id="cart-items">
-                    <p class="text-muted text-center">Cart is empty</p>
+                    <p class="text-muted text-center py-4">Your cart is empty</p>
                 </div>
             </div>
             <div class="card-footer bg-light">
                 <div class="mb-3">
                     <div class="row mb-2">
                         <div class="col-6"><strong>Subtotal:</strong></div>
-                        <div class="col-6 text-end"><span id="subtotal">₱0.00</span></div>
+                        <div class="col-6 text-end"><span id="subtotal" class="h6">₱0.00</span></div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6"><label class="form-label mb-0">Discount:</label></div>
                         <div class="col-6">
-                            <input type="number" id="discount-input" class="form-control form-control-sm" value="0" min="0" step="0.01">
+                            <input type="number" id="discount-input" class="form-control form-control-sm" value="0" min="0" step="0.01" placeholder="0.00">
                         </div>
                     </div>
                     <div class="row mb-2">
@@ -92,14 +133,16 @@
                     <hr>
                     <div class="row mb-3">
                         <div class="col-6">
-                            <label class="form-label">Payment Method</label>
+                            <label class="form-label small">Payment Method</label>
                         </div>
                         <div class="col-6">
                             <select id="payment-method" class="form-select form-select-sm">
                                 <option value="Cash">Cash</option>
-                                <option value="Card">Card</option>
+                                <option value="Debit Card">Debit Card</option>
+                                <option value="Credit Card">Credit Card</option>
                                 <option value="Check">Check</option>
-                                <option value="Mobile">Mobile Money</option>
+                                <option value="Mobile Money">Mobile Money</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
                             </select>
                         </div>
                     </div>
@@ -107,12 +150,13 @@
 
                 <form id="checkout-form" method="POST" style="display: none;">
                     <input type="hidden" id="items-input" name="items">
+                    <input type="hidden" id="customer-input" name="customer_id">
                     <input type="hidden" id="discount-input-hidden" name="discount">
                     <input type="hidden" id="payment-method-input" name="payment_method">
                 </form>
 
                 <button type="button" id="checkout-btn" class="btn btn-success w-100 btn-lg" disabled>
-                    <i class="bi bi-check-circle"></i> Checkout
+                    <i class="bi bi-check-circle"></i> Complete Sale
                 </button>
                 <button type="button" id="clear-cart-btn" class="btn btn-outline-danger w-100 mt-2">
                     <i class="bi bi-trash"></i> Clear Cart
@@ -130,7 +174,8 @@
 <script>
 let cart = [];
 const products = JSON.parse(document.getElementById('products-data').textContent);
-let productSelect, productQty, addBtn, checkoutBtn, clearBtn, discountInput, paymentMethodSelect, searchInput, searchBtn, searchResults;
+let productSelect, productQty, productPrice, addBtn, checkoutBtn, clearBtn, discountInput, paymentMethodSelect, 
+    searchInput, searchBtn, searchResults, customerSelect, overridePriceCheck;
 
 // Global functions for inline onclick handlers
 window.removeFromCart = function(idx) {
@@ -146,8 +191,19 @@ window.updateQty = function(idx, qty) {
     }
 };
 
-window.selectFromSearch = function(productId, name, price, stock) {
+window.updatePrice = function(idx, price) {
+    const p = parseFloat(price);
+    if (p >= 0) {
+        cart[idx].price = p;
+        updateCart();
+    }
+};
+
+window.selectFromSearch = function(productId, name, price, stock, isService) {
     productSelect.value = productId;
+    productPrice.value = price.toFixed(2);
+    productPrice.readOnly = true;
+    overridePriceCheck.checked = false;
     searchInput.value = name;
     searchResults.style.display = 'none';
     productQty.focus();
@@ -158,7 +214,7 @@ function updateCart() {
     const cartItemsEl = document.getElementById('cart-items');
     
     if (cart.length === 0) {
-        cartItemsEl.innerHTML = '<p class="text-muted text-center">Cart is empty</p>';
+        cartItemsEl.innerHTML = '<p class="text-muted text-center py-4">Your cart is empty</p>';
         checkoutBtn.disabled = true;
     } else {
         cartItemsEl.innerHTML = cart.map((item, idx) => `
@@ -166,15 +222,23 @@ function updateCart() {
                 <div class="card-body p-2">
                     <div class="d-flex justify-content-between align-items-start">
                         <div style="flex: 1;">
-                            <strong>${item.product_name}</strong>
-                            <div class="small text-muted">₱${item.price.toFixed(2)} × ${item.qty} = ₱${(item.price * item.qty).toFixed(2)}</div>
+                            <strong class="small">${item.product_name}</strong>
+                            <div class="small text-muted">₱${item.price.toFixed(2)} × ${item.qty}</div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFromCart(${idx})">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                        <div class="text-end">
+                            <div class="small"><strong>₱${(item.price * item.qty).toFixed(2)}</strong></div>
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeFromCart(${idx})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="mt-2">
-                        <input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" onchange="updateQty(${idx}, this.value)">
+                    <div class="mt-2 row g-1">
+                        <div class="col">
+                            <input type="number" class="form-control form-control-sm" value="${item.qty}" min="1" onchange="updateQty(${idx}, this.value)" placeholder="Qty">
+                        </div>
+                        <div class="col">
+                            <input type="number" class="form-control form-control-sm" value="${item.price.toFixed(2)}" step="0.01" min="0" onchange="updatePrice(${idx}, this.value)" placeholder="Price">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -194,6 +258,7 @@ function updateCart() {
 document.addEventListener('DOMContentLoaded', function(){
     productSelect = document.getElementById('product-select');
     productQty = document.getElementById('product-qty');
+    productPrice = document.getElementById('product-price');
     addBtn = document.getElementById('add-to-cart-btn');
     checkoutBtn = document.getElementById('checkout-btn');
     clearBtn = document.getElementById('clear-cart-btn');
@@ -202,11 +267,41 @@ document.addEventListener('DOMContentLoaded', function(){
     searchInput = document.getElementById('product-search-input');
     searchBtn = document.getElementById('product-search-btn');
     searchResults = document.getElementById('product-search-results');
+    customerSelect = document.getElementById('customer-select');
+    overridePriceCheck = document.getElementById('override-price-check');
+
+    // Product selection
+    productSelect.addEventListener('change', function(){
+        if (this.value) {
+            const option = this.options[this.selectedIndex];
+            productPrice.value = parseFloat(option.dataset.price).toFixed(2);
+            productPrice.readOnly = true;
+            overridePriceCheck.checked = false;
+            productQty.focus();
+        } else {
+            productPrice.value = '';
+        }
+    });
+
+    // Price override toggle
+    overridePriceCheck.addEventListener('change', function(){
+        productPrice.readOnly = !this.checked;
+        if (this.checked) {
+            productPrice.focus();
+            productPrice.select();
+        } else {
+            const option = productSelect.options[productSelect.selectedIndex];
+            if (option) {
+                productPrice.value = parseFloat(option.dataset.price).toFixed(2);
+            }
+        }
+    });
 
     // Add to cart
     addBtn.addEventListener('click', function(){
         const productId = parseInt(productSelect.value);
         const qty = parseInt(productQty.value);
+        const price = parseFloat(productPrice.value);
 
         if (!productId) {
             alert('Please select a product');
@@ -214,27 +309,32 @@ document.addEventListener('DOMContentLoaded', function(){
         }
 
         if (qty <= 0) {
-            alert('Quantity must be greater than 0');
+            alert('Please enter a quantity greater than 0');
+            return;
+        }
+
+        if (price < 0) {
+            alert('Price cannot be negative');
             return;
         }
 
         const product = products.find(p => p.id === productId);
         if (!product) return;
 
-        if (qty > product.stock_on_hand) {
-            alert(`Only ${product.stock_on_hand} in stock`);
+        if (!product.is_service && qty > product.stock_on_hand) {
+            alert(`Not enough stock. Available: ${product.stock_on_hand}`);
             return;
         }
 
         // Check if already in cart
-        const existing = cart.find(item => item.product_id === productId);
+        const existing = cart.find(item => item.product_id === productId && item.price === price);
         if (existing) {
             existing.qty += qty;
         } else {
             cart.push({
                 product_id: productId,
                 product_name: product.name,
-                price: parseFloat(product.sell_price),
+                price: price,
                 qty: qty
             });
         }
@@ -242,6 +342,9 @@ document.addEventListener('DOMContentLoaded', function(){
         // Reset and refresh
         productSelect.value = '';
         productQty.value = '1';
+        productPrice.value = '';
+        searchInput.value = '';
+        overridePriceCheck.checked = false;
         updateCart();
     });
 
@@ -253,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
 
-        const results = products.filter(p => !p.is_service && (p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))));
+        const results = products.filter(p => p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q)));
         if (results.length === 0) {
             searchResults.innerHTML = '<div class="list-group-item">No products found</div>';
             searchResults.style.display = 'block';
@@ -261,12 +364,12 @@ document.addEventListener('DOMContentLoaded', function(){
         }
 
         searchResults.innerHTML = results.map(p => `
-            <button type="button" class="list-group-item list-group-item-action" onclick="selectFromSearch(${p.id}, '${p.name}', ${p.sell_price}, ${p.stock_on_hand})">
+            <button type="button" class="list-group-item list-group-item-action" onclick="selectFromSearch(${p.id}, '${p.name}', ${p.sell_price}, ${p.stock_on_hand}, ${p.is_service})">
                 <div class="d-flex justify-content-between">
                     <strong>${p.name}</strong>
                     <span class="text-muted">₱${p.sell_price.toFixed(2)}</span>
                 </div>
-                <small class="text-muted">Stock: ${p.stock_on_hand}</small>
+                <small class="text-muted">${p.is_service ? 'Service' : 'Stock: ' + p.stock_on_hand}</small>
             </button>
         `).join('');
         searchResults.style.display = 'block';
@@ -275,15 +378,15 @@ document.addEventListener('DOMContentLoaded', function(){
     searchBtn.addEventListener('click', function(){
         const q = searchInput.value.trim().toLowerCase();
         if (q.length < 1) return;
-        const results = products.filter(p => !p.is_service && (p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))));
+        const results = products.filter(p => p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q)));
         if (results.length > 0) {
-            selectFromSearch(results[0].id, results[0].name, results[0].sell_price, results[0].stock_on_hand);
+            selectFromSearch(results[0].id, results[0].name, results[0].sell_price, results[0].stock_on_hand, results[0].is_service);
         }
     });
 
     // Clear cart
     clearBtn.addEventListener('click', function(){
-        if (confirm('Clear the cart?')) {
+        if (confirm('Are you sure you want to clear the cart?')) {
             cart = [];
             updateCart();
         }
@@ -292,11 +395,12 @@ document.addEventListener('DOMContentLoaded', function(){
     // Checkout
     checkoutBtn.addEventListener('click', function(){
         if (cart.length === 0) {
-            alert('Cart is empty');
+            alert('Your cart is empty. Please add items before checking out.');
             return;
         }
 
         document.getElementById('items-input').value = JSON.stringify(cart);
+        document.getElementById('customer-input').value = customerSelect.value || '';
         document.getElementById('discount-input-hidden').value = discountInput.value;
         document.getElementById('payment-method-input').value = paymentMethodSelect.value;
 
@@ -305,6 +409,15 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // Discount changes
     discountInput.addEventListener('change', updateCart);
+    discountInput.addEventListener('input', updateCart);
+
+    // Enter key support
+    productQty.addEventListener('keypress', function(e){
+        if (e.key === 'Enter') addBtn.click();
+    });
+    productPrice.addEventListener('keypress', function(e){
+        if (e.key === 'Enter') addBtn.click();
+    });
 });
 </script>
 {% endblock %}

@@ -1,42 +1,87 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}New Repair - JC Icons{% endblock %}
+{% block title %}New Repair Ticket - JC Icons{% endblock %}
 
 {% block content %}
 <h1 class="mb-4"><i class="bi bi-plus-circle"></i> Create New Repair Ticket</h1>
 
 <form method="POST" action="{{ url_for('repairs.add_repair') }}" class="needs-validation" novalidate>
-    <!-- CLIENT INFORMATION -->
+    <!-- CUSTOMER SELECTION -->
     <div class="card mb-4">
         <div class="card-header bg-light">
-            <h5 class="mb-0"><i class="bi bi-person"></i> Client Information</h5>
+            <h5 class="mb-0"><i class="bi bi-person-check"></i> Customer Information</h5>
         </div>
         <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="customer_name" class="form-label">Full Name *</label>
-                    <input type="text" class="form-control" id="customer_name" name="customer_name" required>
+            <div class="mb-3">
+                <label class="form-label fw-bold">How would you like to handle customer information?</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" id="customer_mode_existing" name="customer_mode" value="existing" checked onchange="toggleCustomerMode()">
+                    <label class="form-check-label" for="customer_mode_existing">
+                        Select an existing customer
+                    </label>
                 </div>
-                <div class="col-md-6">
-                    <label for="business_name" class="form-label">Company Name (if applicable)</label>
-                    <input type="text" class="form-control" id="business_name" name="business_name">
-                </div>
-            </div>
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="customer_phone" class="form-label">Phone Number *</label>
-                    <input type="tel" class="form-control" id="customer_phone" name="customer_phone" required>
-                    <small class="text-muted">Used to link to existing customer</small>
-                </div>
-                <div class="col-md-6">
-                    <label for="customer_email" class="form-label">Email Address</label>
-                    <input type="email" class="form-control" id="customer_email" name="customer_email">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" id="customer_mode_new" name="customer_mode" value="new" onchange="toggleCustomerMode()">
+                    <label class="form-check-label" for="customer_mode_new">
+                        Create a new customer or update existing customer details
+                    </label>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-12">
-                    <label for="customer_address" class="form-label">Address</label>
-                    <textarea class="form-control" id="customer_address" name="customer_address" rows="2"></textarea>
+
+            <!-- Existing Customer Selection -->
+            <div id="existing-customer-section" class="mb-3">
+                <label for="existing_customer_id" class="form-label">Select Customer *</label>
+                <select class="form-select" id="existing_customer_id" name="existing_customer_id">
+                    <option value="">-- Choose a customer --</option>
+                    {% for customer in customers %}
+                    <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.phone }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- New/Update Customer Details -->
+            <div id="new-customer-section" style="display: none;">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="customer_name" class="form-label">Full Name *</label>
+                        <input type="text" class="form-control" id="customer_name" name="customer_name">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="business_name" class="form-label">Company Name (optional)</label>
+                        <input type="text" class="form-control" id="business_name" name="business_name">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="customer_phone" class="form-label">Phone Number *</label>
+                        <input type="tel" class="form-control" id="customer_phone" name="customer_phone">
+                        <small class="text-muted">Used to link with existing customers</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="customer_email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="customer_email" name="customer_email">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="customer_address" class="form-label">Address</label>
+                        <textarea class="form-control" id="customer_address" name="customer_address" rows="2"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="customer_type" class="form-label">Customer Type</label>
+                        <select class="form-select" id="customer_type" name="customer_type">
+                            <option value="Individual">Individual</option>
+                            <option value="Business">Business</option>
+                            <option value="Government">Government</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="update_customer_details" name="update_customer_details" value="yes">
+                    <label class="form-check-label" for="update_customer_details">
+                        If customer already exists, update their information with the details above
+                    </label>
                 </div>
             </div>
         </div>
@@ -52,20 +97,22 @@
                 <div class="col-md-4">
                     <label for="device_type" class="form-label">Device Type *</label>
                     <select class="form-select" id="device_type" name="device_type" required>
-                        <option value="">-- Select --</option>
+                        <option value="">-- Select device type --</option>
                         <option value="printer">Printer</option>
                         <option value="laptop">Laptop</option>
                         <option value="desktop">Desktop</option>
+                        <option value="mobile">Mobile Phone</option>
+                        <option value="tablet">Tablet</option>
                         <option value="other">Other</option>
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label for="brand" class="form-label">Brand</label>
-                    <input type="text" class="form-control" id="brand" name="brand">
+                    <label for="brand" class="form-label">Brand (Make)</label>
+                    <input type="text" class="form-control" id="brand" name="brand" placeholder="e.g., HP, Dell, Samsung">
                 </div>
                 <div class="col-md-4">
                     <label for="model" class="form-label">Model</label>
-                    <input type="text" class="form-control" id="model" name="model">
+                    <input type="text" class="form-control" id="model" name="model" placeholder="e.g., ProBook 450">
                 </div>
             </div>
             <div class="row mb-3">
@@ -74,7 +121,7 @@
                     <input type="text" class="form-control" id="serial_number" name="serial_number">
                 </div>
                 <div class="col-md-6">
-                    <label for="device_age" class="form-label">Approximate Age of Device</label>
+                    <label for="device_age" class="form-label">Approximate Age</label>
                     <input type="text" class="form-control" id="device_age" name="device_age" placeholder="e.g., 2 years, 6 months">
                 </div>
             </div>
@@ -97,9 +144,19 @@
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <label for="accessories" class="form-label">Accessories</label>
-                    <textarea class="form-control" id="accessories" name="accessories" rows="2" placeholder="e.g., Power cable, manual, etc."></textarea>
+                    <label for="accessories" class="form-label">Included Accessories</label>
+                    <textarea class="form-control" id="accessories" name="accessories" rows="2" placeholder="e.g., Power cable, manual, charger"></textarea>
                 </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="issue_description" class="form-label">Issue Description *</label>
+                <textarea class="form-control" id="issue_description" name="issue_description" rows="3" required placeholder="Describe the problem the customer is experiencing"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="symptoms" class="form-label">Symptoms Observed</label>
+                <textarea class="form-control" id="symptoms" name="symptoms" rows="2" placeholder="e.g., Device won't turn on, makes noise, overheats"></textarea>
             </div>
         </div>
     </div>
@@ -110,113 +167,44 @@
             <h5 class="mb-0"><i class="bi bi-tools"></i> Service Request</h5>
         </div>
         <div class="card-body">
-            <label class="form-label fw-bold">Type of Service Needed (Select all that apply) *</label>
+            <label class="form-label fw-bold">Type of Service (Check all that apply)</label>
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="service_diagnostics" name="service_type" value="Diagnostics">
-                        <label class="form-check-label" for="service_diagnostics">Diagnostics</label>
+                        <label class="form-check-label" for="service_diagnostics">Diagnostics / Troubleshooting</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_hardware" name="service_type" value="Hardware Repair">
-                        <label class="form-check-label" for="service_hardware">Hardware Repair</label>
+                        <input class="form-check-input" type="checkbox" id="service_repair" name="service_type" value="Hardware Repair">
+                        <label class="form-check-label" for="service_repair">Hardware Repair</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_software" name="service_type" value="Software Repair">
-                        <label class="form-check-label" for="service_software">Software Repair</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_os" name="service_type" value="OS Installation/Reinstallation">
-                        <label class="form-check-label" for="service_os">OS Installation/Reinstallation</label>
+                        <input class="form-check-input" type="checkbox" id="service_upgrade" name="service_type" value="Upgrade">
+                        <label class="form-check-label" for="service_upgrade">Upgrade</label>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_virus" name="service_type" value="Virus Removal">
-                        <label class="form-check-label" for="service_virus">Virus Removal</label>
+                        <input class="form-check-input" type="checkbox" id="service_cleaning" name="service_type" value="Cleaning">
+                        <label class="form-check-label" for="service_cleaning">Cleaning</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_data" name="service_type" value="Data Backup/Recovery">
-                        <label class="form-check-label" for="service_data">Data Backup/Recovery</label>
+                        <input class="form-check-input" type="checkbox" id="service_software" name="service_type" value="Software Support">
+                        <label class="form-check-label" for="service_software">Software Support</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_upgrade" name="service_type" value="Upgrade (RAM/SSD)">
-                        <label class="form-check-label" for="service_upgrade">Upgrade (RAM/SSD)</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_maintenance" name="service_type" value="Maintenance/Cleaning">
-                        <label class="form-check-label" for="service_maintenance">Maintenance/Cleaning</label>
+                        <input class="form-check-input" type="checkbox" id="service_other" name="service_type" value="Other">
+                        <label class="form-check-label" for="service_other">Other</label>
                     </div>
                 </div>
-            </div>
-
-            <div class="mt-4">
-                <label for="issue_description" class="form-label fw-bold">Problem Description *</label>
-                <small class="text-muted d-block mb-2">Describe the issue(s): Error messages, paper jams, print quality issues, connectivity problems, etc.</small>
-                <textarea class="form-control" id="issue_description" name="issue_description" rows="4" required placeholder="Detailed description of the problem..."></textarea>
-            </div>
-
-            <div class="mt-3">
-                <label for="symptoms" class="form-label">Additional Symptoms / Notes</label>
-                <textarea class="form-control" id="symptoms" name="symptoms" rows="2" placeholder="Any other observations or symptoms"></textarea>
-            </div>
-
-            <div class="mt-3">
-                <label for="device_password" class="form-label">Device Password (if applicable)</label>
-                <input type="password" class="form-control" id="device_password" name="device_password" placeholder="Password for login/access if needed">
             </div>
         </div>
     </div>
 
-    <!-- REPAIR DETAILS & AUTHORIZATION -->
+    <!-- COST ESTIMATE -->
     <div class="card mb-4">
         <div class="card-header bg-light">
-            <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> Repair Details & Authorization</h5>
-        </div>
-        <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-3">
-                    <label for="status" class="form-label">Initial Status</label>
-                    <select class="form-select" id="status" name="status">
-                        <option value="Received" selected>Received</option>
-                        <option value="Diagnosing">Diagnosing</option>
-                        <option value="Repairing">Repairing</option>
-                        <option value="Waiting Parts">Waiting Parts</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label for="priority" class="form-label">Priority</label>
-                    <select class="form-select" id="priority" name="priority">
-                        <option value="Low">Low</option>
-                        <option value="Normal" selected>Normal</option>
-                        <option value="High">High</option>
-                        <option value="Emergency">Emergency</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label for="technician_name_override" class="form-label">
-                        Technician in Charge
-                        <i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-title="Leave empty to use: {{ current_user.full_name }} and put space to input name later"></i>
-                    </label>
-                    <input type="text" class="form-control" id="technician_name_override" name="technician_name_override" placeholder="Enter technician name if different">
-                </div>
-            </div>
-
-            <div class="alert alert-info">
-                <h6><i class="bi bi-info-circle"></i> Authorization Agreement</h6>
-                <ul class="mb-0 small">
-                    <li>I authorize the service provider to perform diagnostics, testing, and necessary handling of my device.</li>
-                    <li>I confirm that I am the authorized owner of the equipment.</li>
-                    <li>I authorize the use of replacement parts (new/refurbished/third-party).</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <!-- FINANCIAL INFORMATION (Optional at intake) -->
-    <div class="card mb-4">
-        <div class="card-header bg-light">
-            <h5 class="mb-0"><i class="bi bi-cash-coin"></i> Financial Information</h5>
+            <h5 class="mb-0"><i class="bi bi-cash-coin"></i> Cost Estimate</h5>
         </div>
         <div class="card-body">
             <div class="row">
@@ -236,11 +224,64 @@
         </div>
     </div>
 
-    <div class="d-grid gap-2 d-sm-flex justify-content-sm-end mb-4">
-        <a href="{{ url_for('repairs.repairs') }}" class="btn btn-outline-secondary">Cancel</a>
-        <button type="submit" class="btn btn-primary btn-lg">
-            <i class="bi bi-plus-circle"></i> Create Repair Ticket & Print Form
+    <!-- PRIORITY & STATUS -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Priority & Status</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="priority" class="form-label">Priority Level</label>
+                    <select class="form-select" id="priority" name="priority">
+                        <option value="Low">Low</option>
+                        <option value="Normal" selected>Normal</option>
+                        <option value="High">High</option>
+                        <option value="Emergency">Emergency</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="status" class="form-label">Initial Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="Received" selected>Received</option>
+                        <option value="Diagnosing">Diagnosing</option>
+                        <option value="Waiting Parts">Waiting Parts</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORM ACTIONS -->
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
+        <a href="{{ url_for('repairs.repairs') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-x-circle"></i> Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Create Repair Ticket
         </button>
     </div>
 </form>
+
+<script>
+function toggleCustomerMode() {
+    const modeExisting = document.getElementById('customer_mode_existing').checked;
+    const existingSection = document.getElementById('existing-customer-section');
+    const newSection = document.getElementById('new-customer-section');
+    
+    if (modeExisting) {
+        existingSection.style.display = 'block';
+        newSection.style.display = 'none';
+        document.getElementById('existing_customer_id').required = true;
+        document.getElementById('customer_phone').required = false;
+        document.getElementById('customer_name').required = false;
+    } else {
+        existingSection.style.display = 'none';
+        newSection.style.display = 'block';
+        document.getElementById('existing_customer_id').required = false;
+        document.getElementById('customer_phone').required = true;
+        document.getElementById('customer_name').required = true;
+    }
+}
+</script>
 {% endblock %}

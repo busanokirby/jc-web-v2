@@ -50,10 +50,10 @@
         <div class="row mb-3">
             <div class="col-md-6">
                 <h6 class="text-muted mb-1">Bill To</h6>
-                {% if sale.owner %}
-                <strong class="small">{{ sale.owner.name }}</strong>
-                {% if sale.owner.phone %}<br><small><i class="bi bi-telephone"></i> {{ sale.owner.phone }}</small>{% endif %}
-                {% if sale.owner.address %}<br><small><i class="bi bi-geo-alt"></i> {{ sale.owner.address }}</small>{% endif %}
+                {% if sale.customer %}
+                <strong class="small">{{ sale.customer.name }}</strong>
+                {% if sale.customer.phone %}<br><small><i class="bi bi-telephone"></i> {{ sale.customer.phone }}</small>{% endif %}
+                {% if sale.customer.address %}<br><small><i class="bi bi-geo-alt"></i> {{ sale.customer.address }}</small>{% endif %}
                 {% else %}
                 <small><em>Walk-in Customer</em></small>
                 {% endif %}
@@ -68,7 +68,7 @@
                 </p>
                 {% if sale.payments %}
                 <p class="mb-0 small">
-                    <strong>Payment Methods:</strong><br>
+                    <strong>Payment Method:</strong><br>
                     {% for payment in sale.payments %}
                     <small>{{ payment.method }}: ₱{{ "%.2f"|format(payment.amount) }}</small><br>
                     {% endfor %}
@@ -307,6 +307,22 @@
         body {
             orphans: 2;
             widows: 2;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        .d-print-none {
+            display: none !important;
+        }
+        
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+            break-inside: avoid;
+        }
+        
+        .mb-4 {
+            margin-bottom: 1rem !important;
         }
     }
 </style>
