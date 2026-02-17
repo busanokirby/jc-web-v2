@@ -1,347 +1,491 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Too Many Requests (429) - JC Icons</title>
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="/_sdk/element_sdk.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
-    * { font-family: 'DM Sans', sans-serif; }
-    
-    @keyframes float {
-      0%, 100% { transform: translateY(0px) rotate(0deg); }
-      50% { transform: translateY(-20px) rotate(5deg); }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
-    
-    @keyframes pulse-ring {
-      0% { transform: scale(0.8); opacity: 0.8; }
-      50% { transform: scale(1.2); opacity: 0.3; }
-      100% { transform: scale(0.8); opacity: 0.8; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
     }
-    
-    @keyframes countdown {
-      0% { stroke-dashoffset: 0; }
-      100% { stroke-dashoffset: 283; }
+
+    main {
+      width: 100%;
+      max-width: 480px;
     }
-    
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-      20%, 40%, 60%, 80% { transform: translateX(2px); }
-    }
-    
-    .float-animation {
-      animation: float 6s ease-in-out infinite;
-    }
-    
-    .pulse-ring {
-      animation: pulse-ring 2s ease-in-out infinite;
-    }
-    
-    .countdown-circle {
-      animation: countdown 300s linear forwards;
-    }
-    
-    .shake-animation {
-      animation: shake 0.5s ease-in-out;
-    }
-    
-    .glass-card {
+
+    .card {
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.30);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 20px 25px -5px rgba(239, 68, 68, 0.10);
     }
-    
-    .gradient-text {
+
+    .icon-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .relative {
+      position: relative;
+      width: 96px;
+      height: 96px;
+    }
+
+    .countdown-ring {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .icon-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-box {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(to bottom right, #ef4444, #f97316);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.30);
+      animation: shake 0.5s ease-in-out;
+    }
+
+    .icon-svg {
+      width: 32px;
+      height: 32px;
+      stroke: #fff;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .badge {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .badge-text {
+      padding: 6px 12px;
+      background-color: #fee2e2;
+      color: #b91c1c;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 9999px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 8px;
       background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+
+    .subtitle {
+      color: #64748b;
+      text-align: center;
+      font-size: 14px;
+      margin-bottom: 24px;
+      line-height: 1.4;
+    }
+
+    .timer-box {
+      background-color: #f1f5f9;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .timer-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .timer-label-icon {
+      width: 16px;
+      height: 16px;
+      stroke: #94a3b8;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .timer-label-text {
+      color: #64748b;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .timer-display {
+      font-size: 32px;
+      font-weight: 800;
+      text-align: center;
+      color: #1e293b;
+      font-family: "Courier New", monospace;
+      letter-spacing: 0.08em;
+    }
+
+    .timer-message {
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    .info-sections {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 12px;
+      background-color: #fef2f2;
+      border-radius: 10px;
+      user-select: none;
+      transition: background-color 0.2s ease;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+
+    summary:hover { background-color: rgba(251, 113, 113, 0.10); }
+
+    .summary-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .summary-icon-box {
+      width: 28px;
+      height: 28px;
+      background-color: #fee2e2;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .summary-icon-box.warning { background-color: #fef3c7; }
+
+    .summary-icon {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: #dc2626;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .summary-icon.warning { stroke: #d97706; }
+
+    .summary-title {
+      font-weight: 700;
+      color: #1e293b;
+      font-size: 14px;
+    }
+
+    .chevron {
+      width: 16px;
+      height: 16px;
+      stroke: #94a3b8;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.3s ease;
+    }
+
+    details[open] .chevron { transform: rotate(180deg); }
+
+    .details-content {
+      margin-top: 8px;
+      margin-left: 36px;
+      list-style: none;
+    }
+
+    .details-content li {
+      display: flex;
+      gap: 8px;
+      color: #64748b;
+      font-size: 12px;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    .bullet { color: #f87171; font-weight: 900; flex-shrink: 0; }
+    .bullet.warning { color: #fbbf24; }
+
+    .action-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px 16px;
+      background: linear-gradient(to right, #1e293b, #334155);
+      color: #fff;
+      font-weight: 800;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      font-size: 14px;
+      transition: all 0.25s ease;
+      box-shadow: 0 10px 15px -3px rgba(30, 41, 59, 0.20);
+    }
+
+    .action-button:hover {
+      background: linear-gradient(to right, #0f172a, #1e293b);
+      box-shadow: 0 20px 25px -5px rgba(30, 41, 59, 0.30);
+      transform: translateY(-2px);
+    }
+
+    .action-button.disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      pointer-events: none;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .button-icon {
+      width: 16px;
+      height: 16px;
+      stroke: #fff;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .footer {
+      text-align: center;
+      color: #64748b;
+      font-size: 12px;
+      margin-top: 16px;
+    }
+
+    .ok { color: #10b981 !important; }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+      20%, 40%, 60%, 80% { transform: translateX(2px); }
+    }
+
+    @media (max-width: 640px) {
+      .card { padding: 20px; }
+      h1 { font-size: 20px; }
+      .timer-display { font-size: 28px; }
+    }
   </style>
 </head>
-<body class="h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-auto">
-  
-  <!-- Animated Background Elements -->
-  <div class="fixed inset-0 overflow-hidden pointer-events-none">
-    <div class="absolute top-20 left-10 w-72 h-72 bg-red-500/10 rounded-full blur-3xl float-animation"></div>
-    <div class="absolute bottom-20 right-10 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl float-animation" style="animation-delay: -2s;"></div>
-    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-3xl pulse-ring"></div>
-  </div>
 
-  <main class="relative min-h-full flex items-center justify-center p-6">
-    <div class="w-full max-w-lg">
-      
-      <!-- Main Card -->
-      <div class="glass-card rounded-3xl shadow-2xl shadow-red-500/10 p-8 md:p-10">
-        
-        <!-- Icon with Timer -->
-        <div class="flex justify-center mb-8">
-          <div class="relative">
-            <!-- Countdown Ring -->
-            <svg class="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="45" fill="none" stroke="#fee2e2" stroke-width="4"/>
-              <circle id="countdown-progress" cx="50" cy="50" r="45" fill="none" stroke="url(#gradient)" stroke-width="4" 
-                      stroke-linecap="round" stroke-dasharray="283" class="countdown-circle"/>
-              <defs>
-                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" style="stop-color:#ef4444"/>
-                  <stop offset="100%" style="stop-color:#f97316"/>
-                </linearGradient>
-              </defs>
-            </svg>
-            
-            <!-- Center Icon -->
-            <div class="absolute inset-0 flex items-center justify-center">
-              <div class="w-20 h-20 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/30 shake-animation">
-                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                </svg>
-              </div>
+<body>
+  <main>
+    <div class="card">
+      <div class="icon-container">
+        <div class="relative">
+          <svg class="countdown-ring" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#fee2e2" stroke-width="4"></circle>
+            <circle id="ring-progress"
+                    cx="50" cy="50" r="45"
+                    fill="none" stroke="#ef4444" stroke-width="4"
+                    stroke-linecap="round"
+                    stroke-dasharray="283"
+                    stroke-dashoffset="0"></circle>
+          </svg>
+
+          <div class="icon-center">
+            <div class="icon-box" aria-hidden="true">
+              <svg class="icon-svg" viewBox="0 0 24 24">
+                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
             </div>
           </div>
         </div>
-
-        <!-- Error Code Badge -->
-        <div class="flex justify-center mb-4">
-          <span class="px-4 py-1.5 bg-red-100 text-red-700 text-sm font-semibold rounded-full">
-            Error 429
-          </span>
-        </div>
-
-        <!-- Title -->
-        <h1 id="error-title" class="text-3xl md:text-4xl font-bold text-center gradient-text mb-3">
-          Too Many Requests
-        </h1>
-        
-        <!-- Subtitle -->
-        <p id="error-subtitle" class="text-slate-600 text-center text-lg mb-8">
-          You have exceeded the maximum number of login attempts.
-        </p>
-
-        <!-- Timer Display -->
-        <div class="bg-slate-50 rounded-2xl p-6 mb-8">
-          <div class="flex items-center justify-center gap-3 mb-4">
-            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span class="text-slate-500 font-medium">Time remaining</span>
-          </div>
-          <div id="timer-display" class="text-4xl font-bold text-center text-slate-800 font-mono tracking-wider">
-            05:00
-          </div>
-          <p id="wait-message" class="text-sm text-slate-500 text-center mt-3">
-            Please wait 2 minutes and 30 seconds before trying again
-          </p>
-        </div>
-
-        <!-- Info Sections -->
-        <div class="space-y-4 mb-8">
-          
-          <!-- What happened -->
-          <details class="group" open>
-            <summary class="flex items-center justify-between cursor-pointer p-4 bg-red-50 rounded-xl hover:bg-red-100/80 transition-colors">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                  <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                </div>
-                <span class="font-semibold text-slate-800">What happened?</span>
-              </div>
-              <svg class="w-5 h-5 text-slate-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </summary>
-            <ul class="mt-3 ml-11 space-y-2 text-slate-600 text-sm pb-2">
-              <li class="flex items-start gap-2">
-                <span class="text-red-400 mt-1">•</span>
-                Too many failed login attempts detected
-              </li>
-              <li class="flex items-start gap-2">
-                <span class="text-red-400 mt-1">•</span>
-                Your IP address has been temporarily rate-limited
-              </li>
-              <li class="flex items-start gap-2">
-                <span class="text-red-400 mt-1">•</span>
-                This is a security measure to protect your account
-              </li>
-            </ul>
-          </details>
-
-          <!-- Tips -->
-          <details class="group">
-            <summary class="flex items-center justify-between cursor-pointer p-4 bg-amber-50 rounded-xl hover:bg-amber-100/80 transition-colors">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-                  <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                  </svg>
-                </div>
-                <span class="font-semibold text-slate-800">Helpful tips</span>
-              </div>
-              <svg class="w-5 h-5 text-slate-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </summary>
-            <ul class="mt-3 ml-11 space-y-2 text-slate-600 text-sm pb-2">
-              <li class="flex items-start gap-2">
-                <span class="text-amber-400 mt-1">•</span>
-                Double-check your username and password
-              </li>
-              <li class="flex items-start gap-2">
-                <span class="text-amber-400 mt-1">•</span>
-                Ensure Caps Lock is not enabled
-              </li>
-              <li class="flex items-start gap-2">
-                <span class="text-amber-400 mt-1">•</span>
-                If you forgot your password, contact an administrator
-              </li>
-            </ul>
-          </details>
-        </div>
-
-        <!-- Action Button -->
-        <a href="/login" id="login-btn" class="block w-full py-4 px-6 bg-gradient-to-r from-slate-800 to-slate-700 hover:from-slate-700 hover:to-slate-600 text-white font-semibold rounded-2xl text-center transition-all duration-300 shadow-lg shadow-slate-800/20 hover:shadow-xl hover:shadow-slate-800/30 hover:-translate-y-0.5">
-          <span id="button-text" class="flex items-center justify-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"/>
-            </svg>
-            Back to Login
-          </span>
-        </a>
-
       </div>
 
-      <!-- Footer -->
-      <p class="text-center text-slate-500 text-sm mt-6">
-        Need help? Contact your system administrator
-      </p>
+      <div class="badge">
+        <span class="badge-text">Error 429</span>
+      </div>
 
+      <h1 id="error-title">Too Many Requests</h1>
+      <p class="subtitle" id="error-subtitle">You have exceeded the maximum number of login attempts.</p>
+
+      <div class="timer-box" role="status" aria-live="polite">
+        <div class="timer-label">
+          <svg class="timer-label-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span class="timer-label-text">Time remaining</span>
+        </div>
+
+        <div class="timer-display" id="timer-display">02:30</div>
+        <p class="timer-message" id="wait-message">Please wait 2 minutes and 30 seconds before trying again</p>
+      </div>
+
+      <div class="info-sections">
+        <details open>
+          <summary>
+            <div class="summary-content">
+              <div class="summary-icon-box">
+                <svg class="summary-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+              <span class="summary-title">What happened?</span>
+            </div>
+
+            <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </summary>
+
+          <ul class="details-content">
+            <li><span class="bullet">•</span> Too many failed login attempts detected</li>
+            <li><span class="bullet">•</span> Your IP address has been temporarily rate-limited</li>
+            <li><span class="bullet">•</span> This is a security measure to protect your account</li>
+          </ul>
+        </details>
+
+        <details>
+          <summary>
+            <div class="summary-content">
+              <div class="summary-icon-box warning">
+                <svg class="summary-icon warning" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0114 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+              </div>
+              <span class="summary-title">Helpful tips</span>
+            </div>
+
+            <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </summary>
+
+          <ul class="details-content">
+            <li><span class="bullet warning">•</span> Double-check your username and password</li>
+            <li><span class="bullet warning">•</span> Ensure Caps Lock is not enabled</li>
+            <li><span class="bullet warning">•</span> If you forgot your password, contact an administrator</li>
+          </ul>
+        </details>
+      </div>
+
+      <a href="/login" class="action-button disabled" id="login-btn" aria-disabled="true">
+        <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+        </svg>
+        <span id="button-text">Back to Login</span>
+      </a>
     </div>
+
+    <p class="footer">Need help? Contact your system administrator</p>
   </main>
 
   <script>
-    const defaultConfig = {
-      error_title: 'Too Many Requests',
-      error_subtitle: 'You have exceeded the maximum number of login attempts.',
-      wait_time: 'Please wait 2 minutes and 30 seconds before trying again',
-      button_text: 'Back to Login',
-      background_color: '#0f172a',
-      surface_color: '#ffffff',
-      text_color: '#334155',
-      primary_action_color: '#1e293b',
-      accent_color: '#ef4444'
-    };
+    // ====== LOCAL CONFIG ======
+    // Change seconds here if you want a different lockout time:
+    const TOTAL_SECONDS = 150; // 2.5 minutes
+    // Optional: auto-enable only, no redirect. If you want redirect, set to true.
+    const AUTO_REDIRECT_ON_FINISH = false;
 
-    let config = { ...defaultConfig };
-    let countdownInterval;
+    // ====== Countdown Logic ======
+    const display = document.getElementById('timer-display');
+    const message = document.getElementById('wait-message');
+    const ring = document.getElementById('ring-progress');
+    const btn = document.getElementById('login-btn');
 
-    // Countdown Timer
-    function startCountdown() {
-      let timeLeft = 150; // 2 minutes and 30 seconds in seconds
-      
-      function updateTimer() {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        const display = document.getElementById('timer-display');
-        if (display) {
-          display.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const CIRCUMFERENCE = 283; // matches stroke-dasharray
+    let timeLeft = TOTAL_SECONDS;
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+
+    function setRingProgress(remaining, total) {
+      // remaining: total -> 0
+      const ratio = Math.max(0, Math.min(1, remaining / total));
+      const offset = CIRCUMFERENCE * (1 - ratio);
+      ring.style.strokeDashoffset = String(offset);
+    }
+
+    function enableButton() {
+      btn.classList.remove('disabled');
+      btn.setAttribute('aria-disabled', 'false');
+    }
+
+    function tick() {
+      // Update UI first (so 05:00 shows immediately)
+      display.textContent = formatTime(timeLeft);
+      setRingProgress(timeLeft, TOTAL_SECONDS);
+
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        display.textContent = '00:00';
+        display.classList.add('ok');
+        message.textContent = 'You may try again now.';
+        enableButton();
+
+        if (AUTO_REDIRECT_ON_FINISH) {
+          window.location.href = btn.getAttribute('href') || '/login';
         }
-        
-        if (timeLeft <= 0) {
-          clearInterval(countdownInterval);
-          if (display) {
-            display.textContent = '00:00';
-            display.classList.add('text-green-600');
-          }
-          const btn = document.getElementById('login-btn');
-          if (btn) {
-            btn.classList.remove('opacity-50', 'pointer-events-none');
-          }
-        }
-        timeLeft--;
+        return;
       }
-      
-      updateTimer();
-      countdownInterval = setInterval(updateTimer, 1000);
+
+      timeLeft -= 1;
     }
 
-    async function onConfigChange(cfg) {
-      config = { ...defaultConfig, ...cfg };
-      
-      const title = document.getElementById('error-title');
-      const subtitle = document.getElementById('error-subtitle');
-      const waitMsg = document.getElementById('wait-message');
-      const btnText = document.getElementById('button-text');
-      
-      if (title) title.textContent = config.error_title || defaultConfig.error_title;
-      if (subtitle) subtitle.textContent = config.error_subtitle || defaultConfig.error_subtitle;
-      if (waitMsg) waitMsg.textContent = config.wait_time || defaultConfig.wait_time;
-      if (btnText) {
-        btnText.innerHTML = `
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"/>
-          </svg>
-          ${config.button_text || defaultConfig.button_text}
-        `;
-      }
-    }
-
-    function mapToCapabilities(cfg) {
-      return {
-        recolorables: [
-          {
-            get: () => cfg.background_color || defaultConfig.background_color,
-            set: (value) => { cfg.background_color = value; window.elementSdk.setConfig({ background_color: value }); }
-          },
-          {
-            get: () => cfg.surface_color || defaultConfig.surface_color,
-            set: (value) => { cfg.surface_color = value; window.elementSdk.setConfig({ surface_color: value }); }
-          },
-          {
-            get: () => cfg.text_color || defaultConfig.text_color,
-            set: (value) => { cfg.text_color = value; window.elementSdk.setConfig({ text_color: value }); }
-          },
-          {
-            get: () => cfg.primary_action_color || defaultConfig.primary_action_color,
-            set: (value) => { cfg.primary_action_color = value; window.elementSdk.setConfig({ primary_action_color: value }); }
-          },
-          {
-            get: () => cfg.accent_color || defaultConfig.accent_color,
-            set: (value) => { cfg.accent_color = value; window.elementSdk.setConfig({ accent_color: value }); }
-          }
-        ],
-        borderables: [],
-        fontEditable: undefined,
-        fontSizeable: undefined
-      };
-    }
-
-    function mapToEditPanelValues(cfg) {
-      return new Map([
-        ['error_title', cfg.error_title || defaultConfig.error_title],
-        ['error_subtitle', cfg.error_subtitle || defaultConfig.error_subtitle],
-        ['wait_time', cfg.wait_time || defaultConfig.wait_time],
-        ['button_text', cfg.button_text || defaultConfig.button_text]
-      ]);
-    }
-
-    // Initialize
-    if (window.elementSdk) {
-      window.elementSdk.init({
-        defaultConfig,
-        onConfigChange,
-        mapToCapabilities,
-        mapToEditPanelValues
-      });
-    }
-
-    startCountdown();
+    // Start
+    tick();
+    const timer = setInterval(tick, 1000);
   </script>
 </body>
 </html>

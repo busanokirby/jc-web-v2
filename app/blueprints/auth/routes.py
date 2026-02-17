@@ -9,7 +9,7 @@ from app.services.security import rate_limit, log_security_event
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
-@rate_limit(max_attempts=5, window_seconds=300)  # 5 attempts per 5 minutes
+@rate_limit(max_attempts=5, window_seconds=150)  # 5 attempts per 2 minutes and 30 seconds
 def login():
     """User login page"""
     if current_user.is_authenticated:

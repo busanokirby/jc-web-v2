@@ -86,6 +86,11 @@
         padding-top: 1rem;
         border-top: 1px solid #e0e0e0;
     }
+    
+    /* Hide global alerts from base.html on login page */
+    body > .container.mt-3 {
+        display: none !important;
+    }
 </style>
 {% endblock %}
 
@@ -101,6 +106,18 @@
                         <h3>JC ICONS</h3>
                         <p>Computer Sales & Services</p>
                     </div>
+
+                    <!-- Flash Messages -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
 
                     <form method="POST" action="{{ url_for('auth.login') }}">
                         <div class="mb-3">
