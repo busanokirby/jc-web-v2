@@ -197,6 +197,10 @@ def create_app(config=None):
     def not_found_error(error):
         return render_template('errors/404.html'), 404
     
+    @app.errorhandler(429)
+    def rate_limit_error(error):
+        return render_template('errors/429.html'), 429
+    
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
