@@ -268,6 +268,10 @@
                             <option value="Bank Transfer">Bank Transfer</option>
                         </select>
                     </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="apply_as_deposit" name="apply_as_deposit" value="yes" checked>
+                        <label class="form-check-label" for="apply_as_deposit">Apply payment as deposit (keep deposit record)</label>
+                    </div>
                     <button type="submit" class="btn btn-success w-100">
                         <i class="bi bi-check-circle"></i> Record Payment
                     </button>
@@ -608,7 +612,23 @@ document.addEventListener('DOMContentLoaded', function(){
                     updateFinancialSummary(data);
                     
                     bootstrap.Modal.getInstance(editQtyModal).hide();
-                    alert('Quantity updated successfully!');
+
+                    // If there's still balance due, show payment card and prompt for payment
+                    if (parseFloat(data.balance_due) > 0) {
+                        const paymentCard = Array.from(document.querySelectorAll('.card')).find(c => c.querySelector('.card-header') && c.querySelector('.card-header').textContent.includes('Record Payment'));
+                        if (paymentCard) {
+                            paymentCard.style.display = '';
+                            // Scroll into view and focus amount input
+                            paymentCard.scrollIntoView({behavior: 'smooth', block: 'center'});
+                            const amt = paymentCard.querySelector('input[name="amount"]');
+                            const pm = paymentCard.querySelector('select[name="payment_method"]');
+                            if (amt) { amt.focus(); amt.value = parseFloat(data.balance_due).toFixed(2); }
+                            if (pm) { pm.focus(); }
+                        }
+                        alert('Quantity updated. Remaining balance detected — please record payment.');
+                    } else {
+                        alert('Quantity updated successfully!');
+                    }
                 } else {
                     alert('Error: ' + data.message);
                 }

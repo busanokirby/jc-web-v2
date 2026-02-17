@@ -22,6 +22,12 @@ def recompute_repair_financials(device: Device) -> None:
     deposit = safe_decimal(device.deposit_paid, "0.00")
 
     device.total_cost = diagnostic + repair + parts
+
+    # Cap deposit to not exceed total cost
+    if deposit > device.total_cost:
+        deposit = device.total_cost
+    device.deposit_paid = deposit
+
     device.balance_due = device.total_cost - deposit
 
     if device.total_cost > 0 and device.balance_due <= 0:

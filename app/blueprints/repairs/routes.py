@@ -185,6 +185,9 @@ def add_repair():
                 flash("A similar repair ticket was created recently for this customer.", "warning")
                 return redirect(url_for("repairs.add_repair"))
 
+        # capture original deposit input to detect overpayment attempts
+        orig_deposit = safe_decimal(request.form.get("deposit_paid"), "0.00")
+
         d = Device(
             ticket_number=generate_ticket_number(),
             customer_id=customer.id,
@@ -203,7 +206,7 @@ def add_repair():
             priority=request.form.get("priority", "Normal"),
             diagnostic_fee=safe_decimal(request.form.get("diagnostic_fee"), "0.00"),
             repair_cost=safe_decimal(request.form.get("repair_cost"), "0.00"),
-            deposit_paid=safe_decimal(request.form.get("deposit_paid"), "0.00"),
+            deposit_paid=orig_deposit,
             parts_cost=Decimal("0.00"),
             created_by_user_id=current_user.id,
             technician_name_override=(request.form.get("technician_name_override") or "").strip() or None,
@@ -213,7 +216,11 @@ def add_repair():
         db.session.add(d)
         db.session.commit()
 
-        flash(f"Repair ticket created: {d.ticket_number}", "success")
+        # If original deposit exceeded total cost it will have been capped
+        if orig_deposit > d.deposit_paid:
+            flash(f"Deposit amount exceeded the total cost and was capped to ₱{d.deposit_paid}", "warning")
+        else:
+            flash(f"Repair ticket created: {d.ticket_number}", "success")
         # Redirect to print ticket with option to add receipt
         return redirect(url_for("repairs.print_ticket", device_id=d.id))
 
@@ -340,17 +347,45 @@ def add_payment(device_id: int):
     
     amount = safe_decimal(request.form.get("amount"), "0.00")
     payment_method = request.form.get("payment_method", "Unknown")
+    apply_as_deposit = request.form.get('apply_as_deposit', 'yes') == 'yes'
     
     if amount <= 0:
         flash("Payment amount must be greater than 0.", "danger")
         return redirect(url_for("repairs.repair_detail", device_id=device.id))
-    
-    device.deposit_paid = safe_decimal(device.deposit_paid, "0.00") + amount
-    recompute_repair_financials(device)
-    
-    db.session.commit()
-    flash(f"Payment of {amount} recorded via {payment_method}", "success")
-    return redirect(url_for("repairs.repair_detail", device_id=device.id))
+
+    current_deposit = safe_decimal(device.deposit_paid, "0.00")
+    remaining = safe_decimal(device.total_cost, "0.00") - current_deposit
+
+    if remaining <= 0:
+        flash("This repair is already fully paid. No additional payment accepted.", "warning")
+        return redirect(url_for("repairs.repair_detail", device_id=device.id))
+
+    if apply_as_deposit:
+        # Accept only up to remaining; cap any overpayment
+        accepted = amount if amount <= remaining else remaining
+        device.deposit_paid = current_deposit + accepted
+        recompute_repair_financials(device)
+        db.session.commit()
+
+        if accepted < amount:
+            flash(f"Payment exceeded remaining amount. Accepted ₱{accepted} and capped to total. Excess ₱{(amount - accepted)} not recorded.", "warning")
+        else:
+            flash(f"Payment of ₱{accepted} recorded via {payment_method}", "success")
+
+        return redirect(url_for("repairs.repair_detail", device_id=device.id))
+    else:
+        # Treat payment as settlement: require amount to be >= remaining to settle
+        if amount < remaining:
+            flash(f"Amount is not enough to settle the repair (remaining ₱{remaining}). Please provide sufficient amount or apply as deposit.", "danger")
+            return redirect(url_for("repairs.repair_detail", device_id=device.id))
+
+        # Mark as paid without changing deposit_paid
+        device.balance_due = Decimal('0.00')
+        device.payment_status = 'Paid'
+        db.session.commit()
+
+        flash(f"Repair settled (marked as Paid) via {payment_method}. Deposit not modified.", "success")
+        return redirect(url_for("repairs.repair_detail", device_id=device.id))
 
 
 @repairs_bp.route("/<int:device_id>/receipt", methods=["GET"])
