@@ -181,7 +181,7 @@
     /* Page layout - full page (expandable) */
     @page {
         size: A4;
-        margin: 0.3in;
+        margin: 0.0in;
     }
 
     .card {
@@ -211,6 +211,9 @@
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+        /* Force print colors (backgrounds, text colors) */
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
     }
     
     html, body {
@@ -222,6 +225,8 @@
     body {
         font-size: 10pt;
         line-height: 1.4;
+        /* Add a small safety margin so content isn't clipped by printer hardware limits */
+        padding: 0.1in; /* optional – adjust or remove if you want truly edge-to-edge */
     }
     
     /* Hide navbar, buttons, non-print elements, and footer */
@@ -256,10 +261,10 @@
         margin-bottom: 0.3rem !important;
     }
     
-    /* Page layout - full page (expandable), match receipt behavior */
+    /* Page layout - full bleed (no margins) */
     @page {
         size: A4;
-        margin: 0.3in;
+        margin: 0;               /* removes default page margins */
     }
 
     .card {
@@ -271,7 +276,7 @@
     }
 
     .card-body {
-        padding: 0.4in !important;
+        padding: 0 !important;   /* removes inner padding so content touches edges */
     }
 
     .invoice-container {

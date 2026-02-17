@@ -23,6 +23,11 @@
   <!-- Card -->
   <div class="card border-success receipt-container">
     <div class="card-body">
+
+      <hr class="my-2">
+
+      <!-- Receipt Info -->
+
       <!-- Stub Header (brand) -->
       <div class="stub-header">
         <div class="logo-placeholder">
@@ -50,9 +55,8 @@
         </div>
       </div>
 
-      <hr class="my-2">
-
-      <!-- Receipt Info -->
+      <hr class="my-2"> 
+      
       <div class="row mb-3">
         <div class="col-md-6">
           <h6 class="text-muted mb-1">Receipt Number</h6>
@@ -174,10 +178,41 @@
   </style>
 
   <style media="print">
-    nav, .navbar, .d-print-none, .btn, .bg-success, footer.jc-footer { display:none !important; }
-    body { font-size:10pt; line-height:1.4; }
-    /* Full page print (allow pages to grow with content) */
-    @page { size: A4; margin: 0.3in; }
-    .card { border:none !important; box-shadow:none !important; max-height: none; overflow: visible; }
-  </style>
+  /* hide UI controls but keep headers visible */
+  nav, .navbar, .d-print-none, .bg-success, .btn, footer.jc-footer { display:none !important; }
+
+  /* page setup */
+  @page { size: A4; margin: 0in; }
+
+  /* card cleanup for print */
+  .card { border:none !important; box-shadow:none !important; max-height: none; overflow: visible; }
+
+  /* Ensure the top header and stub-header print with color */
+    .stub-header {
+    background-color: #2ea863 !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* QR box should remain white */
+  .stub-header .qr-code {
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Fallback border so separation remains if backgrounds are stripped */
+  .stub-header {
+    padding: 6px 10px !important;
+    border-top: 8px solid #2ea863 !important;
+    border-bottom: 8px solid #2ea863 !important;
+  }
+
+  /* Ensure images inside header print correctly */
+  .stub-header img { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  /* Optional: reduce font sizes for print */
+  body { font-size: 10pt; line-height: 1.4; }
+</style>
 {% endblock %}
