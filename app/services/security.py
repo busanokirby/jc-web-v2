@@ -214,7 +214,7 @@ class RateLimiter:
 rate_limiter = RateLimiter()
 
 
-def rate_limit(max_attempts=5, window_seconds=300, key_func=None):
+def rate_limit(max_attempts=5, window_seconds=150, key_func=None):
     """
     Decorator for rate limiting
     
