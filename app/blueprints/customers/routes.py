@@ -125,14 +125,30 @@ def edit_customer(customer_id: int):
     
     if request.method == "POST":
         customer.name = (request.form.get("name") or "").strip()
-        customer.phone = (request.form.get("phone") or "").strip()
+        skip_phone = request.form.get("skip_phone", "no") == "yes"
+        phone = (request.form.get("phone") or "").strip()
+        
+        # Validate phone if provided
+        if phone:
+            # Check if phone is 11 digits
+            if not phone.isdigit() or len(phone) != 11:
+                flash("Phone number must be exactly 11 digits.", "danger")
+                return render_template("customers/edit_customer.html", customer=customer)
+            customer.phone = phone
+        elif not skip_phone:
+            customer.phone = customer.phone  # Keep existing phone
+        else:
+            # Allow empty phone by generating a placeholder
+            import uuid
+            customer.phone = f"SKIP{uuid.uuid4().hex[:7].upper()}"[:11]
+        
         customer.email = (request.form.get("email") or "").strip() or None
         customer.address = (request.form.get("address") or "").strip() or None
         customer.business_name = (request.form.get("business_name") or "").strip() or None
         customer.customer_type = request.form.get("customer_type", "Individual")
         
-        if not customer.name or not customer.phone:
-            flash("Name and phone are required.", "danger")
+        if not customer.name:
+            flash("Name is required.", "danger")
             return render_template("customers/edit_customer.html", customer=customer)
         
         db.session.commit()
@@ -207,12 +223,24 @@ def search_api():
 def add_customer():
     """Add a new customer (API endpoint for POS)"""
     name = (request.form.get("name") or "").strip()
+    skip_phone = request.form.get("skip_phone", "no") == "yes"
     phone = (request.form.get("phone") or "").strip()
     email = (request.form.get("email") or "").strip() or None
     address = (request.form.get("address") or "").strip() or None
     
-    if not name or not phone:
-        return jsonify({"success": False, "message": "Name and phone are required"}), 400
+    if not name:
+        return jsonify({"success": False, "message": "Name is required"}), 400
+    
+    # Validate phone if provided
+    if phone:
+        if not phone.isdigit() or len(phone) != 11:
+            return jsonify({"success": False, "message": "Phone number must be exactly 11 digits"}), 400
+    elif not skip_phone:
+        return jsonify({"success": False, "message": "Please provide a phone number or select skip phone option"}), 400
+    else:
+        # Generate a temporary phone placeholder when skipped
+        import uuid
+        phone = f"SKIP{uuid.uuid4().hex[:7].upper()}"[:11]
     
     # Check if customer already exists by phone
     existing = Customer.query.filter_by(phone=phone).first()

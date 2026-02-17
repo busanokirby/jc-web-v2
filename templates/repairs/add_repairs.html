@@ -54,8 +54,16 @@
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <label for="customer_phone" class="form-label">Phone Number *</label>
-                        <input type="tel" class="form-control" id="customer_phone" name="customer_phone">
-                        <small class="text-muted">Used to link with existing customers</small>
+                        <input type="tel" class="form-control" id="customer_phone" name="customer_phone" pattern="[0-9]{11}" placeholder="Enter 11-digit number">
+                        <small class="text-muted">Used to link with existing customers (11 digits required)</small>
+                        <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="skip_phone" name="skip_phone" value="yes" onchange="togglePhoneRequirement()">
+                            <label class="form-check-label" for="skip_phone">
+                                Skip phone number entry
+                            </label>
+                        </div>
+                    </div>
                     </div>
                     <div class="col-md-6">
                         <label for="customer_email" class="form-label">Email Address</label>
@@ -76,7 +84,7 @@
                         </select>
                     </div>
                 </div>
-
+                    
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" id="update_customer_details" name="update_customer_details" value="yes">
                     <label class="form-check-label" for="update_customer_details">
@@ -287,8 +295,22 @@ function toggleCustomerMode() {
         existingSection.style.display = 'none';
         newSection.style.display = 'block';
         document.getElementById('existing_customer_id').required = false;
-        document.getElementById('customer_phone').required = true;
+        togglePhoneRequirement();
         document.getElementById('customer_name').required = true;
+    }
+}
+
+function togglePhoneRequirement() {
+    const skipPhoneCheckbox = document.getElementById('skip_phone');
+    const phoneInput = document.getElementById('customer_phone');
+    
+    if (skipPhoneCheckbox.checked) {
+        phoneInput.required = false;
+        phoneInput.disabled = true;
+        phoneInput.value = '';
+    } else {
+        phoneInput.required = true;
+        phoneInput.disabled = false;
     }
 }
 </script>

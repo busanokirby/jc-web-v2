@@ -483,6 +483,20 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     });
 });
+
+function toggleModalPhoneRequirement() {
+    const skipPhoneCheckbox = document.getElementById('modal-skip-phone');
+    const phoneInput = document.getElementById('modal-customer-phone');
+    
+    if (skipPhoneCheckbox.checked) {
+        phoneInput.required = false;
+        phoneInput.disabled = true;
+        phoneInput.value = '';
+    } else {
+        phoneInput.required = true;
+        phoneInput.disabled = false;
+    }
+}
 </script>
 
 <!-- Modal for Adding New Customer -->
@@ -501,7 +515,16 @@ document.addEventListener('DOMContentLoaded', function(){
           </div>
           <div class="mb-3">
             <label for="modal-customer-phone" class="form-label">Phone Number *</label>
-            <input type="tel" class="form-control" id="modal-customer-phone" name="phone" required>
+            <input type="tel" class="form-control" id="modal-customer-phone" name="phone" pattern="[0-9]{11}" placeholder="Enter 11-digit number" required>
+            <small class="text-muted">11 digits required</small>
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="modal-skip-phone" name="skip_phone" onchange="toggleModalPhoneRequirement()">
+              <label class="form-check-label" for="modal-skip-phone">
+                Skip phone number entry
+              </label>
+            </div>
           </div>
           <div class="mb-3">
             <label for="modal-customer-email" class="form-label">Email Address</label>

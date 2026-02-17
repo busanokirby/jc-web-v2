@@ -116,10 +116,22 @@ def add_repair():
             customer = Customer.query.get_or_404(int(customer_id))
         else:
             # Create or update customer
+            skip_phone = request.form.get("skip_phone", "no") == "yes"
             phone = (request.form.get("customer_phone") or "").strip()
-            if not phone:
-                flash("Customer phone number is required.", "danger")
+            
+            # Validate phone if provided
+            if phone:
+                # Check if phone is 11 digits
+                if not phone.isdigit() or len(phone) != 11:
+                    flash("Phone number must be exactly 11 digits.", "danger")
+                    return redirect(url_for("repairs.add_repair"))
+            elif not skip_phone:
+                flash("Please provide a phone number or check 'Skip phone number entry'.", "danger")
                 return redirect(url_for("repairs.add_repair"))
+            else:
+                # Generate a temporary phone placeholder when skipped
+                import uuid
+                phone = f"SKIP{uuid.uuid4().hex[:7].upper()}"[:11]
             
             customer = Customer.query.filter_by(phone=phone).first()
             
