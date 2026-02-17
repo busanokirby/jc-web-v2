@@ -73,6 +73,33 @@
         </tbody>
       </table>
 
+      <hr class="my-2">
+
+      <!-- Parts Used -->
+      {% if device.parts_used_rows %}
+      <h6 class="mb-2">Parts Used</h6>
+      <table class="table table-sm mb-3">
+        <thead class="table-light">
+          <tr>
+            <th>Part Name</th>
+            <th class="text-center">Qty</th>
+            <th class="text-end">Unit Price</th>
+            <th class="text-end">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for part in device.parts_used_rows %}
+          <tr>
+            <td>{{ part.product.name if part.product else 'Unknown Part' }}</td>
+            <td class="text-center">{{ part.qty }}</td>
+            <td class="text-end">₱{{ "%.2f"|format(part.unit_price) }}</td>
+            <td class="text-end">₱{{ "%.2f"|format(part.line_total) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
       <!-- Financial Summary -->
       <h6 class="mb-2">Financial Summary</h6>
       <table class="table table-sm mb-3">

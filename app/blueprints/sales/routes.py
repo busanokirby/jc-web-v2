@@ -10,6 +10,7 @@ from app.extensions import db
 from app.models.customer import Customer
 from app.models.inventory import Product
 from app.models.sales import Sale, SaleItem, SalePayment
+from app.models.repair import RepairPartUsed, Device
 from app.services.authz import roles_required
 from app.services.guards import require_pos_enabled
 from app.services.codes import generate_invoice_no
@@ -169,7 +170,7 @@ def invoice(sale_id: int):
 @login_required
 @roles_required("ADMIN", "SALES")
 def reports():
-    """Sales analytics and reporting dashboard"""
+    """Sales analytics and reporting dashboard - includes repairs in sales reporting"""
     
     # Date range filter
     days_back = request.args.get('days', 30, type=int)
@@ -180,7 +181,12 @@ def reports():
     # Query sales within date range
     sales_period = Sale.query.filter(Sale.created_at >= start_date).all()
     
-    # Calculate KPIs
+    # Query repair parts used within date range
+    repair_parts_period = db.session.query(RepairPartUsed).join(
+        Device, RepairPartUsed.device_id == Device.id
+    ).filter(Device.created_at >= start_date).all()
+    
+    # Calculate KPIs from sales
     total_revenue = Decimal("0.00")
     total_transactions = len(sales_period)
     total_items_sold = 0
@@ -189,9 +195,18 @@ def reports():
         total_revenue += sale.total or Decimal("0.00")
         total_items_sold += sum(item.qty for item in sale.items)
     
+    # Add repair parts to totals
+    repair_transactions = len(repair_parts_period) if repair_parts_period else 0
+    for part in repair_parts_period:
+        total_revenue += part.line_total or Decimal("0.00")
+        total_items_sold += part.qty
+    
+    # Total transactions include both sales and repair part additions
+    total_transactions += repair_transactions
+    
     avg_transaction = (total_revenue / total_transactions) if total_transactions > 0 else Decimal("0.00")
     
-    # Sales by payment method
+    # Sales by payment method (from regular sales only)
     payment_methods = db.session.query(
         SalePayment.method,
         func.count(SalePayment.id).label('count'),
@@ -204,37 +219,59 @@ def reports():
         'total': float(pm.total or 0)
     } for pm in payment_methods]
     
-    # Top 10 products sold
-    top_products = db.session.query(
-        Product.name,
-        func.sum(SaleItem.qty).label('total_qty'),
-        func.sum(SaleItem.line_total).label('total_amount')
-    ).join(SaleItem).join(Sale).filter(
-        Sale.created_at >= start_date
-    ).group_by(Product.id, Product.name).order_by(
-        func.sum(SaleItem.qty).desc()
-    ).limit(10).all()
+    # Top 10 products sold - combine sales and repair parts using Python aggregation
+    product_sales = {}
     
-    top_products_data = [{
-        'name': tp.name,
-        'qty': tp.total_qty,
-        'amount': float(tp.total_amount or 0)
-    } for tp in top_products]
+    # Add sales items
+    for sale in sales_period:
+        for item in sale.items:
+            product_name = item.product.name if item.product else "Unknown"
+            if product_name not in product_sales:
+                product_sales[product_name] = {'qty': 0, 'amount': 0}
+            product_sales[product_name]['qty'] += item.qty
+            product_sales[product_name]['amount'] += float(item.line_total or 0)
     
-    # Daily sales trend (last 30 days)
-    daily_sales = db.session.query(
-        func.date(Sale.created_at).label('date'),
-        func.count(Sale.id).label('transaction_count'),
-        func.sum(Sale.total).label('daily_total')
-    ).filter(Sale.created_at >= start_date).group_by(
-        func.date(Sale.created_at)
-    ).order_by(func.date(Sale.created_at)).all()
+    # Add repair parts
+    for part in repair_parts_period:
+        product_name = part.product.name if part.product else "Unknown"
+        if product_name not in product_sales:
+            product_sales[product_name] = {'qty': 0, 'amount': 0}
+        product_sales[product_name]['qty'] += part.qty
+        product_sales[product_name]['amount'] += float(part.line_total or 0)
     
-    daily_trend = [{
-        'date': str(ds.date),
-        'count': ds.transaction_count,
-        'total': float(ds.daily_total or 0)
-    } for ds in daily_sales]
+    # Sort by quantity and get top 10
+    top_products_data = sorted(
+        [{'name': name, 'qty': data['qty'], 'amount': data['amount']} for name, data in product_sales.items()],
+        key=lambda x: x['qty'],
+        reverse=True
+    )[:10]
+    
+    # Daily sales trend - combine sales and repair parts
+    daily_totals = {}
+    
+    # Add sales transactions
+    for sale in sales_period:
+        date_key = sale.created_at.date()
+        if date_key not in daily_totals:
+            daily_totals[date_key] = {'count': 0, 'total': 0}
+        daily_totals[date_key]['count'] += 1
+        daily_totals[date_key]['total'] += float(sale.total or 0)
+    
+    # Add repair part transactions
+    for part in repair_parts_period:
+        dev = db.session.query(Device).filter(Device.id == part.device_id).first()
+        if dev:
+            date_key = dev.created_at.date()
+            if date_key not in daily_totals:
+                daily_totals[date_key] = {'count': 0, 'total': 0}
+            daily_totals[date_key]['count'] += 1
+            daily_totals[date_key]['total'] += float(part.line_total or 0)
+    
+    # Convert to sorted list
+    daily_trend = [
+        {'date': str(date), 'count': data['count'], 'total': data['total']}
+        for date, data in sorted(daily_totals.items())
+    ]
     
     return render_template(
         "sales/reports.html",
