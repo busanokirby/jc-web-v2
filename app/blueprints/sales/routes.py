@@ -154,8 +154,45 @@ def pos():
 @login_required
 @roles_required("ADMIN", "SALES")
 def sales_list():
-    sales = Sale.query.order_by(Sale.id.desc()).limit(200).all()
-    return render_template("sales/sales_list.html", sales=sales)
+    # Regular sales
+    sales = Sale.query.order_by(Sale.created_at.desc()).limit(200).all()
+
+    # Devices that used parts (repair parts should also show in sales history)
+    devices = Device.query.filter(Device.parts_used_rows.any()).order_by(Device.created_at.desc()).limit(200).all()
+
+    # Build unified history entries
+    history = []
+    for s in sales:
+        history.append({
+            'type': 'sale',
+            'invoice': s.invoice_no,
+            'created_at': s.created_at,
+            'items_count': sum(item.qty for item in s.items) if s.items else 0,
+            'subtotal': float(s.subtotal or 0),
+            'discount': float(s.discount or 0),
+            'total': float(s.total or 0),
+            'status': s.status,
+            'id': s.id,
+        })
+
+    for d in devices:
+        parts_qty = sum(p.qty for p in d.parts_used_rows) if d.parts_used_rows else 0
+        history.append({
+            'type': 'repair',
+            'invoice': d.ticket_number,
+            'created_at': d.created_at,
+            'items_count': parts_qty,
+            'subtotal': float(d.parts_cost or 0),
+            'discount': 0.0,
+            'total': float(d.parts_cost or 0),
+            'status': d.payment_status,
+            'id': d.id,
+        })
+
+    # Sort by created_at desc and limit to recent 200 entries
+    history_sorted = sorted(history, key=lambda x: x['created_at'] or 0, reverse=True)[:200]
+
+    return render_template("sales/sales_list.html", history=history_sorted)
 
 
 @sales_bp.route("/<int:sale_id>/invoice")

@@ -7,6 +7,7 @@ from sqlalchemy import or_
 from app.extensions import db
 from app.models.customer import Customer
 from app.models.repair import Device
+from app.models.sales import Sale
 from app.services.authz import roles_required
 from app.services.codes import generate_customer_code
 from app.services.guards import require_tech_can_view_details
@@ -94,11 +95,26 @@ def customer_detail(customer_id: int):
     customer = Customer.query.get_or_404(customer_id)
     repairs = Device.query.filter_by(customer_id=customer_id).order_by(Device.id.desc()).all()
     
-    # Calculate customer statistics
+    # Calculate customer statistics (include sales)
     total_repairs = len(repairs)
     completed_repairs = len([r for r in repairs if r.status == "Completed"])
-    total_spent = sum(r.total_cost for r in repairs if r.total_cost)
-    balance_due = sum(r.balance_due for r in repairs if r.payment_status in ("Pending", "Partial"))
+
+    # Repairs spending
+    total_repairs_spent = sum((r.total_cost or 0) for r in repairs)
+    repairs_balance = sum((r.balance_due or 0) for r in repairs if r.payment_status in ("Pending", "Partial"))
+
+    # Sales associated with this customer
+    sales = Sale.query.filter_by(customer_id=customer_id).all()
+    total_sales_spent = sum((s.total or 0) for s in sales)
+    sales_balance = 0
+    for s in sales:
+        paid = sum((p.amount or 0) for p in s.payments)
+        outstanding = (s.total or 0) - paid
+        if outstanding > 0 and s.status in ("PARTIAL", "DRAFT"):
+            sales_balance += outstanding
+
+    total_spent = total_repairs_spent + total_sales_spent
+    balance_due = repairs_balance + sales_balance
     
     return render_template(
         "customers/customer_detail.html",

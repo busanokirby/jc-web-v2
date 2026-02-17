@@ -23,12 +23,30 @@
   <!-- Card -->
   <div class="card border-success receipt-container">
     <div class="card-body">
-      <!-- Company Header -->
-      <div class="header-main mb-4 text-center">
-        <img src="/static/images/jc-logo.png" alt="JC Icons Logo" style="height:60px;width:60px;border-radius:50%;">
-        <div class="header-text">
-          <h2 class="mb-1">JC ICONS COMPUTER SALES &amp; SERVICES</h2>
-          <p class="mb-0 small text-muted">J.A CLARIN COR. HONTANOSAS, POBLACION 3, TAGBILARAN CITY</p>
+      <!-- Stub Header (brand) -->
+      <div class="stub-header">
+        <div class="logo-placeholder">
+          <img
+            src="{{ url_for('static', filename='images/jc-logo.png') }}"
+            alt="JC Icons Logo"
+            style="height: 60px; width: 60px; border-radius: 50%;"
+          >
+        </div>
+
+        <div>
+          <div style="font-weight:900; font-size:14px;">
+            JC ICONS COMPUTER SALES &amp; SERVICES
+          </div>
+          <div style="font-size:8px;">
+            J.A CLARIN COR. HONTANOSAS, POBLACION 3, TAGBILARAN CITY
+          </div>
+          <div style="font-size:13px; margin-top:2px;">
+            <strong>CONTACT NO. (038) 411-2134 | 09985771468 | 09208036494</strong>
+          </div>
+        </div>
+
+        <div class="qr-code">
+          <img src="{{ url_for('static', filename='images/qr-code.png') }}" alt="QR Code" />
         </div>
       </div>
 
@@ -115,32 +133,51 @@
       <h6 class="mb-2">Payment Information</h6>
       <table class="table table-sm mb-3">
         <tbody>
-          <tr><td>Amount Paid</td><td class="text-end">₱{{ "%.2f"|format(device.deposit_paid) }}</td></tr>
-          <tr><td><strong>Balance Due</strong></td><td class="text-end"><strong>₱{{ "%.2f"|format(device.balance_due) }}</strong></td></tr>
+          <tr>
+            <td>Amount Paid</td>
+            <td class="text-end">
+              {% if device.deposit_paid and device.deposit_paid > 0 %}
+                ₱{{ "%.2f"|format(device.deposit_paid) }}
+              {% else %}
+                <em>None</em>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Balance Due</strong></td>
+            <td class="text-end"><strong>₱{{ "%.2f"|format(device.balance_due) }}</strong></td>
+          </tr>
         </tbody>
       </table>
 
-      <!-- Footer -->
+      <!-- Footer (branding message) -->
       <hr class="my-2">
       <div class="text-center text-muted" style="font-size:0.75rem;">
-        <p class="mb-0">Thank you for your business!</p>
-        <p class="mb-0">For inquiries, contact: (038) 411-2134</p>
+        <p class="mb-0">Your Computer Needs... Our Job.</p>
+        <p class="mb-0">Thank you for your continued trust in our services. We look forward to serving you again.</p>
+        <p class="mb-0">If you have any questions regarding this transaction, please contact us.</p>
         <p class="mb-0 mt-2" style="font-size:0.7rem;">{{ now.strftime('%Y-%m-%d %H:%M:%S') }}</p>
       </div>
     </div>
   </div>
 </div>
 
-<style>
-  .receipt-container { max-width: 100%; }
-  .header-main { display:flex; align-items:center; justify-content:center; gap:15px; flex-wrap:wrap; }
-  .header-text h2 { font-size:1.3rem; font-weight:bold; margin:0; }
-</style>
+  <style>
+    .receipt-container { max-width: 100%; }
+    .header-main { display:flex; align-items:center; justify-content:center; gap:15px; flex-wrap:wrap; }
+    .header-text h2 { font-size:1.3rem; font-weight:bold; margin:0; }
 
-<style media="print">
-  nav, .navbar, .d-print-none, .btn, .bg-success, footer.jc-footer { display:none !important; }
-  body { font-size:10pt; line-height:1.4; }
-  @page { size:A4; margin:0.3in; }
-  .card { border:none !important; box-shadow:none !important; }
-</style>
+    /* stub header/qr styles reused from print_ticket */
+    .stub-header { background-color: #2ea863; color: white; padding: 5px 10px; display:flex; align-items:center; position:relative; }
+    .qr-code { width:60px; height:60px; background:white; position:absolute; right:10px; top:2px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .qr-code img { width:100%; height:100%; display:block; }
+  </style>
+
+  <style media="print">
+    nav, .navbar, .d-print-none, .btn, .bg-success, footer.jc-footer { display:none !important; }
+    body { font-size:10pt; line-height:1.4; }
+    /* Full page print (allow pages to grow with content) */
+    @page { size: A4; margin: 0.3in; }
+    .card { border:none !important; box-shadow:none !important; max-height: none; overflow: visible; }
+  </style>
 {% endblock %}

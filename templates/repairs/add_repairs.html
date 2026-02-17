@@ -233,8 +233,14 @@
                     <input type="number" class="form-control" id="repair_cost" name="repair_cost" step="0.01" value="0.00">
                 </div>
                 <div class="col-md-4">
-                    <label for="deposit_paid" class="form-label">Deposit Paid</label>
-                    <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" step="0.01" value="0.00">
+                    <label class="form-label">Deposit (optional)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <input class="form-check-input mt-0" type="checkbox" id="include_deposit" name="include_deposit" value="yes" aria-label="Include deposit">
+                        </span>
+                        <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" step="0.01" placeholder="0.00" disabled>
+                    </div>
+                    <div class="form-text">Check to record a deposit (off by default)</div>
                 </div>
             </div>
         </div>
@@ -313,5 +319,28 @@ function togglePhoneRequirement() {
         phoneInput.disabled = false;
     }
 }
+
+// Toggle deposit input when include_deposit checkbox changes
+document.addEventListener('DOMContentLoaded', function(){
+    const includeDeposit = document.getElementById('include_deposit');
+    const depositInput = document.getElementById('deposit_paid');
+    if (!includeDeposit || !depositInput) return;
+
+    includeDeposit.addEventListener('change', function(){
+        if (this.checked) {
+            depositInput.disabled = false;
+            depositInput.required = false; // optional even when enabled
+            if (!depositInput.value) depositInput.value = '0.00';
+        } else {
+            depositInput.disabled = true;
+            depositInput.value = '';
+        }
+    });
+
+    // ensure default is off
+    includeDeposit.checked = false;
+    depositInput.disabled = true;
+    depositInput.value = '';
+});
 </script>
 {% endblock %}

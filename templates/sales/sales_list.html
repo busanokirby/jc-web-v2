@@ -10,13 +10,13 @@
     </a>
 </div>
 
-{% if sales %}
+{% if history %}
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>Invoice</th>
+                    <th>Invoice / Ticket</th>
                     <th>Date</th>
                     <th>Items</th>
                     <th>Subtotal</th>
@@ -27,31 +27,40 @@
                 </tr>
             </thead>
             <tbody>
-                {% for sale in sales %}
+                {% for entry in history %}
                 <tr>
-                    <td><strong>{{ sale.invoice_no }}</strong></td>
-                    <td>{{ sale.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                     <td>
-                        <span class="badge bg-info">{{ sale.items|length }}</span>
+                        <strong>{{ entry.invoice }}</strong>
+                        <br><small class="text-muted">{{ entry.type|capitalize }}</small>
                     </td>
-                    <td>₱{{ "%.2f"|format(sale.subtotal) }}</td>
+                    <td>{{ entry.created_at.strftime('%Y-%m-%d %H:%M') if entry.created_at else '' }}</td>
                     <td>
-                        {% if sale.discount > 0 %}
-                        <span class="text-danger">-₱{{ "%.2f"|format(sale.discount) }}</span>
+                        <span class="badge bg-info">{{ entry.items_count }}</span>
+                    </td>
+                    <td>₱{{ "%.2f"|format(entry.subtotal) }}</td>
+                    <td>
+                        {% if entry.discount and entry.discount > 0 %}
+                        <span class="text-danger">-₱{{ "%.2f"|format(entry.discount) }}</span>
                         {% else %}
                         ₱0.00
                         {% endif %}
                     </td>
-                    <td><strong>₱{{ "%.2f"|format(sale.total) }}</strong></td>
+                    <td><strong>₱{{ "%.2f"|format(entry.total) }}</strong></td>
                     <td>
-                        <span class="badge {% if sale.status == 'PAID' %}bg-success{% elif sale.status == 'PARTIAL' %}bg-warning{% elif sale.status == 'VOID' %}bg-danger{% else %}bg-secondary{% endif %}">
-                            {{ sale.status }}
+                        <span class="badge {% if entry.status == 'PAID' %}bg-success{% elif entry.status == 'PARTIAL' %}bg-warning{% elif entry.status == 'VOID' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ entry.status }}
                         </span>
                     </td>
                     <td>
-                        <a href="{{ url_for('sales.invoice', sale_id=sale.id) }}" class="btn btn-sm btn-outline-primary" title="View Invoice">
+                        {% if entry.type == 'sale' %}
+                        <a href="{{ url_for('sales.invoice', sale_id=entry.id) }}" class="btn btn-sm btn-outline-primary" title="View Invoice">
                             <i class="bi bi-file-earmark-pdf"></i>
                         </a>
+                        {% else %}
+                        <a href="{{ url_for('repairs.print_receipt', device_id=entry.id) }}" class="btn btn-sm btn-outline-primary" title="View Repair Receipt">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -62,8 +71,9 @@
 {% else %}
 <div class="alert alert-info">
     <i class="bi bi-info-circle"></i>
-    No sales records found.
+    No sales or repair-part records found.
     <a href="{{ url_for('sales.pos') }}" class="alert-link">Create your first sale</a>
+    <a href="{{ url_for('repairs.add_repair') }}" class="alert-link ms-3">Create a repair ticket</a>
 </div>
 {% endif %}
 

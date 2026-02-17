@@ -41,13 +41,26 @@ def ajax_adjust_product(product_id):
         return jsonify({'success': False, 'message': 'Invalid delta value.'}), 400
     notes = data.get('notes', '')
     p = Product.query.get_or_404(product_id)
-    try:
-        adjust_stock(p, delta, notes=notes)
-        db.session.commit()
-    except StockError as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 400
-    return jsonify({'success': True, 'stock': p.stock_on_hand})
+    # Only perform a stock adjustment when delta is non-zero.
+    if delta != 0:
+        try:
+            adjust_stock(p, delta, notes=notes)
+            db.session.commit()
+        except StockError as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': str(e)}), 400
+
+    # If a sell_price was provided, update it independently of stock adjustments.
+    sell_price_raw = data.get('sell_price')
+    if sell_price_raw is not None and str(sell_price_raw).strip() != '':
+        try:
+            p.sell_price = safe_decimal(sell_price_raw, None)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': 'Invalid price format.'}), 400
+
+    return jsonify({'success': True, 'stock': p.stock_on_hand, 'sell_price': float(p.sell_price) if p.sell_price is not None else None})
 
 
 @inventory_bp.route('/products/add_quick', methods=['POST'])
@@ -263,18 +276,19 @@ def adjust_stock_page():
 
         product = Product.query.get_or_404(product_id)
 
-        # Adjust stock
+        # Adjust stock only when a non-zero delta is provided
         delta = int(request.form.get("delta") or 0)
         notes = (request.form.get("notes") or "").strip()
 
-        try:
-            adjust_stock(product, delta, notes=notes)
-        except StockError as e:
-            db.session.rollback()
-            flash(str(e), "danger")
-            return redirect(url_for("inventory.adjust_stock_page"))
+        if delta != 0:
+            try:
+                adjust_stock(product, delta, notes=notes)
+            except StockError as e:
+                db.session.rollback()
+                flash(str(e), "danger")
+                return redirect(url_for("inventory.adjust_stock_page"))
 
-        # Adjust price if provided
+        # Adjust price if provided (allow price-only updates)
         new_price = (request.form.get("sell_price") or "").strip()
         if new_price:
             try:

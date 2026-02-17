@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
-from flask import render_template, request, redirect, url_for, flash, Response
+from flask import render_template, request, redirect, url_for, flash, Response, jsonify
 import json
 from flask_login import login_required, current_user
 
@@ -168,6 +168,23 @@ def add_repair():
         service_types = request.form.getlist("service_type")
         service_type_str = ", ".join(service_types) if service_types else "Hardware Repair"
         
+        # Duplicate detection: if serial number provided, check active tickets for same customer
+        serial_number = (request.form.get("serial_number") or "").strip() or None
+        if serial_number:
+            existing_dev = Device.query.filter(Device.serial_number == serial_number, Device.customer_id == customer.id).filter(Device.status != 'Completed').first()
+            if existing_dev:
+                flash("A repair ticket for this serial number already exists and is not completed.", "danger")
+                return redirect(url_for("repairs.add_repair"))
+
+        # Also check recent similar tickets (same customer, same device_type and issue) in last 7 days
+        issue_desc = (request.form.get("issue_description") or "").strip()
+        if not serial_number and issue_desc:
+            recent = datetime.utcnow() - timedelta(days=7)
+            similar = Device.query.filter(Device.customer_id == customer.id, Device.device_type == request.form.get("device_type"), Device.issue_description == issue_desc, Device.created_at >= recent).first()
+            if similar:
+                flash("A similar repair ticket was created recently for this customer.", "warning")
+                return redirect(url_for("repairs.add_repair"))
+
         d = Device(
             ticket_number=generate_ticket_number(),
             customer_id=customer.id,
@@ -278,8 +295,31 @@ def add_part_used(device_id: int):
     recompute_repair_financials(device)
 
     db.session.commit()
-    flash("Part added and stock deducted.", "success")
-    return redirect(url_for("repairs.repair_detail", device_id=device.id))
+
+    # Fetch the newly added part for frontend convenience
+    new_part = RepairPartUsed.query.filter_by(device_id=device.id).order_by(RepairPartUsed.id.desc()).first()
+
+    # Return JSON for AJAX requests, redirect for form submits
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+        return jsonify({
+            "success": True,
+            "message": "Part added successfully",
+            "parts_cost": str(device.parts_cost),
+            "total_cost": str(device.total_cost),
+            "balance_due": str(device.balance_due),
+            "deposit_paid": str(device.deposit_paid),
+            "payment_status": device.payment_status,
+            "part": {
+                "id": new_part.id if new_part else None,
+                "product_name": new_part.product.name if new_part and new_part.product else product.name,
+                "qty": new_part.qty if new_part else qty,
+                "unit_price": str(new_part.unit_price) if new_part else str(unit_price),
+                "line_total": str(new_part.line_total) if new_part else str(line_total)
+            }
+        })
+    else:
+        flash("Part added and stock deducted.", "success")
+        return redirect(url_for("repairs.repair_detail", device_id=device.id))
 
 
 @repairs_bp.route("/<int:device_id>/print", methods=["GET"])
@@ -332,15 +372,15 @@ def update_part_qty(device_id: int, part_id: int):
     part = RepairPartUsed.query.get_or_404(part_id)
     
     if part.device_id != device_id:
-        return {"success": False, "message": "Part does not belong to this device"}, 400
+        return jsonify({"success": False, "message": "Part does not belong to this device"}), 400
     
     try:
         new_qty = int(request.form.get("qty") or 0)
     except Exception:
-        return {"success": False, "message": "Invalid quantity"}, 400
+        return jsonify({"success": False, "message": "Invalid quantity"}), 400
     
     if new_qty <= 0:
-        return {"success": False, "message": "Quantity must be greater than 0"}, 400
+        return jsonify({"success": False, "message": "Quantity must be greater than 0"}), 400
     
     old_qty = part.qty
     qty_diff = new_qty - old_qty
@@ -355,7 +395,7 @@ def update_part_qty(device_id: int, part_id: int):
                 stock_in_func(part.product, abs(qty_diff), notes=f"Qty adjustment return for {part.product.name}")
         except StockError as e:
             db.session.rollback()
-            return {"success": False, "message": str(e)}, 400
+            return jsonify({"success": False, "message": str(e)}), 400
     
     # Update part quantity and line total
     part.qty = new_qty
@@ -369,7 +409,7 @@ def update_part_qty(device_id: int, part_id: int):
     
     db.session.commit()
     
-    return {
+    return jsonify({
         "success": True,
         "line_total": str(part.line_total),
         "parts_cost": str(device.parts_cost),
@@ -377,4 +417,73 @@ def update_part_qty(device_id: int, part_id: int):
         "balance_due": str(device.balance_due),
         "deposit_paid": str(device.deposit_paid),
         "payment_status": device.payment_status
-    }
+    })
+
+
+@repairs_bp.route("/<int:device_id>/parts/<int:part_id>/update-price", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def update_part_price(device_id: int, part_id: int):
+    """Update unit price of a part used in repair (AJAX)"""
+    device = Device.query.get_or_404(device_id)
+    part = RepairPartUsed.query.get_or_404(part_id)
+
+    if part.device_id != device_id:
+        return jsonify({"success": False, "message": "Part does not belong to this device"}), 400
+
+    # Accept price from form or JSON
+    price_raw = request.form.get("price") if request.form.get("price") is not None else (request.json.get("price") if request.json else None)
+    try:
+        new_price = safe_decimal(price_raw, str(part.unit_price))
+    except Exception:
+        return jsonify({"success": False, "message": "Invalid price"}), 400
+
+    if new_price < Decimal("0.00"):
+        return jsonify({"success": False, "message": "Price must be non-negative"}), 400
+
+    part.unit_price = new_price
+    part.line_total = (part.unit_price * Decimal(part.qty))
+
+    # Recalculate device parts cost
+    parts_total = sum((row.line_total for row in device.parts_used_rows), start=Decimal("0.00"))
+    device.parts_cost = parts_total
+
+    recompute_repair_financials(device)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "line_total": str(part.line_total),
+        "parts_cost": str(device.parts_cost),
+        "total_cost": str(device.total_cost),
+        "balance_due": str(device.balance_due),
+        "deposit_paid": str(device.deposit_paid),
+        "payment_status": device.payment_status
+    })
+
+
+@repairs_bp.route("/<int:device_id>/delete", methods=["POST"])
+@login_required
+@roles_required("ADMIN")
+def delete_repair(device_id: int):
+    """Delete a repair ticket (ADMIN only). Restores stock for used parts."""
+    device = Device.query.get_or_404(device_id)
+
+    try:
+        # Restore stock for parts used
+        from app.services.stock import stock_in
+        for part in list(device.parts_used_rows):
+            try:
+                stock_in(part.product, part.qty, notes=f"Restore stock - deleted repair {device.ticket_number}")
+            except Exception:
+                # if stock_in fails, continue to attempt deletion but log/rollback if necessary
+                pass
+
+        db.session.delete(device)
+        db.session.commit()
+        flash(f"Repair {device.ticket_number} deleted.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error deleting repair: {str(e)}", "danger")
+
+    return redirect(url_for("repairs.repairs"))

@@ -12,6 +12,9 @@
         <a href="{{ url_for('sales.pos') }}" class="btn btn-outline-primary">
             <i class="bi bi-cart-check"></i> New Sale
         </a>
+        <button id="refreshReportsBtn" type="button" class="btn btn-outline-info" title="Reload latest sales data">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
         {% if current_user.role == 'ADMIN' %}
         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#resetModal">
             <i class="bi bi-trash"></i> Reset Sales
@@ -228,6 +231,15 @@
 {{ payment_data | tojson }}
 </script>
 <script>
+// Refresh button reloads page to pick up any externally-added historical sales
+document.addEventListener('DOMContentLoaded', function(){
+    const btn = document.getElementById('refreshReportsBtn');
+    if (btn) btn.addEventListener('click', function(){
+        // preserve query string and reload
+        window.location.href = window.location.pathname + window.location.search;
+    });
+});
+
 // Daily Sales Trend Chart
 const dailyTrendData = JSON.parse(document.getElementById('daily-trend-data').textContent);
 if (dailyTrendData.length > 0) {
