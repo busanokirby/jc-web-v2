@@ -38,12 +38,20 @@ if __name__ == '__main__':
     print(f"Server: {host}:{port}")
     
     # SSL/HTTPS support - optional
-    ssl_cert = "C:/Users/User36/flask_certs/flask-cert.pem"
-    ssl_key = "C:/Users/User36/flask_certs/flask-key.pem"
+    # Certificate paths from environment or default to user home directory
+    ssl_cert_default = Path.home() / "flask_certs" / "flask-cert.pem"
+    ssl_key_default = Path.home() / "flask_certs" / "flask-key.pem"
+    
+    ssl_cert = os.environ.get('SSL_CERT_PATH', str(ssl_cert_default))
+    ssl_key = os.environ.get('SSL_KEY_PATH', str(ssl_key_default))
     
     if Path(ssl_cert).exists() and Path(ssl_key).exists():
-        print(f"HTTPS enabled - Certificate: {ssl_cert}")
+        print(f"✓ HTTPS enabled - Certificate: {ssl_cert}")
         app.run(debug=debug, host=host, port=port, ssl_context=(ssl_cert, ssl_key))
     else:
-        print("Running on HTTP (no SSL certificates found)")
+        print("⚠ Running on HTTP (no SSL certificates found)")
+        print("  To enable HTTPS:")
+        print("  1. Install mkcert: choco install mkcert -y")
+        print("  2. Create CA: mkcert -install")
+        print(f"  3. Generate certs: mkcert -cert-file {ssl_cert_default.parent}/flask-cert.pem -key-file {ssl_cert_default.parent}/flask-key.pem localhost 127.0.0.1")
         app.run(debug=debug, host=host, port=port)
