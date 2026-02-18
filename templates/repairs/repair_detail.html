@@ -41,12 +41,27 @@
             <i class="bi bi-receipt"></i> Print Receipt
         </a>
         {% endif %}
+        {% if device.status == 'Completed' and not device.is_archived and (current_user.role == 'ADMIN' or current_user.role == 'TECH') %}
+        <form method="POST" action="{{ url_for('repairs.archive_repair', device_id=device.id) }}" style="display:inline; margin-left:6px;">
+            <button type="submit" class="btn btn-outline-secondary" onclick="return confirm('Archive this completed repair? This will hide it from the active list.');">
+                <i class="bi bi-archive"></i> Archive
+            </button>
+        </form>
+        {% endif %}
+
         {% if current_user.role == 'ADMIN' %}
         <form method="POST" action="{{ url_for('repairs.delete_repair', device_id=device.id) }}" style="display:inline;">
             <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Delete this repair ticket? This will attempt to restore used parts to stock.');">
                 <i class="bi bi-trash"></i> Delete
             </button>
         </form>
+        {% if device.payment_status == 'Paid' or device.is_archived %}
+        <form method="POST" action="{{ url_for('repairs.revert_repair', device_id=device.id) }}" style="display:inline; margin-left:6px;">
+            <button type="submit" class="btn btn-outline-warning" onclick="return confirm('Revert this repair to editable state? This will allow editing parts and prices.');">
+                <i class="bi bi-arrow-counterclockwise"></i> Revert to editable
+            </button>
+        </form>
+        {% endif %}
         {% endif %}
     </div>
 </div>
@@ -73,6 +88,59 @@
                         <strong>Warranty:</strong> {% if device.is_warranty_repair == 'yes' %}Yes{% elif device.is_warranty_repair == 'unsure' %}Unsure{% else %}No{% endif %}
                     </div>
                 </div>
+
+                {% if device.payment_status != 'Paid' and not device.is_archived %}
+                <!-- Toggle button to reveal inline edit form -->
+                <button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#editDeviceCollapse" aria-expanded="false" aria-controls="editDeviceCollapse">
+                    <i class="bi bi-pencil-square"></i> Edit device details
+                </button>
+
+                <div class="collapse" id="editDeviceCollapse">
+                    <form method="POST" action="{{ url_for('repairs.update_device_details', device_id=device.id) }}">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label class="form-label">Device Type</label>
+                                <input name="device_type" class="form-control" value="{{ device.device_type }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Brand</label>
+                                <input name="brand" class="form-control" value="{{ device.brand or '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Model</label>
+                                <input name="model" class="form-control" value="{{ device.model or '' }}">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Serial Number</label>
+                                <input name="serial_number" class="form-control" value="{{ device.serial_number or '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Device Age</label>
+                                <input name="device_age" class="form-control" value="{{ device.device_age or '' }}">
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Issue Description</label>
+                                <textarea name="issue_description" class="form-control" rows="2">{{ device.issue_description or '' }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Accessories</label>
+                                <input name="accessories" class="form-control" value="{{ device.accessories or '' }}">
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary">Save device details</button>
+                            <button type="button" class="btn btn-secondary ms-2" data-bs-toggle="collapse" data-bs-target="#editDeviceCollapse">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+                {% else %}
+                <button class="btn btn-outline-secondary mb-3" disabled title="Locked — revert to edit"><i class="bi bi-pencil-square"></i> Edit device details</button>
+                <div class="mt-3 text-muted small">Device details are locked while repair is Paid or archived. Use Revert to enable edits.</div>
+                {% endif %}
+
                 {% if device.accessories %}
                 <div class="mb-2">
                     <strong>Accessories:</strong><br>
@@ -156,16 +224,25 @@
                             <tr data-part-id="{{ part.id }}" data-qty="{{ part.qty }}">
                                 <td>{{ part.product.name }}</td>
                                 <td class="text-end qty-display">{{ part.qty }}</td>
-                                <td class="text-end price-cell" style="cursor: pointer; background-color: #f8f9fa; padding: 8px;" title="Click to edit price">
+                                <td class="text-end price-cell {% if device.payment_status == 'Paid' or device.is_archived %}locked{% endif %}" style="background-color: #f8f9fa; padding: 8px;" title="{% if device.payment_status != 'Paid' and not device.is_archived %}Click to edit price{% else %}Locked{% endif %}">
                                     <span class="price-display">{{ part.unit_price|currency }}</span>
+                                    {% if device.payment_status != 'Paid' and not device.is_archived %}
                                     <input type="number" class="form-control form-control-sm price-input" style="display:none; width:100px;" step="0.01" min="0" value="{{ part.unit_price }}">
+                                    {% endif %}
                                 </td>
                                 <td class="text-end fw-bold line-total-cell">{{ part.line_total|currency }}</td>
-                                <!--<td class="text-center">
+                                <td class="text-center">
+                                    {% if device.payment_status != 'Paid' and not device.is_archived %}
                                     <button type="button" class="btn btn-sm btn-outline-primary edit-qty-btn" data-part-id="{{ part.id }}" data-bs-toggle="modal" data-bs-target="#editQtyModal">
                                         <i class="bi bi-pencil"></i> Edit Qty
                                     </button>
-                                </td>-->
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-part-btn" data-part-id="{{ part.id }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% else %}
+                                    <span class="text-muted">Locked</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -390,18 +467,21 @@ document.addEventListener('DOMContentLoaded', function(){
     });
 });
     document.querySelectorAll('.price-cell').forEach(cell => {
+        // skip locked rows or cells without an editable input
+        if (cell.classList.contains('locked')) return;
+        const display = cell.querySelector('.price-display');
+        const input = cell.querySelector('.price-input');
+        if (!input) return;
+
         cell.addEventListener('click', function(){
-            const display = this.querySelector('.price-display');
-            const input = this.querySelector('.price-input');
-            if (display.style.display !== 'none') {
+            if (display && display.style.display !== 'none') {
                 display.style.display = 'none';
                 input.style.display = 'block';
                 input.focus();
-                input.select();
+                input.select && input.select();
             }
         });
 
-        const input = cell.querySelector('.price-input');
         input.addEventListener('blur', function(){
             updateLineTotal(this);
         });
@@ -633,11 +713,34 @@ document.addEventListener('DOMContentLoaded', function(){
                     alert('Error: ' + data.message);
                 }
             } else {
-                alert('Error updating quantity');
+                const json = await res.json().catch(()=>null);
+                alert('Error updating quantity: ' + (json && json.message ? json.message : res.statusText));
             }
         } catch (err) {
             alert('Error: ' + err.message);
         }
+    });
+
+    // Delete part handler (AJAX)
+    document.querySelectorAll('.delete-part-btn').forEach(btn => {
+        btn.addEventListener('click', async function(){
+            const partId = this.dataset.partId;
+            if (!confirm('Remove this part from the repair and restore stock?')) return;
+            try {
+                const baseUrl = '{{ url_for("repairs.delete_part", device_id=device.id, part_id=0) }}';
+                const delUrl = baseUrl.replace('/0/', `/${partId}/`);
+                const res = await fetch(delUrl, { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'} });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.message || 'Server error');
+
+                // Remove row and update financials
+                const row = document.querySelector(`tr[data-part-id="${partId}"]`);
+                if (row) row.remove();
+                updateFinancialSummary(data);
+            } catch (err) {
+                alert('Error removing part: ' + err.message);
+            }
+        });
     });
 });
 </script>

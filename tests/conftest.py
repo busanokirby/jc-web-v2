@@ -21,8 +21,15 @@ def app(temp_db):
         'TESTING': True,
         'SQLALCHEMY_DATABASE_URI': temp_db,
         'WTF_CSRF_ENABLED': False,
+        'SECRET_KEY': 'test-secret'
     }
+    # Ensure SECRET_KEY is present (Config requires it)
+    import os
+    os.environ['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'test-secret')
+
     app = create_app(config=config)
+    # apply mapping config (create_app expects a config object/string; support dict in tests)
+    app.config.update(config)
 
     # Create tables and a test dataset
     with app.app_context():

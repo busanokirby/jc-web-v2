@@ -32,6 +32,9 @@ class Device(db.Model):
     actual_completion = db.Column(db.Date)
     warranty_expiry = db.Column(db.Date)
 
+    # Archive flag: completed repairs are moved to archive automatically
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+
     diagnostic_fee = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     repair_cost = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     parts_cost = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))

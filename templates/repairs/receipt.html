@@ -1,20 +1,22 @@
 {% extends 'layouts/base.html' %}
-
 {% block title %}Receipt {{ device.ticket_number }} - JC Icons{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-  <!-- Header -->
-  <div class="bg-success text-white p-4 rounded-top d-flex justify-content-between align-items-center">
-    <div>
-      <h1 class="mb-0"><i class="bi bi-receipt"></i> Repair Receipt</h1>
-      <p class="mb-0 small">Receipt #{{ device.ticket_number }}</p>
+<div class="mb-2">
+
+  <!-- SCREEN Header (not printed) -->
+  <div class="bg-success text-white py-2 px-3 rounded-top d-flex justify-content-between align-items-center d-print-none">
+    <div class="lh-1">
+      <div class="fw-bold" style="font-size:1.05rem;">
+        <i class="bi bi-receipt"></i> Repair Receipt
+      </div>
+      <div class="small">Receipt #{{ device.ticket_number }}</div>
     </div>
-    <div class="d-print-none">
-      <button onclick="window.print()" class="btn btn-light me-2">
+    <div>
+      <button onclick="window.print()" class="btn btn-light btn-sm me-1">
         <i class="bi bi-printer"></i> Print
       </button>
-      <a href="{{ url_for('repairs.repair_detail', device_id=device.id) }}" class="btn btn-light">
+      <a href="{{ url_for('repairs.repair_detail', device_id=device.id) }}" class="btn btn-light btn-sm">
         <i class="bi bi-arrow-left"></i> Back
       </a>
     </div>
@@ -22,97 +24,81 @@
 
   <!-- Card -->
   <div class="card border-success receipt-container">
-    <div class="card-body">
+    <div class="card-body p-2 p-md-3">
 
-      <hr class="my-2">
-
-      <!-- Receipt Info -->
-
-      <!-- Stub Header (brand) -->
+      <!-- PRINT Header (keep this) -->
       <div class="stub-header">
-        <div class="logo-placeholder">
-          <img
-            src="{{ url_for('static', filename='images/jc-logo.png') }}"
-            alt="JC Icons Logo"
-            style="height: 60px; width: 60px; border-radius: 50%;"
-          >
-        </div>
+        <img
+          src="{{ url_for('static', filename='images/jc-logo.png') }}"
+          alt="JC Icons Logo"
+          class="stub-logo"
+        >
 
-        <div>
-          <div style="font-weight:900; font-size:14px;">
-            JC ICONS COMPUTER SALES &amp; SERVICES
-          </div>
-          <div style="font-size:8px;">
-            J.A CLARIN COR. HONTANOSAS, POBLACION 3, TAGBILARAN CITY
-          </div>
-          <div style="font-size:13px; margin-top:2px;">
-            <strong>CONTACT NO. (038) 411-2134 | 09985771468 | 09208036494</strong>
-          </div>
+        <div class="stub-text">
+          <div class="stub-title">JC ICONS COMPUTER SALES &amp; SERVICES</div>
+          <div class="stub-sub">J.A CLARIN COR. HONTANOSAS, POBLACION 3, TAGBILARAN CITY</div>
+          <div class="stub-contact">CONTACT: (038) 411-2134 • 09985771468 • 09208036494</div>
         </div>
 
         <div class="qr-code">
-          <img src="{{ url_for('static', filename='images/qr-code.png') }}" alt="QR Code" />
+          <img src="{{ url_for('static', filename='images/qr-code.png') }}" alt="QR Code">
         </div>
       </div>
 
-      <hr class="my-2"> 
-      
-      <div class="row mb-3">
-        <div class="col-md-6">
-          <h6 class="text-muted mb-1">Receipt Number</h6>
-          <h4 class="mb-0"><strong>{{ device.ticket_number }}</strong></h4>
+      <!-- Compact meta row -->
+      <div class="d-flex justify-content-between align-items-start gap-2 mt-2 meta-row">
+        <div class="lh-1">
+          <div class="text-muted meta-label">Receipt #:<strong>{{ device.ticket_number }}</strong></div>
+          <div class="fw-bold meta-value"></div>
         </div>
-        <div class="col-md-6 text-end">
-          <h6 class="text-muted mb-1">Date</h6>
-          <p class="mb-0 small">{{ now.strftime('%B %d, %Y at %I:%M %p') }}</p>
-        </div>
-      </div>
 
-      <!-- Customer Info -->
-      <div class="row mb-3">
-        <div class="col-md-6">
-          <h6 class="text-muted mb-1">Customer</h6>
-          <strong class="small">{{ device.owner.name }}</strong>
-          {% if device.owner.phone %}<br><small><i class="bi bi-telephone"></i> {{ device.owner.phone }}</small>{% endif %}
-          {% if device.owner.address %}<br><small><i class="bi bi-geo-alt"></i> {{ device.owner.address }}</small>{% endif %}
+        <div class="text-end lh-1">
+          <div class="meta-value">{{ now.strftime('%b %d, %Y %I:%M %p') }}</div>
         </div>
-        <div class="col-md-6 text-end">
-          <h6 class="text-muted mb-1">Payment Status</h6>
-          <span class="badge {% if device.payment_status == 'PAID' %}bg-success{% elif device.payment_status == 'PARTIAL' %}bg-warning{% else %}bg-secondary{% endif %}">
+
+        <div class="text-end lh-1">
+          <div class="text-muted meta-label">Status: <span class="badge badge-tight {% if device.payment_status == 'PAID' %}bg-success{% elif device.payment_status == 'PARTIAL' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
             {{ device.payment_status }}
-          </span>
+          </span></div>
+          
         </div>
       </div>
 
-      <hr class="my-2">
+      <!-- Two-column compact info -->
+      <div class="row g-2 mt-2">
+        <div class="col-6">
+          <div class="section-title">Customer: {{ device.owner.name }}</div>
+          <div class="small text-muted">
+            {% if device.owner.phone %}<div><i class="bi bi-telephone"></i> {{ device.owner.phone }}</div>{% endif %}
+            {% if device.owner.address %}<div><i class="bi bi-geo-alt"></i> {{ device.owner.address }}</div>{% endif %}
+          </div>
+        </div>
 
-      <!-- Device Details -->
-      <h6 class="mb-2">Device Details</h6>
-      <table class="table table-sm mb-3">
-        <tbody>
-          <tr><td><strong>Device</strong></td><td>{{ device.brand or 'N/A' }} {{ device.model or '' }}</td></tr>
-          <tr><td><strong>Issue</strong></td><td>{{ device.issue_description }}</td></tr>
-        </tbody>
-      </table>
+        <div class="col-6">
+          <div class="section-title" style="text-transform: uppercase;">Device: {{ device.device_type }}</div>
+          <div class="small">
+            <div><span class="text-muted">Unit:</span> <strong>{{ device.brand or 'N/A' }} {{ device.model or '' }}</strong></div>
+            <div class="text-muted"><span class="text-muted">Issue:</span> {{ device.issue_description }}</div>
+          </div>
+        </div>
+      </div>
 
-      <hr class="my-2">
-
-      <!-- Parts Used -->
+      <!-- Parts (only if exists) -->
       {% if device.parts_used_rows %}
-      <h6 class="mb-2">Parts Used</h6>
-      <table class="table table-sm mb-3">
+      <div class="section-title mt-2">Parts Used</div>
+      <table class="table table-sm table-tight mb-1">
         <thead class="table-light">
           <tr>
-            <th>Part Name</th>
-            <th class="text-center">Qty</th>
-            <th class="text-end">Unit Price</th>
-            <th class="text-end">Total</th>
+            <th>Part</th>
+            <th class="text-center" style="width:52px;">Qty</th>
+            <th class="text-end" style="width:90px;">Unit</th>
+            <th class="text-end" style="width:95px;">Total</th>
           </tr>
         </thead>
         <tbody>
           {% for part in device.parts_used_rows %}
           <tr>
-            <td>{{ part.product.name if part.product else 'Unknown Part' }}</td>
+            <td class="text-truncate">{{ part.product.name if part.product else 'Unknown Part' }}</td>
             <td class="text-center">{{ part.qty }}</td>
             <td class="text-end">₱{{ "%.2f"|format(part.unit_price) }}</td>
             <td class="text-end">₱{{ "%.2f"|format(part.line_total) }}</td>
@@ -122,97 +108,128 @@
       </table>
       {% endif %}
 
-      <!-- Financial Summary -->
-      <h6 class="mb-2">Financial Summary</h6>
-      <table class="table table-sm mb-3">
+      <!-- Summary (tight, minimal) -->
+      <div class="section-title mt-2">Summary</div>
+      <table class="table table-sm table-tight mb-1">
         <tbody>
-          <tr><td>Diagnostic Fee</td><td class="text-end">₱{{ "%.2f"|format(device.diagnostic_fee) }}</td></tr>
-          <tr><td>Repair Cost</td><td class="text-end">₱{{ "%.2f"|format(device.repair_cost) }}</td></tr>
-          <tr><td>Parts Cost</td><td class="text-end">₱{{ "%.2f"|format(device.parts_cost) }}</td></tr>
-          <tr class="table-light"><td><strong>Total Cost</strong></td><td class="text-end"><strong>₱{{ "%.2f"|format(device.total_cost) }}</strong></td></tr>
-        </tbody>
-      </table>
-
-      <!-- Payment Info -->
-      <h6 class="mb-2">Payment Information</h6>
-      <table class="table table-sm mb-3">
-        <tbody>
+          <!--<tr><td>Diagnostic</td><td class="text-end">₱{{ "%.2f"|format(device.diagnostic_fee) }}</td></tr>-->
+          <tr><td>Repair</td><td class="text-end">₱{{ "%.2f"|format(device.repair_cost) }}</td></tr>
+          <tr><td>Parts</td><td class="text-end">₱{{ "%.2f"|format(device.parts_cost) }}</td></tr>
+          <tr class="table-light">
+            <td class="fw-bold">Total</td>
+            <td class="text-end fw-bold">₱{{ "%.2f"|format(device.total_cost) }}</td>
+          </tr>
           <tr>
-            <td>Amount Paid</td>
+            <td>Paid</td>
             <td class="text-end">
               {% if device.deposit_paid and device.deposit_paid > 0 %}
                 ₱{{ "%.2f"|format(device.deposit_paid) }}
               {% else %}
-                <em>None</em>
+                <span class="text-muted">None</span>
               {% endif %}
             </td>
           </tr>
           <tr>
-            <td><strong>Balance Due</strong></td>
-            <td class="text-end"><strong>₱{{ "%.2f"|format(device.balance_due) }}</strong></td>
+            <td class="fw-bold">Balance</td>
+            <td class="text-end fw-bold">₱{{ "%.2f"|format(device.balance_due) }}</td>
           </tr>
         </tbody>
       </table>
 
-      <!-- Footer (branding message) -->
-      <hr class="my-2">
-      <div class="text-center text-muted" style="font-size:0.75rem;">
-        <p class="mb-0">Your Computer Needs... Our Job.</p>
-        <p class="mb-0">Thank you for your continued trust in our services. We look forward to serving you again.</p>
-        <p class="mb-0">If you have any questions regarding this transaction, please contact us.</p>
-        <p class="mb-0 mt-2" style="font-size:0.7rem;">{{ now.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+      <!-- Footer (super compact) -->
+      <div class="text-center text-muted footer-compact mt-2">
+        <div>Your Computer Needs... Our Job.</div>
+        <div class="small">Questions? Please contact us.</div>
+        <div class="small">{{ now.strftime('%Y-%m-%d %H:%M:%S') }}</div>
       </div>
+
     </div>
   </div>
 </div>
 
-  <style>
-    .receipt-container { max-width: 100%; }
-    .header-main { display:flex; align-items:center; justify-content:center; gap:15px; flex-wrap:wrap; }
-    .header-text h2 { font-size:1.3rem; font-weight:bold; margin:0; }
+<style>
+  .receipt-container { max-width: 100%; }
 
-    /* stub header/qr styles reused from print_ticket */
-    .stub-header { background-color: #2ea863; color: white; padding: 5px 10px; display:flex; align-items:center; position:relative; }
-    .qr-code { width:60px; height:60px; background:white; position:absolute; right:10px; top:2px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-    .qr-code img { width:100%; height:100%; display:block; }
-  </style>
+  /* ---- Compact typography ---- */
+  .section-title{
+    font-weight:700;
+    font-size:.78rem;
+    margin:0;
+  }
+  .meta-row .meta-label{ font-size:.70rem; }
+  .meta-row .meta-value{ font-size:.82rem; }
+  .badge-tight{ padding:.25em .5em; font-size:.72rem; }
 
-  <style media="print">
-  /* hide UI controls but keep headers visible */
-  nav, .navbar, .d-print-none, .bg-success, .btn, footer.jc-footer { display:none !important; }
+  /* ---- Stub header (printed header) ---- */
+  .stub-header{
+    background:#2ea863;
+    color:#fff;
+    padding:6px 8px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    position:relative;
+    border-radius:6px;
+  }
+  .stub-logo{
+    width:42px;
+    height:42px;
+    border-radius:50%;
+    flex:0 0 auto;
+  }
+  .stub-text{ padding-right:58px; line-height:1.05; }
+  .stub-title{ font-weight:900; font-size:12px; }
+  .stub-sub{ font-size:8px; opacity:.95; }
+  .stub-contact{ font-size:9px; font-weight:700; margin-top:2px; }
 
-  /* page setup */
-  @page { size: A4; margin: 0in; }
+  .qr-code{
+    width:46px;
+    height:46px;
+    background:#fff;
+    position:absolute;
+    right:6px;
+    top:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    border-radius:4px;
+  }
+  .qr-code img{ width:100%; height:100%; display:block; }
 
-  /* card cleanup for print */
-  .card { border:none !important; box-shadow:none !important; max-height: none; overflow: visible; }
-
-  /* Ensure the top header and stub-header print with color */
-    .stub-header {
-    background-color: #2ea863 !important;
-    color: #ffffff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+  /* ---- Tight tables ---- */
+  .table-tight > :not(caption) > * > *{
+    padding:.18rem .35rem !important;
+    line-height:1.1 !important;
   }
 
-  /* QR box should remain white */
-  .stub-header .qr-code {
-    background: #ffffff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+  .footer-compact{ font-size:.72rem; line-height:1.15; }
+</style>
+
+<style media="print">
+  /* Hide UI controls / nav; KEEP stub-header */
+  nav, .navbar, .d-print-none, footer.jc-footer { display:none !important; }
+
+  @page { size: A4; margin: 0.15in; }
+
+  /* Remove card chrome */
+  .card{ border:none !important; box-shadow:none !important; }
+  .card-body{ padding:0 !important; }
+
+  /* Ensure color prints */
+  .stub-header{
+    background-color:#2ea863 !important;
+    color:#ffffff !important;
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+  .stub-header .qr-code{
+    background:#ffffff !important;
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
   }
 
-  /* Fallback border so separation remains if backgrounds are stripped */
-  .stub-header {
-    padding: 6px 10px !important;
-    border-top: 8px solid #2ea863 !important;
-    border-bottom: 8px solid #2ea863 !important;
-  }
-
-  /* Ensure images inside header print correctly */
-  .stub-header img { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-
-  /* Optional: reduce font sizes for print */
-  body { font-size: 10pt; line-height: 1.4; }
+  /* More compact print text */
+  body{ font-size:9.5pt; line-height:1.15; }
 </style>
 {% endblock %}

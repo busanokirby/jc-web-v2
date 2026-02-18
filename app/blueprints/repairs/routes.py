@@ -30,7 +30,16 @@ def repairs():
     date_to = request.args.get("date_to", "")
     page = request.args.get("page", 1, type=int)
 
-    query = Device.query
+    archived = request.args.get("archived", "")
+
+    # Default behavior: show only active (non-archived) repairs unless user requests otherwise
+    if archived == '1':
+        query = Device.query.filter(Device.is_archived == True)
+    elif status:
+        # honor explicit status filter (Completed will show completed/archived items)
+        query = Device.query.filter(Device.status == status)
+    else:
+        query = Device.query.filter(Device.is_archived == False)
 
     if q:
         # search by ticket number or customer name or device model
@@ -39,9 +48,6 @@ def repairs():
             (Customer.name.ilike(f"%{q}%")) |
             (Device.model.ilike(f"%{q}%"))
         )
-
-    if status:
-        query = query.filter(Device.status == status)
 
     if date_from:
         try:
@@ -73,8 +79,15 @@ def repairs_search_api():
     if not q or len(q) < 2:
         return Response(json.dumps([]), mimetype='application/json')
 
+    archived = request.args.get('archived', '') == '1'
+
+    base = Device.query.join(Customer, Device.customer_id == Customer.id)
+    # exclude archived repairs from autocomplete/search by default
+    if not archived:
+        base = base.filter(Device.is_archived == False)
+
     results = (
-        Device.query.join(Customer, Device.customer_id == Customer.id)
+        base
         .filter(
             (Device.ticket_number.ilike(f"%{q}%")) |
             (Customer.name.ilike(f"%{q}%"))
@@ -247,6 +260,8 @@ def update_status(device_id: int):
     device.technician_notes = request.form.get("technician_notes", device.technician_notes)
     device.solution_applied = request.form.get("solution_applied", device.solution_applied)
 
+    # Automatically archive completed repairs; unarchive if status changes away from Completed
+    device.is_archived = (device.status == "Completed")
     if device.status == "Completed":
         device.actual_completion = date.today()
 
@@ -261,11 +276,47 @@ def update_status(device_id: int):
     return redirect(url_for("repairs.repair_detail", device_id=device.id))
 
 
+@repairs_bp.route("/<int:device_id>/update-details", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def update_device_details(device_id: int):
+    """Update editable device details (brand/model/serial/issue/etc.).
+    Editing is blocked for Paid or archived repairs; revert to enable edits.
+    """
+    device = Device.query.get_or_404(device_id)
+
+    if device.payment_status == 'Paid' or device.is_archived:
+        flash('Cannot edit device details for a processed/paid or archived repair. Revert to enable edits.', 'danger')
+        return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+    device_type = (request.form.get('device_type') or '').strip()
+    if not device_type:
+        flash('Device type is required.', 'danger')
+        return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+    device.device_type = device_type
+    device.brand = (request.form.get('brand') or '').strip() or None
+    device.model = (request.form.get('model') or '').strip() or None
+    device.serial_number = (request.form.get('serial_number') or '').strip() or None
+    device.issue_description = (request.form.get('issue_description') or '').strip() or device.issue_description
+    device.device_age = (request.form.get('device_age') or '').strip() or device.device_age
+    device.accessories = (request.form.get('accessories') or '').strip() or device.accessories
+
+    db.session.commit()
+    flash('Device details updated.', 'success')
+    return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+
 @repairs_bp.route("/<int:device_id>/parts/add", methods=["POST"])
 @login_required
 @roles_required("ADMIN", "TECH")
 def add_part_used(device_id: int):
     device = Device.query.get_or_404(device_id)
+
+    # Disallow adding parts to a processed/paid repair. Revert to enable edits.
+    if device.payment_status == 'Paid' or device.is_archived:
+        flash('Cannot add parts to a processed/paid repair. Revert the repair to allow edits.', 'danger')
+        return redirect(url_for('repairs.repair_detail', device_id=device.id))
 
     product_id = int(request.form.get("product_id"))
     qty = int(request.form.get("qty") or 0)
@@ -408,6 +459,10 @@ def update_part_qty(device_id: int, part_id: int):
     
     if part.device_id != device_id:
         return jsonify({"success": False, "message": "Part does not belong to this device"}), 400
+
+    # Disallow edits on processed/paid repairs unless reverted
+    if device.payment_status == 'Paid' or device.is_archived:
+        return jsonify({"success": False, "message": "Cannot edit parts on a processed/paid repair. Revert to edit."}), 400
     
     try:
         new_qty = int(request.form.get("qty") or 0)
@@ -466,6 +521,10 @@ def update_part_price(device_id: int, part_id: int):
     if part.device_id != device_id:
         return jsonify({"success": False, "message": "Part does not belong to this device"}), 400
 
+    # Disallow edits on processed/paid repairs unless reverted
+    if device.payment_status == 'Paid' or device.is_archived:
+        return jsonify({"success": False, "message": "Cannot edit parts on a processed/paid repair. Revert to edit."}), 400
+
     # Accept price from form or JSON
     price_raw = request.form.get("price") if request.form.get("price") is not None else (request.json.get("price") if request.json else None)
     try:
@@ -522,3 +581,97 @@ def delete_repair(device_id: int):
         flash(f"Error deleting repair: {str(e)}", "danger")
 
     return redirect(url_for("repairs.repairs"))
+
+
+@repairs_bp.route("/<int:device_id>/parts/<int:part_id>/delete", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def delete_part(device_id: int, part_id: int):
+    """Remove a part from a repair (restores stock). Disabled for processed/paid repairs unless reverted."""
+    device = Device.query.get_or_404(device_id)
+    part = RepairPartUsed.query.get_or_404(part_id)
+
+    if part.device_id != device.id:
+        return jsonify({"success": False, "message": "Part does not belong to this device"}), 400
+
+    # Disallow deletion on processed/paid repairs
+    if device.payment_status == 'Paid' or device.is_archived:
+        return jsonify({"success": False, "message": "Cannot remove parts from a processed/paid repair. Revert to edit."}), 400
+
+    try:
+        from app.services.stock import stock_in
+        stock_in(part.product, part.qty, notes=f"Restore stock - removed part from {device.ticket_number}")
+    except Exception:
+        # ignore stock restore failures but continue
+        pass
+
+    db.session.delete(part)
+
+    # Recalculate device parts cost
+    parts_total = sum((row.line_total for row in device.parts_used_rows), start=Decimal("0.00"))
+    device.parts_cost = parts_total
+
+    recompute_repair_financials(device)
+    db.session.commit()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+        return jsonify({
+            "success": True,
+            "message": "Part removed",
+            "parts_cost": str(device.parts_cost),
+            "total_cost": str(device.total_cost),
+            "balance_due": str(device.balance_due),
+            "deposit_paid": str(device.deposit_paid),
+            "payment_status": device.payment_status
+        })
+
+    flash('Part removed and stock restored (if applicable).', 'success')
+    return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+
+@repairs_bp.route("/<int:device_id>/revert", methods=["POST"])
+@login_required
+@roles_required("ADMIN")
+def revert_repair(device_id: int):
+    """Revert a processed/paid repair back to editable state."""
+    device = Device.query.get_or_404(device_id)
+
+    if device.payment_status != 'Paid' and not device.is_archived:
+        flash('Repair is already editable.', 'info')
+        return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+    # Clear paid/archived flags so edits are allowed
+    device.payment_status = 'Pending'
+    device.is_archived = False
+
+    # Clear recorded payment/deposit so the repair becomes unpaid and editable
+    device.deposit_paid = Decimal('0.00')
+
+    # Recompute financials (will set balance_due and status accordingly) and persist
+    recompute_repair_financials(device)
+    db.session.commit()
+
+    flash('Repair reverted to editable state — payment cleared. You can now edit parts and prices and accept new payments.', 'success')
+    return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+
+@repairs_bp.route("/<int:device_id>/archive", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def archive_repair(device_id: int):
+    """Manually archive an existing Completed repair (for upgrades/migrations)."""
+    device = Device.query.get_or_404(device_id)
+
+    if device.is_archived:
+        flash('Repair is already archived.', 'info')
+        return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+    if device.status != 'Completed':
+        flash('Only repairs with status "Completed" can be archived manually.', 'danger')
+        return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+    device.is_archived = True
+    db.session.commit()
+
+    flash('Repair archived.', 'success')
+    return redirect(url_for('repairs.repair_detail', device_id=device.id))

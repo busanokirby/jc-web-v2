@@ -257,6 +257,11 @@ def initialize_database():
                 conn.execute(text("ALTER TABLE product ADD COLUMN reorder_threshold INTEGER NOT NULL DEFAULT 5"))
             if 'reorder_to' not in cols:
                 conn.execute(text("ALTER TABLE product ADD COLUMN reorder_to INTEGER NOT NULL DEFAULT 20"))
+
+            # Ensure `is_archived` exists on `device` table for backward compatibility
+            device_cols = [row[1] for row in conn.execute(text("PRAGMA table_info('device')")).fetchall()]
+            if 'is_archived' not in device_cols:
+                conn.execute(text("ALTER TABLE device ADD COLUMN is_archived BOOLEAN DEFAULT 0 NOT NULL"))
     except Exception:
         # If running migrations or DB locked, skip; DB should be migrated by user in production
         pass

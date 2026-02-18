@@ -26,6 +26,10 @@
             <option value="Ready" {% if status == 'Ready' %}selected{% endif %}>Ready</option>
             <option value="Completed" {% if status == 'Completed' %}selected{% endif %}>Completed</option>
         </select>
+        <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" name="archived" id="show-archived" value="1" {% if request.args.get('archived') == '1' %}checked{% endif %}>
+            <label class="form-check-label" for="show-archived">Show archived</label>
+        </div>
     </div>
     <div class="col-md-2">
         <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}">
