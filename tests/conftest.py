@@ -66,6 +66,10 @@ def client(app):
 
 @pytest.fixture()
 def logged_in_client(client):
+    # Reset login rate limiter for test client IP to avoid 429 during test runs
+    from app.services.security import rate_limiter
+    rate_limiter.reset('127.0.0.1')
+
     # Log in as admin
     rv = client.post('/auth/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
     assert b'Welcome back' in rv.data

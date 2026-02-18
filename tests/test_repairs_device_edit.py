@@ -6,8 +6,9 @@ from app.extensions import db
 
 def test_edit_device_details_allowed(app, logged_in_client):
     client = logged_in_client
+    import uuid
     with app.app_context():
-        d = Device(ticket_number='T-EDIT-1', customer_id=1, device_type='phone', issue_description='initial issue')
+        d = Device(ticket_number=f"T-EDIT-1-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='phone', issue_description='initial issue')
         d.brand = 'OldBrand'
         d.model = 'OldModel'
         db.session.add(d)
@@ -37,8 +38,9 @@ def test_edit_device_details_allowed(app, logged_in_client):
 
 def test_edit_device_details_blocked_when_paid_then_revert_allows(app, logged_in_client):
     client = logged_in_client
+    import uuid
     with app.app_context():
-        d = Device(ticket_number='T-EDIT-2', customer_id=1, device_type='printer', issue_description='typo here')
+        d = Device(ticket_number=f"T-EDIT-2-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='printer', issue_description='typo here')
         d.brand = 'BrandX'
         d.model = 'ModelX'
         d.total_cost = Decimal('30.00')

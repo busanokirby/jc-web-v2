@@ -154,29 +154,45 @@ def pos():
 @login_required
 @roles_required("ADMIN", "SALES")
 def sales_list():
+    # Optional search query
+    q = (request.args.get('q') or '').strip()
+
     # Regular sales
     sales = Sale.query.order_by(Sale.created_at.desc()).limit(200).all()
 
     # Devices that used parts (repair parts should also show in sales history)
     devices = Device.query.filter(Device.parts_used_rows.any()).order_by(Device.created_at.desc()).limit(200).all()
 
-    # Build unified history entries
+    # Build unified history entries with a searchable text blob
     history = []
     for s in sales:
+        items_count = sum(item.qty for item in s.items) if s.items else 0
+        # Build a searchable string containing invoice, customer name and product SKUs/names
+        parts_text = ' '.join(
+            f"{item.product.sku or ''} {item.product.name or ''}" for item in s.items if item.product
+        )
+        customer_name = s.customer.name if getattr(s, 'customer', None) else ''
+        search_text = f"{s.invoice_no or ''} {customer_name} {parts_text}"
+
         history.append({
             'type': 'sale',
             'invoice': s.invoice_no,
             'created_at': s.created_at,
-            'items_count': sum(item.qty for item in s.items) if s.items else 0,
+            'items_count': items_count,
             'subtotal': float(s.subtotal or 0),
             'discount': float(s.discount or 0),
             'total': float(s.total or 0),
             'status': s.status,
             'id': s.id,
+            'search_text': search_text,
         })
 
     for d in devices:
         parts_qty = sum(p.qty for p in d.parts_used_rows) if d.parts_used_rows else 0
+        parts_text = ' '.join(
+            f"{p.product.sku or ''} {p.product.name or ''}" for p in d.parts_used_rows if p.product
+        )
+        search_text = f"{d.ticket_number or ''} {parts_text}"
         history.append({
             'type': 'repair',
             'invoice': d.ticket_number,
@@ -187,12 +203,18 @@ def sales_list():
             'total': float(d.parts_cost or 0),
             'status': d.payment_status,
             'id': d.id,
+            'search_text': search_text,
         })
 
     # Sort by created_at desc and limit to recent 200 entries
     history_sorted = sorted(history, key=lambda x: x['created_at'] or 0, reverse=True)[:200]
 
-    return render_template("sales/sales_list.html", history=history_sorted)
+    # If a search query is provided, filter the history list in-memory (safe for 200-item limit)
+    if q:
+        ql = q.lower()
+        history_sorted = [h for h in history_sorted if ql in (h.get('search_text') or '').lower() or ql in (h.get('invoice') or '').lower()]
+
+    return render_template("sales/sales_list.html", history=history_sorted, q=q)
 
 
 @sales_bp.route("/<int:sale_id>/invoice")
@@ -350,3 +372,33 @@ def reset_sales():
         flash(f"Error resetting sales: {str(e)}", "danger")
     
     return redirect(url_for("sales.reports"))
+
+
+@sales_bp.route('/<int:sale_id>/delete', methods=['POST'])
+@login_required
+@roles_required('ADMIN')
+def delete_sale(sale_id: int):
+    """Delete a single sale and restore stock for sold items (ADMIN only)."""
+    sale = Sale.query.get_or_404(sale_id)
+
+    try:
+        # Restore stock for each sale item (ignore service items)
+        from app.services.stock import stock_in
+        invoice_no = sale.invoice_no
+        for item in sale.items:
+            product = item.product
+            if product and not product.is_service:
+                try:
+                    stock_in(product, item.qty, notes=f"Restore stock - deleted sale {invoice_no}")
+                except Exception:
+                    # ignore stock restore failures but continue to delete
+                    pass
+
+        db.session.delete(sale)
+        db.session.commit()
+        flash(f"Sale {invoice_no} deleted and stock restored.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error deleting sale: {str(e)}", "danger")
+
+    return redirect(url_for('sales.sales_list'))
