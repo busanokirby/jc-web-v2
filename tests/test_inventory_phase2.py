@@ -32,7 +32,7 @@ def test_adjust_stock_and_movement(logged_in_client):
         assert p is not None
         initial = p.stock_on_hand
 
-    resp_post = client.post('/inventory/adjust', data={'product_id': p.id, 'delta': '5', 'notes': 'Test add'}, follow_redirects=True)
+    resp_post = client.post('/inventory/adjust-stock', data={'product_id': p.id, 'delta': '5', 'notes': 'Test add'}, follow_redirects=True)
     assert resp_post.status_code == 200
 
     with client.application.app_context():

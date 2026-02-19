@@ -8,9 +8,10 @@ def test_completed_status_auto_archives(app, logged_in_client):
     """When a repair is marked Completed it becomes archived automatically."""
     client = logged_in_client
 
+    import uuid
     with app.app_context():
-        # create a transient repair ticket
-        d = Device(ticket_number='T-ARCH-1', customer_id=1, device_type='phone', issue_description='arch test')
+        # create a transient repair ticket (unique ticket number)
+        d = Device(ticket_number=f"T-ARCH-1-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='phone', issue_description='arch test')
         d.status = 'Repairing'
         db.session.add(d)
         db.session.commit()
@@ -30,15 +31,16 @@ def test_repairs_default_hides_archived_and_filters_work(app, logged_in_client):
     """Default /repairs page shows only active (non-archived). archived=1 or status=Completed shows them."""
     client = logged_in_client
 
+    import uuid
     with app.app_context():
         # create an archived/completed repair
-        a = Device(ticket_number='T-ARCH-2', customer_id=1, device_type='printer', issue_description='arch test 2')
+        a = Device(ticket_number=f"T-ARCH-2-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='printer', issue_description='arch test 2')
         a.status = 'Completed'
         a.is_archived = True
         db.session.add(a)
 
         # create an active repair
-        b = Device(ticket_number='T-ACT-1', customer_id=1, device_type='laptop', issue_description='active')
+        b = Device(ticket_number=f"T-ACT-1-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='laptop', issue_description='active')
         b.status = 'Repairing'
         b.is_archived = False
         db.session.add(b)
@@ -46,18 +48,18 @@ def test_repairs_default_hides_archived_and_filters_work(app, logged_in_client):
         db.session.commit()
 
     # default listing should NOT include the archived ticket
-    rv = client.get('/repairs')
+    rv = client.get('/repairs/')
     assert rv.status_code == 200
     assert b'T-ARCH-2' not in rv.data
     assert b'T-ACT-1' in rv.data
 
     # archived toggle should show archived items
-    rv2 = client.get('/repairs?archived=1')
+    rv2 = client.get('/repairs/?archived=1')
     assert rv2.status_code == 200
     assert b'T-ARCH-2' in rv2.data
 
     # explicit status=Completed should show completed tickets even without archived param
-    rv3 = client.get('/repairs?status=Completed')
+    rv3 = client.get('/repairs/?status=Completed')
     assert rv3.status_code == 200
     assert b'T-ARCH-2' in rv3.data
 
@@ -65,8 +67,9 @@ def test_repairs_default_hides_archived_and_filters_work(app, logged_in_client):
 def test_manual_archive_for_existing_completed(app, logged_in_client):
     client = logged_in_client
 
+    import uuid
     with app.app_context():
-        d = Device(ticket_number='T-ARCH-MAN-1', customer_id=1, device_type='phone', issue_description='manual archive test')
+        d = Device(ticket_number=f"T-ARCH-MAN-1-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='phone', issue_description='manual archive test')
         d.status = 'Completed'
         d.is_archived = False
         db.session.add(d)
@@ -94,8 +97,9 @@ def test_manual_archive_for_existing_completed(app, logged_in_client):
 def test_cannot_archive_non_completed(app, logged_in_client):
     client = logged_in_client
 
+    import uuid
     with app.app_context():
-        d = Device(ticket_number='T-ARCH-MAN-2', customer_id=1, device_type='phone', issue_description='cannot archive')
+        d = Device(ticket_number=f"T-ARCH-MAN-2-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='phone', issue_description='cannot archive')
         d.status = 'Repairing'
         d.is_archived = False
         db.session.add(d)

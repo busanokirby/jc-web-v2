@@ -181,7 +181,11 @@ def test_revert_clears_deposit_and_unlocks(app, logged_in_client):
     with app.app_context():
         # prepare device with an existing payment (fully paid)
         product = Product.query.filter_by(name='Test Product').first()
-        d = Device(ticket_number='T-REVERT-1', customer_id=1, device_type='phone', issue_description='revert clears deposit')
+        # ensure product has stock for later part-add
+        product.stock_on_hand = max(product.stock_on_hand or 0, 2)
+        db.session.commit()
+        import uuid
+        d = Device(ticket_number=f"T-REVERT-1-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='phone', issue_description='revert clears deposit')
         d.total_cost = Decimal('40.00')
         d.deposit_paid = Decimal('40.00')
         d.payment_status = 'Paid'
