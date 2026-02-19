@@ -167,6 +167,8 @@
                                 <option value="Waiting Parts" {% if device.status == 'Waiting Parts' %}selected{% endif %}>Waiting Parts - Parts on order</option>
                                 <option value="Ready" {% if device.status == 'Ready' %}selected{% endif %}>Ready - Ready for pickup</option>
                                 <option value="Completed" {% if device.status == 'Completed' %}selected{% endif %}>Completed - Customer collected</option>
+                                <option value="Beyond repair" {% if device.status == 'Beyond repair' %}selected{% endif %}>Beyond repair</option>
+                                <option value="Pulled out" {% if device.status == 'Pulled out' %}selected{% endif %}>Pulled out - Customer took device (no charge)</option>
                             </select>
                         </div>
                     </div>
@@ -343,16 +345,29 @@
                             <option value="Card">Card</option>
                             <option value="Check">Check</option>
                             <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Credit">Credit</option>
                         </select>
                     </div>
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="apply_as_deposit" name="apply_as_deposit" value="yes" checked>
+                        <input class="form-check-input" type="checkbox" id="apply_as_deposit" name="apply_as_deposit" value="yes">
+                        <input type="hidden" name="apply_as_deposit" value="no">
                         <label class="form-check-label" for="apply_as_deposit">Apply payment as deposit (keep deposit record)</label>
                     </div>
                     <button type="submit" class="btn btn-success w-100">
                         <i class="bi bi-check-circle"></i> Record Payment
                     </button>
                 </form>
+
+                <!-- Claim on credit (release without payment) -->
+                {% if not device.claimed_on_credit and device.balance_due > 0 %}
+                <form method="POST" action="{{ url_for('repairs.claim_on_credit', device_id=device.id) }}" class="mt-2">
+                    <button type="submit" class="btn btn-outline-warning w-100" onclick="return confirm('Release device on credit (customer takes device without paying now)?');">
+                        <i class="bi bi-person-check"></i> Claim on credit (release unpaid)
+                    </button>
+                </form>
+                {% elif device.claimed_on_credit %}
+                <div class="mt-2 text-center small text-muted">This device was released on credit (unpaid).</div>
+                {% endif %}
             </div>
         </div>
         {% endif %}

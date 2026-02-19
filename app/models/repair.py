@@ -51,6 +51,10 @@ class Device(db.Model):
     pickup_method = db.Column(db.String(50), default="Walk-in")
     is_warranty_repair = db.Column(db.String(20), default="no")  # yes/no/unsure
 
+    # New flags
+    claimed_on_credit = db.Column(db.Boolean, default=False, nullable=False)  # true when device was released on credit (unpaid)
+    charge_waived = db.Column(db.Boolean, default=False, nullable=False)  # true when no charge applies (e.g. Pulled out)
+
     # Printer-specific
     printer_type = db.Column(db.String(50))
     is_color = db.Column(db.Boolean, default=False)

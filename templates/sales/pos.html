@@ -156,8 +156,13 @@
                         </div>
                     </div>
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="apply-as-deposit-pos" checked>
+                        <input class="form-check-input" type="checkbox" id="apply-as-deposit-pos">
                         <label class="form-check-label small" for="apply-as-deposit-pos">Apply payment as deposit (leave checked to record deposit)</label>
+                    </div>
+
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="claim-on-credit-pos">
+                        <label class="form-check-label small" for="claim-on-credit-pos">Claim on credit (release unpaid)</label>
                     </div>
                 </div>
 
@@ -166,7 +171,8 @@
                     <input type="hidden" id="customer-input" name="customer_id">
                     <input type="hidden" id="discount-input-hidden" name="discount">
                     <input type="hidden" id="payment-method-input" name="payment_method">
-                    <input type="hidden" id="apply-as-deposit-input" name="apply_as_deposit" value="yes">
+                    <input type="hidden" id="apply-as-deposit-input" name="apply_as_deposit" value="no">
+                    <input type="hidden" id="claim-on-credit-input" name="claim_on_credit" value="no">
                 </form>
 
                 <button type="button" id="checkout-btn" class="btn btn-success w-100 btn-lg" disabled>
@@ -189,7 +195,7 @@
 let cart = [];
 const products = JSON.parse(document.getElementById('products-data').textContent);
 let productSelect, productQty, addBtn, checkoutBtn, clearBtn, discountInput, paymentMethodSelect, 
-    searchInput, searchBtn, searchResults, customerSelect;
+    searchInput, searchBtn, searchResults, customerSelect, claimOnCreditCheckbox;
 
 // Global functions for inline onclick handlers
 window.removeFromCart = function(idx) {
@@ -280,6 +286,7 @@ document.addEventListener('DOMContentLoaded', function(){
     searchBtn = document.getElementById('product-search-btn');
     searchResults = document.getElementById('product-search-results');
     customerSelect = document.getElementById('customer-select');
+    claimOnCreditCheckbox = document.getElementById('claim-on-credit-pos');
 
     // Product selection
     productSelect.addEventListener('change', function(){
@@ -389,9 +396,18 @@ document.addEventListener('DOMContentLoaded', function(){
         document.getElementById('customer-input').value = customerSelect.value || '';
         document.getElementById('discount-input-hidden').value = discountInput.value;
         document.getElementById('payment-method-input').value = paymentMethodSelect.value;
-        // include apply_as_deposit flag
+            // include apply_as_deposit flag
         const applyDepositCheckbox = document.getElementById('apply-as-deposit-pos');
         document.getElementById('apply-as-deposit-input').value = (applyDepositCheckbox && applyDepositCheckbox.checked) ? 'yes' : 'no';
+        // include claim-on-credit flag
+        const claimCheckbox = document.getElementById('claim-on-credit-pos');
+        document.getElementById('claim-on-credit-input').value = (claimCheckbox && claimCheckbox.checked) ? 'yes' : 'no';
+
+        // Prevent submitting if both deposit and claim are selected (shouldn't be possible due to mutual exclusion but double-check)
+        if ((applyDepositCheckbox && applyDepositCheckbox.checked) && (claimCheckbox && claimCheckbox.checked)) {
+            alert('Cannot record a deposit and claim on credit at the same time. Please uncheck one of the options.');
+            return;
+        }
 
         document.getElementById('checkout-form').submit();
     });
@@ -399,6 +415,18 @@ document.addEventListener('DOMContentLoaded', function(){
     // Discount changes
     discountInput.addEventListener('change', updateCart);
     discountInput.addEventListener('input', updateCart);
+
+    // Mutual exclusion: prevent both Deposit and Claim being selected
+    const depositCheckbox = document.getElementById('apply-as-deposit-pos');
+    const claimCheckbox = document.getElementById('claim-on-credit-pos');
+    if (depositCheckbox && claimCheckbox) {
+        depositCheckbox.addEventListener('change', function(){
+            if (this.checked) claimCheckbox.checked = false;
+        });
+        claimCheckbox.addEventListener('change', function(){
+            if (this.checked) depositCheckbox.checked = false;
+        });
+    }
 
     // Enter key support
     productQty.addEventListener('keypress', function(e){

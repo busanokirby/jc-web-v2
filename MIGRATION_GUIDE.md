@@ -106,13 +106,30 @@ pip install -r requirements.txt
 $env:SECRET_KEY='dev-key-migration'
 ```
 
-**Run migrations:**
+**Run individual migration scripts (existing method):**
 ```powershell
 python ./scripts/migrate_add_created_by_user_id.py
 python ./scripts/migrate_add_technician_tracking.py
 ```
 
-**Expected results:**
+**Or — run *all* migration scripts with the new runner (recommended):**
+```powershell
+# List what will run without applying
+python ./scripts/run_migrations.py --dry-run
+
+# Run all idempotent migration scripts in scripts/ (sorted order)
+python ./scripts/run_migrations.py
+
+# Non-interactive (CI/CD or scripted) - skip confirmation
+python ./scripts/run_migrations.py --yes
+```
+
+**What the runner does:**
+- Discovers `scripts/migrate_*.py` and executes them in sorted order.
+- Passes through your environment (useful for DATABASE_URL / SECRET_KEY).
+- Sets a temporary `SECRET_KEY` if not present (for scripts that call create_app()).
+
+**Expected results (same as above):**
 ```
 Migration: Add created_by_user_id to customer table
 --------------------------------------------------
@@ -130,6 +147,8 @@ Adding columns to device table: created_by_user_id, technician_name_override
 
 Migration completed successfully!
 ```
+
+**CI recommendation:** add a step to run `python ./scripts/run_migrations.py --yes` before deploying the new release.
 
 ### Step 6: Restart Application
 

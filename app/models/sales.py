@@ -14,6 +14,9 @@ class Sale(db.Model):
 
     status = db.Column(db.String(20), default="PAID")  # DRAFT / PAID / PARTIAL / VOID
 
+    # Allow sales to be marked as claimed_on_credit (released unpaid)
+    claimed_on_credit = db.Column(db.Boolean, default=False, nullable=False)
+
     subtotal = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     discount = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     tax = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))

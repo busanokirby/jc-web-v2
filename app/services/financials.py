@@ -23,6 +23,13 @@ def recompute_repair_financials(device: Device) -> None:
 
     device.total_cost = diagnostic + repair + parts
 
+    # If charges are zero (or explicitly waived) treat as settled
+    if getattr(device, 'charge_waived', False) or device.total_cost == 0:
+        device.deposit_paid = Decimal("0.00")
+        device.balance_due = Decimal("0.00")
+        device.payment_status = "Paid"
+        return
+
     # Cap deposit to not exceed total cost
     if deposit > device.total_cost:
         deposit = device.total_cost

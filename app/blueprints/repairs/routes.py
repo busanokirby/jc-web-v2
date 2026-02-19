@@ -225,6 +225,14 @@ def add_repair():
             technician_name_override=(request.form.get("technician_name_override") or "").strip() or None,
         )
 
+        # If created already with a 'no-charge' status treat as waived
+        if d.status in ('Pulled out', 'Beyond repair'):
+            d.charge_waived = True
+            d.diagnostic_fee = Decimal('0.00')
+            d.repair_cost = Decimal('0.00')
+            d.parts_cost = Decimal('0.00')
+            d.deposit_paid = Decimal('0.00')
+
         recompute_repair_financials(d)
         db.session.add(d)
         db.session.commit()
@@ -256,24 +264,58 @@ def repair_detail(device_id: int):
 @roles_required("ADMIN", "TECH")
 def update_status(device_id: int):
     device = Device.query.get_or_404(device_id)
-    device.status = request.form.get("status", device.status)
+    new_status = request.form.get("status", device.status)
+
+    device.status = new_status
     device.technician_notes = request.form.get("technician_notes", device.technician_notes)
     device.solution_applied = request.form.get("solution_applied", device.solution_applied)
+
+    # If device was pulled out (or marked beyond repair) it becomes free of charge
+    if new_status in ('Pulled out', 'Beyond repair'):
+        device.charge_waived = True
+        # clear monetary fields
+        device.diagnostic_fee = Decimal('0.00')
+        device.repair_cost = Decimal('0.00')
+        device.parts_cost = Decimal('0.00')
+        device.deposit_paid = Decimal('0.00')
 
     # Automatically archive completed repairs; unarchive if status changes away from Completed
     device.is_archived = (device.status == "Completed")
     if device.status == "Completed":
         device.actual_completion = date.today()
 
-    # Optional: update labor/diagnostic costs
-    device.diagnostic_fee = safe_decimal(request.form.get("diagnostic_fee"), str(device.diagnostic_fee or "0.00"))
-    device.repair_cost = safe_decimal(request.form.get("repair_cost"), str(device.repair_cost or "0.00"))
+    # Optional: update labor/diagnostic costs (unless charge_waived)
+    if not device.charge_waived:
+        device.diagnostic_fee = safe_decimal(request.form.get("diagnostic_fee"), str(device.diagnostic_fee or "0.00"))
+        device.repair_cost = safe_decimal(request.form.get("repair_cost"), str(device.repair_cost or "0.00"))
 
     recompute_repair_financials(device)
     db.session.commit()
 
     flash("Repair updated.", "success")
     return redirect(url_for("repairs.repair_detail", device_id=device.id))
+
+
+@repairs_bp.route("/<int:device_id>/claim-credit", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def claim_on_credit(device_id: int):
+    """Mark device as claimed (released) on credit — no payment recorded yet, visible in sales unpaid."""
+    device = Device.query.get_or_404(device_id)
+
+    if device.payment_status == 'Paid':
+        flash('This repair is already paid — cannot claim on credit.', 'warning')
+        return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+    device.claimed_on_credit = True
+    # Mark as collected so it can be released to customer
+    device.status = 'Completed'
+    device.is_archived = True
+    device.actual_completion = date.today()
+
+    db.session.commit()
+    flash('Device released on credit. It will appear in the unpaid sales list.', 'success')
+    return redirect(url_for('repairs.repair_detail', device_id=device.id))
 
 
 @repairs_bp.route("/<int:device_id>/update-details", methods=["POST"])
@@ -398,7 +440,7 @@ def add_payment(device_id: int):
     
     amount = safe_decimal(request.form.get("amount"), "0.00")
     payment_method = request.form.get("payment_method", "Unknown")
-    apply_as_deposit = request.form.get('apply_as_deposit', 'yes') == 'yes'
+    apply_as_deposit = request.form.get('apply_as_deposit', 'no') == 'yes'
     
     if amount <= 0:
         flash("Payment amount must be greater than 0.", "danger")
@@ -416,6 +458,11 @@ def add_payment(device_id: int):
         accepted = amount if amount <= remaining else remaining
         device.deposit_paid = current_deposit + accepted
         recompute_repair_financials(device)
+
+        # If this clears the balance and the device was previously released on credit, clear the claim
+        if device.claimed_on_credit and device.payment_status == 'Paid':
+            device.claimed_on_credit = False
+
         db.session.commit()
 
         if accepted < amount:
@@ -433,6 +480,11 @@ def add_payment(device_id: int):
         # Mark as paid without changing deposit_paid
         device.balance_due = Decimal('0.00')
         device.payment_status = 'Paid'
+
+        # Clear claimed_on_credit when the outstanding credit is settled
+        if device.claimed_on_credit:
+            device.claimed_on_credit = False
+
         db.session.commit()
 
         flash(f"Repair settled (marked as Paid) via {payment_method}. Deposit not modified.", "success")

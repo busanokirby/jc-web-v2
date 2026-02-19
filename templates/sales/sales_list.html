@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="d-flex align-items-center gap-3">
-        <h1 class="m-0"><i class="bi bi-receipt"></i> Sales History</h1>
+        <h1 class="m-0"><i class="bi bi-receipt"></i> {% if credits_only %}Credit Claims{% else %}Sales History{% endif %}</h1>
         <form class="d-flex" method="get" action="{{ url_for('sales.sales_list') }}" style="min-width:360px;">
             <input type="search" name="q" class="form-control form-control-sm me-2" placeholder="Search invoice, ticket, SKU or product" value="{{ q or '' }}">
             <button class="btn btn-sm btn-outline-secondary me-2" type="submit">Search</button>
@@ -15,12 +15,30 @@
         </form>
     </div>
 
-    <a href="{{ url_for('sales.pos') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> New Sale
-    </a>
+    <div class="d-flex align-items-center gap-2">
+        <a href="{{ url_for('sales.credits') }}" class="btn btn-outline-warning">
+            <i class="bi bi-wallet2"></i> Credits
+            <span class="badge bg-warning text-dark ms-2">{{ credits_count or 0 }}</span>
+        </a>
+        <a href="{{ url_for('sales.pos') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> New Sale
+        </a>
+    </div>
 </div>
 
 {% if history %}
+{% if credits_only %}
+<div class="alert alert-warning d-flex justify-content-between align-items-center">
+    <div>
+        <strong>Credits outstanding:</strong>
+        <span class="ms-2">₱{{ "%.2f"|format(credits_total or 0) }}</span>
+        <span class="text-muted ms-3">({{ credits_count or 0 }} items)</span>
+    </div>
+    <div>
+        <a href="{{ url_for('sales.sales_list') }}" class="btn btn-sm btn-outline-secondary">Back to Sales</a>
+    </div>
+</div>
+{% endif %}
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -41,6 +59,9 @@
                 <tr>
                     <td>
                         <strong>{{ entry.invoice }}</strong>
+                        {% if entry.claimed_on_credit %}
+                            <span class="badge bg-warning text-dark ms-2">On credit</span>
+                        {% endif %}
                         <br><small class="text-muted">{{ entry.type|capitalize }}</small>
                     </td>
                     <td>{{ entry.created_at.strftime('%Y-%m-%d %H:%M') if entry.created_at else '' }}</td>
@@ -66,6 +87,17 @@
                         <a href="{{ url_for('sales.invoice', sale_id=entry.id) }}" class="btn btn-sm btn-outline-primary" title="View Invoice">
                             <i class="bi bi-file-earmark-pdf"></i>
                         </a>
+
+                        {% if entry.claimed_on_credit %}
+                        <form method="POST" action="{{ url_for('sales.add_payment_for_sale', sale_id=entry.id) }}" style="display:inline; margin-left:6px;">
+                            <input type="hidden" name="amount" value="{{ entry.balance_due }}">
+                            <input type="hidden" name="payment_method" value="Cash">
+                            <button type="submit" class="btn btn-sm btn-success" title="Process payment for this credited sale">
+                                <i class="bi bi-cash-stack"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+
                         {% if current_user.role == 'ADMIN' %}
                         <form method="POST" action="{{ url_for('sales.delete_sale', sale_id=entry.id) }}" style="display:inline; margin-left:6px;">
                             <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this sale? This will restore stock for sold items.');" title="Delete Sale">
@@ -77,6 +109,21 @@
                         <a href="{{ url_for('repairs.print_receipt', device_id=entry.id) }}" class="btn btn-sm btn-outline-primary" title="View Repair Receipt">
                             <i class="bi bi-file-earmark-pdf"></i>
                         </a>
+
+                        {# If this repair was released on credit, show quick action to process payment #}
+                        {% if entry.claimed_on_credit %}
+                        <form method="POST" action="{{ url_for('repairs.add_payment', device_id=entry.id) }}" style="display:inline; margin-left:6px;">
+                            <input type="hidden" name="amount" value="{{ entry.balance_due }}">
+                            <input type="hidden" name="payment_method" value="Cash">
+                            <input type="hidden" name="apply_as_deposit" value="no">
+                            <button type="submit" class="btn btn-sm btn-success" title="Process payment for this credited repair">
+                                <i class="bi bi-cash-stack"></i>
+                            </button>
+                        </form>
+                        <a href="{{ url_for('repairs.repair_detail', device_id=entry.id) }}" class="btn btn-sm btn-outline-secondary ms-2" title="Open Repair">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                        {% endif %}
                         {% endif %}
                     </td>
                 </tr>
@@ -88,9 +135,13 @@
 {% else %}
 <div class="alert alert-info">
     <i class="bi bi-info-circle"></i>
-    No sales or repair-part records found.
-    <a href="{{ url_for('sales.pos') }}" class="alert-link">Create your first sale</a>
-    <a href="{{ url_for('repairs.add_repair') }}" class="alert-link ms-3">Create a repair ticket</a>
+    {% if credits_only %}
+        No credit claims found.
+    {% else %}
+        No sales or repair-part records found.
+        <a href="{{ url_for('sales.pos') }}" class="alert-link">Create your first sale</a>
+        <a href="{{ url_for('repairs.add_repair') }}" class="alert-link ms-3">Create a repair ticket</a>
+    {% endif %}
 </div>
 {% endif %}
 

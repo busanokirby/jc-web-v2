@@ -50,6 +50,13 @@ def pos():
             
             discount = safe_decimal(request.form.get("discount") or "0", "0.00")
             payment_method = request.form.get("payment_method", "Cash")
+
+            # validate mutually-exclusive options from POS
+            apply_as_deposit = request.form.get('apply_as_deposit', 'no') == 'yes'
+            claim_on_credit = request.form.get('claim_on_credit', 'no') == 'yes'
+            if apply_as_deposit and claim_on_credit:
+                flash('Cannot record a deposit and claim on credit at the same time.', 'danger')
+                return redirect(url_for('sales.pos'))
             
             subtotal = Decimal("0.00")
             items_with_products = []
@@ -84,15 +91,18 @@ def pos():
             
             total = max(Decimal("0.00"), subtotal - discount)
             
+            # claim_on_credit already handled above from the submitted form
+
             # Create sale with optional customer
             sale = Sale(
                 invoice_no=generate_invoice_no(),
                 customer_id=customer_id,
-                status="PAID",
+                status="PAID" if not claim_on_credit else "PARTIAL",
                 subtotal=subtotal,
                 discount=discount,
                 tax=Decimal("0.00"),
-                total=total
+                total=total,
+                claimed_on_credit=claim_on_credit
             )
             db.session.add(sale)
             db.session.flush()
@@ -122,8 +132,10 @@ def pos():
                         flash(f"Stock error: {str(e)}", "danger")
                         return redirect(url_for("sales.pos"))
             
-            # Record payment
-            db.session.add(SalePayment(sale_id=sale.id, amount=total, method=payment_method))
+            # Record payment unless this is a credited sale (no immediate payment)
+            if not claim_on_credit:
+                db.session.add(SalePayment(sale_id=sale.id, amount=total, method=payment_method))
+
             db.session.commit()
             
             flash(f"Sale completed! Invoice: {sale.invoice_no}", "success")
@@ -160,8 +172,11 @@ def sales_list():
     # Regular sales
     sales = Sale.query.order_by(Sale.created_at.desc()).limit(200).all()
 
-    # Devices that used parts (repair parts should also show in sales history)
-    devices = Device.query.filter(Device.parts_used_rows.any()).order_by(Device.created_at.desc()).limit(200).all()
+    # Devices that used parts OR devices released on credit — include repairs in sales history
+    from sqlalchemy import or_
+    devices = Device.query.filter(
+        or_(Device.parts_used_rows.any(), Device.claimed_on_credit == True)
+    ).order_by(Device.created_at.desc()).limit(200).all()
 
     # Build unified history entries with a searchable text blob
     history = []
@@ -174,6 +189,10 @@ def sales_list():
         customer_name = s.customer.name if getattr(s, 'customer', None) else ''
         search_text = f"{s.invoice_no or ''} {customer_name} {parts_text}"
 
+        # compute payments total and remaining balance for sale
+        payments_total = sum((p.amount or 0) for p in (s.payments or []))
+        balance_due = float((s.total or 0) - payments_total)
+
         history.append({
             'type': 'sale',
             'invoice': s.invoice_no,
@@ -184,6 +203,8 @@ def sales_list():
             'total': float(s.total or 0),
             'status': s.status,
             'id': s.id,
+            'balance_due': balance_due,
+            'claimed_on_credit': getattr(s, 'claimed_on_credit', False),
             'search_text': search_text,
         })
 
@@ -203,6 +224,8 @@ def sales_list():
             'total': float(d.parts_cost or 0),
             'status': d.payment_status,
             'id': d.id,
+            'balance_due': float(d.balance_due or 0),
+            'claimed_on_credit': getattr(d, 'claimed_on_credit', False),
             'search_text': search_text,
         })
 
@@ -214,7 +237,120 @@ def sales_list():
         ql = q.lower()
         history_sorted = [h for h in history_sorted if ql in (h.get('search_text') or '').lower() or ql in (h.get('invoice') or '').lower()]
 
-    return render_template("sales/sales_list.html", history=history_sorted, q=q)
+    # Credit summary for quick access
+    credits_q = Device.query.filter(Device.claimed_on_credit == True)
+    credits_count = credits_q.count()
+    credits_total = float(sum((d.balance_due or 0) for d in credits_q.all()))
+
+    return render_template("sales/sales_list.html", history=history_sorted, q=q, credits_count=credits_count, credits_total=credits_total)
+
+
+@sales_bp.route('/credits')
+@login_required
+@roles_required('ADMIN', 'SALES')
+def credits():
+    """List devices released on credit (outstanding claims)."""
+    devices = Device.query.filter(Device.claimed_on_credit == True).order_by(Device.created_at.desc()).all()
+    sales_on_credit = Sale.query.filter(Sale.claimed_on_credit == True).order_by(Sale.created_at.desc()).all()
+
+    history = []
+
+    # include repair device credits
+    for d in devices:
+        parts_qty = sum(p.qty for p in d.parts_used_rows) if d.parts_used_rows else 0
+        parts_text = ' '.join(
+            f"{p.product.sku or ''} {p.product.name or ''}" for p in d.parts_used_rows if p.product
+        )
+        search_text = f"{d.ticket_number or ''} {parts_text}"
+        history.append({
+            'type': 'repair',
+            'invoice': d.ticket_number,
+            'created_at': d.created_at,
+            'items_count': parts_qty,
+            'subtotal': float(d.parts_cost or 0),
+            'discount': 0.0,
+            'total': float(d.parts_cost or 0),
+            'status': d.payment_status,
+            'id': d.id,
+            'balance_due': float(d.balance_due or 0),
+            'claimed_on_credit': True,
+            'search_text': search_text,
+        })
+
+    # include sales on credit
+    for s in sales_on_credit:
+        items_count = sum(item.qty for item in s.items) if s.items else 0
+        parts_text = ' '.join(f"{item.product.sku or ''} {item.product.name or ''}" for item in s.items if item.product)
+        payments_total = sum((p.amount or 0) for p in (s.payments or []))
+        balance_due = float((s.total or 0) - payments_total)
+        search_text = f"{s.invoice_no or ''} {parts_text}"
+        history.append({
+            'type': 'sale',
+            'invoice': s.invoice_no,
+            'created_at': s.created_at,
+            'items_count': items_count,
+            'subtotal': float(s.subtotal or 0),
+            'discount': float(s.discount or 0),
+            'total': float(s.total or 0),
+            'status': s.status,
+            'id': s.id,
+            'balance_due': balance_due,
+            'claimed_on_credit': True,
+            'search_text': search_text,
+        })
+
+    credits_count = len(history)
+    credits_total = 0.0
+    for d in devices:
+        credits_total += float(d.balance_due or 0)
+    for s in sales_on_credit:
+        credits_total += float((s.total or 0) - sum((p.amount or 0) for p in (s.payments or [])))
+
+    # Render the same sales_list template but indicate credits_only to adjust header/UI
+    return render_template('sales/sales_list.html', history=history, q='', credits_only=True, credits_count=credits_count, credits_total=credits_total)
+
+
+@sales_bp.route('/<int:sale_id>/payment', methods=['POST'])
+@login_required
+@roles_required('ADMIN', 'SALES')
+def add_payment_for_sale(sale_id: int):
+    """Record payment for a sale that was released on credit (quick-action from credits list)."""
+    sale = Sale.query.get_or_404(sale_id)
+
+    amount = safe_decimal(request.form.get('amount'), '0.00')
+    payment_method = request.form.get('payment_method', 'Unknown')
+
+    if amount <= 0:
+        flash('Payment amount must be greater than 0.', 'danger')
+        return redirect(url_for('sales.sales_list'))
+
+    payments_total = sum((p.amount or 0) for p in (sale.payments or []))
+    remaining = (sale.total or 0) - payments_total
+
+    if remaining <= 0:
+        flash('This sale is already fully paid. No additional payment accepted.', 'warning')
+        return redirect(url_for('sales.invoice', sale_id=sale.id))
+
+    # Accept only up to remaining; cap any overpayment
+    accepted = amount if amount <= remaining else remaining
+    db.session.add(SalePayment(sale_id=sale.id, amount=accepted, method=payment_method))
+
+    # Update sale status and clear claim if fully paid
+    new_paid_total = payments_total + accepted
+    if new_paid_total >= (sale.total or 0):
+        sale.status = 'PAID'
+        sale.claimed_on_credit = False
+    else:
+        sale.status = 'PARTIAL'
+
+    db.session.commit()
+
+    if accepted < amount:
+        flash(f'Payment exceeded remaining amount. Accepted ₱{accepted} and capped to total. Excess ₱{(amount - accepted)} not recorded.', 'warning')
+    else:
+        flash(f'Payment of ₱{accepted} recorded via {payment_method}', 'success')
+
+    return redirect(url_for('sales.invoice', sale_id=sale.id))
 
 
 @sales_bp.route("/<int:sale_id>/invoice")
