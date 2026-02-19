@@ -207,6 +207,71 @@
     </div>
 </div>
 
+<!-- Purchases / Sales for this customer -->
+<div class="row mt-4">
+    <div class="col-lg-12">
+        <h3 class="mb-3"><i class="bi bi-basket3"></i> Purchases</h3>
+        {% if sales %}
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Invoice</th>
+                            <th>Date</th>
+                            <th>Items</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Balance</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in sales %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('sales.invoice', sale_id=s.id) }}" class="text-decoration-none fw-bold">{{ s.invoice_no or '—' }}</a>
+                            </td>
+                            <td>{{ s.created_at|datetimeformat }}</td>
+                            <td><span class="badge bg-info">{{ s.items|length if s.items else 0 }}</span></td>
+                            <td><strong>{{ s.total|currency }}</strong></td>
+                            <td>
+                                <span class="badge {% if s.status == 'PAID' %}bg-success{% elif s.status == 'PARTIAL' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ s.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% set paid = 0 %}
+                                {% for p in s.payments %}
+                                    {% set paid = paid + (p.amount or 0) %}
+                                {% endfor %}
+                                {% set balance = (s.total or 0) - (paid or 0) %}
+                                {% if balance > 0 %}
+                                    <span class="text-danger">{{ balance|currency }}</span>
+                                {% else %}
+                                    <span class="text-success">{{ balance|currency }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('sales.invoice', sale_id=s.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark-pdf"></i></a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center text-muted py-5">
+                <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
+                No purchases found for this customer
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Delete Confirmation Modal -->
 {% if current_user.role == 'ADMIN' %}
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">

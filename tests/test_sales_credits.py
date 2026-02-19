@@ -168,3 +168,28 @@ def test_pos_rejects_deposit_and_claim_together(app, logged_in_client):
         s = Sale.query.filter_by(claimed_on_credit=True).first()
         # there should be none created by this attempt (existing fixtures unaffected)
         assert s is None or s.total != float(p.sell_price)
+
+
+def test_credited_repair_shows_full_total_in_credits_list(app, logged_in_client):
+    """Repairs released on credit should display the full repair total (not only parts cost)."""
+    client = logged_in_client
+    import uuid
+    from decimal import Decimal
+    from app.models.repair import Device
+
+    with app.app_context():
+        d = Device(ticket_number=f"T-CREDIT-TOTAL-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='phone', issue_description='full total test')
+        d.total_cost = Decimal('300.00')
+        d.parts_cost = Decimal('50.00')
+        d.balance_due = Decimal('300.00')
+        d.payment_status = 'Pending'
+        d.claimed_on_credit = True
+        db.session.add(d)
+        db.session.commit()
+        ticket = d.ticket_number
+
+    rv = client.get('/sales/credits')
+    assert rv.status_code == 200
+    assert ticket.encode() in rv.data
+    # The repair entry should show the full total (₱300.00), not just parts_cost (₱50.00)
+    assert b'\xe2\x82\xb1300.00' in rv.data

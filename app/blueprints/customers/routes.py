@@ -120,6 +120,7 @@ def customer_detail(customer_id: int):
         "customers/customer_detail.html",
         customer=customer,
         repairs=repairs,
+        sales=sales,
         stats={
             "total_repairs": total_repairs,
             "completed_repairs": completed_repairs,
