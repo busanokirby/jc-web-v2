@@ -23,11 +23,19 @@ def recompute_repair_financials(device: Device) -> None:
 
     device.total_cost = diagnostic + repair + parts
 
-    # If charges are zero (or explicitly waived) treat as settled
-    if getattr(device, 'charge_waived', False) or device.total_cost == 0:
+    # If charges are explicitly waived, treat as settled (Paid)
+    if getattr(device, 'charge_waived', False):
         device.deposit_paid = Decimal("0.00")
         device.balance_due = Decimal("0.00")
         device.payment_status = "Paid"
+        return
+
+    # If total cost is zero but not waived, keep the repair as Pending so
+    # it remains editable/visible (don't auto-mark as Paid).
+    if device.total_cost == 0:
+        device.deposit_paid = Decimal("0.00")
+        device.balance_due = Decimal("0.00")
+        device.payment_status = "Pending"
         return
 
     # Cap deposit to not exceed total cost

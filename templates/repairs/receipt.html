@@ -67,7 +67,7 @@
       <!-- Two-column compact info -->
       <div class="row g-2 mt-2">
         <div class="col-6">
-          <div class="section-title">Customer: {{ device.owner.name }}</div>
+          <div class="section-title">Customer: {{ device.owner.display_name if device.owner else '' }}</div>
           <div class="small text-muted">
             {% if device.owner.phone %}<div><i class="bi bi-telephone"></i> {{ device.owner.phone }}</div>{% endif %}
             {% if device.owner.address %}<div><i class="bi bi-geo-alt"></i> {{ device.owner.address }}</div>{% endif %}
@@ -136,10 +136,74 @@
         </tbody>
       </table>
 
+      <!-- Signatures: Released By (left), Client (right) -->
+      <div style="display:flex; justify-content:space-between; gap:12px; margin-top:14px; align-items:flex-end;">
+        <!-- Released By (current logged-in user; editable on-screen) -->
+        <div style="flex:1; text-align:center;">
+          <div id="released-by-display" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:-3px;"><strong>{{ current_user.full_name }}</strong></div>
+
+          <div class="no-print" style="margin-top:6px;">
+            <input id="released-by-input" type="text" value="{{ current_user.full_name }}" style="display:none; width:220px; text-align:center; padding:4px;" />
+            <button id="released-by-edit-btn" class="btn btn-sm btn-outline-secondary no-print" type="button" style="padding:4px 8px; font-size:12px;">Edit</button>
+            <button id="released-by-save-btn" class="btn btn-sm btn-success no-print" type="button" style="padding:4px 8px; font-size:12px; display:none;">Save</button>
+            <button id="released-by-cancel-btn" class="btn btn-sm btn-secondary no-print" type="button" style="padding:4px 8px; font-size:12px; display:none;">Cancel</button>
+          </div>
+
+          <div class="bottom-sig-line" style="border-top:1px solid #000; width:80%; margin:6px auto 0; font-size:8px; padding-top:4px;">RELEASED BY</div>
+        </div>
+
+        <!-- Spacer to keep two-column layout centered -->
+        <div style="flex:1;"></div>
+
+        <!-- Client signature (moved to right) -->
+        <div style="flex:1; text-align:center;">
+          <div class="line" style="min-height:18px;">{{ device.owner.display_name if device.owner else '' }}</div>
+          <div class="bottom-sig-line" style="border-top:1px solid #000; width:80%; margin:6px auto 0; font-size:8px; padding-top:4px;">CLIENT SIGNATURE OVER PRINTED NAME</div>
+        </div>
+      </div>
+
+      <script>
+      document.addEventListener('DOMContentLoaded', function(){
+        const editBtn = document.getElementById('released-by-edit-btn');
+        const saveBtn = document.getElementById('released-by-save-btn');
+        const cancelBtn = document.getElementById('released-by-cancel-btn');
+        const input = document.getElementById('released-by-input');
+        const display = document.getElementById('released-by-display');
+        if (!display || !editBtn) return;
+
+        const original = display.textContent.trim();
+        editBtn.addEventListener('click', function(){
+          input.value = original;
+          display.style.display = 'none';
+          input.style.display = 'inline-block';
+          editBtn.style.display = 'none';
+          saveBtn.style.display = 'inline-block';
+          cancelBtn.style.display = 'inline-block';
+        });
+        cancelBtn.addEventListener('click', function(){
+          display.style.display = '';
+          input.style.display = 'none';
+          editBtn.style.display = '';
+          saveBtn.style.display = 'none';
+          cancelBtn.style.display = 'none';
+        });
+        saveBtn.addEventListener('click', function(){
+          const newName = (input.value || '').trim() || {{ current_user.full_name|tojson }};
+          display.textContent = newName;
+          display.style.display = '';
+          input.style.display = 'none';
+          editBtn.style.display = '';
+          saveBtn.style.display = 'none';
+          cancelBtn.style.display = 'none';
+        });
+      });
+      </script>
+
       <!-- Footer (super compact) -->
       <div class="text-center text-muted footer-compact mt-2">
-        <div>Your Computer Needs... Our Job.</div>
-        <div class="small">Questions? Please contact us.</div>
+        <p class="mb-0">Your Computer Needs... Our Job.</p>
+            <p class="mb-0">Thank you for your continued trust in our services. We look forward to serving you again.</p>
+            <p class="mb-0">If you have any questions regarding this transaction, please contact us.</p>
         <div class="small">{{ now.strftime('%Y-%m-%d %H:%M:%S') }}</div>
       </div>
 
@@ -208,7 +272,7 @@
 
 <style media="print">
   /* Hide UI controls / nav; KEEP stub-header */
-  nav, .navbar, .d-print-none, footer.jc-footer { display:none !important; }
+  nav, .navbar, .d-print-none, .no-print, footer.jc-footer { display:none !important; }
 
   @page { size: A4; margin: 0.15in; }
 

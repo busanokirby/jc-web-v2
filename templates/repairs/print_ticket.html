@@ -93,7 +93,8 @@
     }
     .auth-box { border: 1px solid #ccc; padding: 15px; min-height: 165px; display: flex; flex-direction: column; justify-content: space-between; }
     .auth-text { font-size: 9px; color: #444; margin-bottom: 15px; flex: 1; }
-    .sig-line { width: 300px; border-top: 1px solid #000; margin: 20px auto 0; text-align: center; font-size: 9px; padding-top: 2px; }
+    .sig-line { width: 300px; border-top: 1px solid #000; margin: 0 auto; text-align: center; font-size: 9px; padding-top: 2px; }
+    .sig-name { text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
 
     .description-lines .line { margin-top: 5px; border-bottom: 1px solid #999; }
 
@@ -101,15 +102,15 @@
     .main-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: min-content min-content; /* keeps rows tight */
-      row-gap: 4px;   /* reduce vertical spacing */
-      column-gap: 8px; /* keep horizontal spacing reasonable */
-      align-items: start; /* ensures items hug the top of each cell */
+      grid-template-rows: min-content min-content;
+      row-gap: 4px;
+      column-gap: 8px;
+      align-items: start;
     }
 
     .left-top    { grid-column: 1; grid-row: 1; }
     .right-top   { grid-column: 2; grid-row: 1; }
-    .left-bottom { grid-column: 1; grid-row: 2; margin-top: -100px; } /* pull closer */
+    .left-bottom { grid-column: 1; grid-row: 2; margin-top: -100px; }
     .right-bottom{ grid-column: 2; grid-row: 2; margin-top: 0px; }
 
     /* ================= DIVIDER ================= */
@@ -132,8 +133,9 @@
     .legal-terms ul { margin: 0; padding-left: 12px; }
     .legal-terms li { margin-bottom: 1px; }
 
-    .bottom-sigs { display: flex; justify-content: space-between; margin-top: 30px; align-items: flex-end; }
-    .bottom-sig-line { border-top: 1px solid #000; width: 40%; text-align: center; font-size: 8px; padding-top: 4px; }
+    /* Improved Bottom Signatures */
+    .bottom-sigs { display: flex; justify-content: space-around; margin-top: 20px; align-items: flex-end; }
+    .sig-block { width: 40%; display: flex; flex-direction: column; }
 
     /* ================= PRINT BUTTON ================= */
     @media print { .no-print { display: none; } }
@@ -154,14 +156,13 @@
     🖨️ Print Form
   </button>
   <a href="{{ url_for('repairs.repair_detail', device_id=device.id) }}"
-     style="display:inline-block; margin-left:10px; padding:10px 20px; background:#6c757d; color:#fff; border:none; cursor:pointer; text-decoration:none; border-radius:4px; font-weight: bold;">
+     style="display:inline-block; margin-left:10px; margin-top:75px; padding:10px 20px; background:#6c757d; color:#fff; border:none; cursor:pointer; text-decoration:none; border-radius:4px; font-weight: bold;">
     ← Back
   </a>
 </div>
 
 <div class="page-container">
 
-  <!-- HEADER -->
   <div class="header-main">
     <div class="logo-placeholder">
       <img
@@ -180,7 +181,6 @@
     CONTACT NO. (038) 411-2134 | 09985771468 | 09208036494
   </div>
 
-  <!-- TITLE -->
   <div class="form-title-row">
     <div class="section-title" style="position:absolute; left:0;">CLIENT INFORMATION</div>
     <div class="main-heading">REPAIR SERVICE – CLIENT INTAKE FORM</div>
@@ -193,10 +193,9 @@
     </div>
   </div>
 
-  <!-- CLIENT INFO -->
   <div class="input-group">
     <span class="label">Full Name:</span>
-    <div class="line">{{ device.owner.name if device.owner else '' }}</div>
+    <div class="line">{{ device.owner.display_name if device.owner else '' }}</div>
   </div>
   <div class="input-group">
     <span class="label">Company Name (if applicable):</span>
@@ -215,10 +214,8 @@
     <div class="line">{{ device.owner.address if device.owner else '' }}</div>
   </div>
 
-  <!-- ================= MAIN 2×2 GRID ================= -->
   <div class="main-grid" style="margin-top: 10px;">
 
-    <!-- Row 1, Left: DEVICE DETAILS -->
     <div class="left-top">
       <div class="grey-box">
         <div class="section-title" style="margin-top:0;">DEVICE DETAILS</div>
@@ -258,7 +255,6 @@
       </div>
     </div>
 
-    <!-- Row 1, Right: SERVICE REQUEST -->
     <div class="right-top">
       <div class="section-title" style="margin-top:0;">SERVICE REQUEST</div>
       <div style="font-size:10px; font-weight:bold; margin-bottom:5px;">Type of Service Needed:</div>
@@ -286,7 +282,6 @@
       </div>
     </div>
 
-    <!-- Row 2, Left: AUTHORIZATION & APPROVAL -->
     <div class="left-bottom">
       <div class="section-title" style="margin-top: -5px;">AUTHORIZATION &amp; APPROVAL</div>
       <div class="auth-box">
@@ -295,18 +290,35 @@
           <div class="cb-item"><span class="box">✓</span> I authorize the service provider to perform diagnostics, testing, and necessary handling of my device.</div>
           <div class="cb-item" style="margin-top:3px;"><span class="box">✓</span> I confirm that I have read, understood, and agreed to the Legal Terms &amp; Service Agreement.</div>
         </div>
-        <div class="sig-line">SIGNATURE OVER PRINTED NAME</div>
+        
+        <div>
+          <div class="sig-name">{{ device.owner.display_name if device.owner else '' }}</div>
+          <div class="sig-line">CLIENT SIGNATURE OVER PRINTED NAME</div>
+        </div>
       </div>
     </div>
 
-    <!-- Row 2, Right: TECHNICIAN & STATUS -->
     <div class="right-bottom">
       <div style="margin-top: 1px;">
-        <div style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:-10px;">
-          {{ device.technician_name_override or (device.created_by_user.full_name if device.created_by_user else '') }}
+        {%- if technician_display_name is not defined -%}
+          {%- set technician_display_name = device.technician_name_override or (device.created_by_user.full_name if device.created_by_user else 'Judith Balaba') -%}
+        {%- endif -%}
+
+        <div style="margin-top: 20px;">
+          <div class="sig-name" id="technician-name-display" style="font-size: 14px;">{{ technician_display_name }}</div>
+
+          <div class="no-print" style="text-align:center; margin-top:8px; margin-right:5px;">
+            <input id="technician-name-input" type="text" value="{{ technician_display_name }}" style="display:none; width:220px; text-align:center; padding:4px;" />
+            <button id="technician-name-edit-btn" type="button" style="padding:4px 8px; font-size:12px;">Edit</button>
+            <button id="technician-name-save-btn" type="button" style="padding:4px 8px; font-size:12px; display:none; background:#2ea863; color:#fff; border:none;">Save</button>
+            <button id="technician-name-cancel-btn" type="button" style="padding:4px 8px; font-size:12px; display:none;">Cancel</button>
+            <div style="font-size:10px; color:#666; margin-top:6px;">Change technician name for this print (optional)</div>
+          </div>
+
+          <div style="width:60%; margin:0 auto; border-top:1px solid #000; padding-top:4px; text-align:center; font-size:9px; font-weight:bold; color:#d67d58; margin-bottom:15px;">
+            TECHNICIAN IN CHARGE
+          </div>
         </div>
-        <div class="line" style="width:60%; margin:0 auto; border-bottom:1px solid #999;"></div>
-        <div style="text-align:center; font-size:9px; font-weight:bold; color:#d67d58; margin-bottom:15px;">TECHNICIAN IN CHARGE</div>
 
         <div class="input-group">
           <span class="label bold">STATUS:</span>
@@ -319,16 +331,11 @@
       </div>
     </div>
 
-  </div><!-- /main-grid -->
+  </div><div class="cut-line"></div>
 
-  <!-- CUT -->
-  <div class="cut-line"></div>
-
-  <!-- ================= CLAIM STUB ================= -->
   <div class="section-title" style="color:#000; font-size:14px; margin-bottom:-3px;">CLAIM STUB</div>
 
   <div class="stub-header">
-    <!-- Logo -->
     <div class="logo-placeholder">
       <img
         src="{{ url_for('static', filename='images/jc-logo.png') }}"
@@ -337,7 +344,6 @@
       >
     </div>
 
-    <!-- Business Info -->
     <div>
       <div style="font-weight:900; font-size:14px;">
         JC ICONS COMPUTER SALES &amp; SERVICES
@@ -350,7 +356,6 @@
       </div>
     </div>
 
-    <!-- QR Code -->
     <div class="qr-code">
       <img
         src="{{ url_for('static', filename='images/qr-code.png') }}"
@@ -364,7 +369,7 @@
       <div class="section-title" style="font-size:10px;">CLIENT INFORMATION</div>
       <div class="input-group">
         <span class="label" style="font-size:9px;">Full Name:</span>
-        <div class="line">{{ device.owner.name if device.owner else '' }}</div>
+        <div class="line">{{ device.owner.display_name if device.owner else '' }}</div>
       </div>
       <div class="input-group">
         <span class="label" style="font-size:9px;">Company Name (if applicable):</span>
@@ -380,7 +385,6 @@
       </div>
     </div>   
 
-    <!-- STUB DISPLAY ONLY -->
     <div class="col">
       <div class="section-title" style="font-size:10px;">UNIT SUMMARY</div>
 
@@ -408,7 +412,6 @@
     </div>
   </div>
 
-  <!-- LEGAL TERMS -->
   <div class="section-title" style="font-size:10px; margin-top: 10px;">LEGAL TERMS &amp; SERVICE AGREEMENT</div>
 
   <div class="legal-terms">
@@ -457,13 +460,80 @@
   <div style="font-size: 10px;">By signing below, the client confirms they have read, understand, and agree to all terms and conditions listed above.</div>
 
   <div class="bottom-sigs">
-    <div class="bottom-sig-line">CLIENT SIGNATURE OVER PRINTED NAME \ DATE</div>
-    <div class="bottom-sig-line">AUTHORIZED REPRESENTATIVE</div>
+    <div class="sig-block">
+      <div class="sig-name">{{ device.owner.display_name if device.owner else '' }}</div>
+      <div class="sig-line" style="width: 100%;">CLIENT SIGNATURE OVER PRINTED NAME</div>
+    </div>
+    
+    <div class="sig-block">
+      <div class="sig-name">Judith Balaba</div>
+      <div class="sig-line" style="width: 100%;">AUTHORIZED REPRESENTATIVE</div>
+    </div>
   </div>
 
-</div><!-- /page-container -->
+</div><script>
+  document.addEventListener('DOMContentLoaded', function(){
+    const editBtn = document.getElementById('technician-name-edit-btn');
+    const saveBtn = document.getElementById('technician-name-save-btn');
+    const cancelBtn = document.getElementById('technician-name-cancel-btn');
+    const input = document.getElementById('technician-name-input');
+    const display = document.getElementById('technician-name-display');
+    const fallbackName = {{ (device.created_by_user.full_name if device.created_by_user else 'Judith Balaba')|tojson }};
 
-<script>
+    if (!display || !editBtn) return;
+
+    let original = display.textContent.trim();
+
+    editBtn.addEventListener('click', function(){
+      original = display.textContent.trim();
+      input.value = original;
+      display.style.display = 'none';
+      editBtn.style.display = 'none';
+      input.style.display = 'inline-block';
+      saveBtn.style.display = 'inline-block';
+      cancelBtn.style.display = 'inline-block';
+      input.focus();
+    });
+
+    cancelBtn.addEventListener('click', function(){
+      display.style.display = '';
+      editBtn.style.display = '';
+      input.style.display = 'none';
+      saveBtn.style.display = 'none';
+      cancelBtn.style.display = 'none';
+    });
+
+    saveBtn.addEventListener('click', async function(){
+      const newName = (input.value || '').trim();
+      // optimistic UI update
+      display.textContent = newName || fallbackName;
+      display.style.display = '';
+      editBtn.style.display = '';
+      input.style.display = 'none';
+      saveBtn.style.display = 'none';
+      cancelBtn.style.display = 'none';
+
+      try {
+        const res = await fetch('{{ url_for("repairs.update_technician_name", device_id=device.id) }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: 'technician_name=' + encodeURIComponent(newName)
+        });
+        const data = await res.json();
+        if (!data.success) {
+          alert(data.message || 'Failed to update technician name');
+          display.textContent = original;
+        }
+      } catch (err) {
+        alert('Error saving technician name');
+        display.textContent = original;
+      }
+    });
+  });
+
   // Auto-redirect to repair detail after printing
   window.addEventListener('afterprint', function() {
     window.location.href = "{{ url_for('repairs.repair_detail', device_id=device.id) }}";

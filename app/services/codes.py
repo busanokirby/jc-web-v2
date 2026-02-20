@@ -7,12 +7,45 @@ from app.models.sales import Sale
 
 
 def generate_customer_code() -> str:
-    last = Customer.query.order_by(Customer.id.desc()).first()
-    if last and last.customer_code.startswith("JC-CUST-"):
-        n = int(last.customer_code.split("-")[-1]) + 1
+    """Return the next available `JC-CUST-###` code.
+
+    - Ignores customer rows whose `customer_code` doesn't start with `JC-CUST-`.
+    - Safely parses the numeric suffix and returns max+1.
+    - Verifies the candidate isn't already present (simple retry loop).
+    """
+    # Prefer the highest `JC-CUST-` value; fall back to scanning all matching codes.
+    last = (
+        Customer.query
+        .filter(Customer.customer_code.like('JC-CUST-%'))
+        .order_by(Customer.customer_code.desc())
+        .first()
+    )
+
+    if last:
+        try:
+            n = int(last.customer_code.rsplit('-', 1)[1]) + 1
+        except Exception:
+            # Defensive: scan all matching codes and compute max numeric suffix
+            matches = Customer.query.with_entities(Customer.customer_code).filter(Customer.customer_code.like('JC-CUST-%')).all()
+            max_n = 0
+            for (code,) in matches:
+                try:
+                    num = int(code.rsplit('-', 1)[1])
+                    if num > max_n:
+                        max_n = num
+                except Exception:
+                    continue
+            n = max_n + 1
     else:
         n = 1
-    return f"JC-CUST-{n:03d}"
+
+    # Ensure uniqueness (handle rare race/edge cases by incrementing until free)
+    candidate = f"JC-CUST-{n:03d}"
+    while Customer.query.filter_by(customer_code=candidate).first():
+        n += 1
+        candidate = f"JC-CUST-{n:03d}"
+
+    return candidate
 
 
 def generate_ticket_number() -> str:

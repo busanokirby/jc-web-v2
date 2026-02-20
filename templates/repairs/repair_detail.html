@@ -10,7 +10,7 @@
                 <i class="bi bi-tools"></i> Repair Ticket #{{ device.ticket_number }}
             </h1>
             <p class="text-muted mb-0">
-                <strong>Customer:</strong> {{ device.owner.name }}<br>
+                <strong>Customer:</strong> {{ device.owner.display_name }}<br>
                 <strong>Phone:</strong> {{ device.owner.phone }}<br>
                 <strong>Days in Shop:</strong> <span class="badge bg-warning">{{ days_in_shop }} days</span>
             </p>

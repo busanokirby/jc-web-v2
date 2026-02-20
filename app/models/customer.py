@@ -23,5 +23,10 @@ class Customer(db.Model):
     sales = db.relationship("Sale", backref="customer", lazy=True, cascade="all, delete-orphan")
     created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
 
+    @property
+    def display_name(self) -> str:
+        """Canonical display name used in templates (prefer person name, then business name)."""
+        return (self.name or self.business_name or "")
+
     def __repr__(self) -> str:
         return f"<Customer {self.customer_code} {self.name}>"

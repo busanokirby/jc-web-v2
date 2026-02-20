@@ -282,3 +282,49 @@ def test_edit_price_blocked_when_paid_then_reverted_allows(app, logged_in_client
         assert part.unit_price == Decimal('20.00')
         dev = Device.query.get(device_id)
         assert dev.parts_cost == Decimal('20.00')
+
+
+def test_add_part_does_not_double_price(app, logged_in_client):
+    """Regression test for reported bug where product price doubled when added to repairs."""
+    client = logged_in_client
+    with app.app_context():
+        product = Product.query.filter_by(name='Test Product').first()
+        assert product is not None
+        import uuid
+        d = Device(ticket_number=f"T-PART-DOUBLE-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='phone', issue_description='price double repro')
+        db.session.add(d)
+        db.session.commit()
+        device_id = d.id
+        product_id = product.id
+
+    # add part qty=1
+    resp = add_part(client, device_id, product_id, qty=1, ajax=True)
+    assert resp.status_code in (200, 302)
+    if resp.status_code == 200:
+        data = json.loads(resp.data)
+        assert data['success'] is True
+        part_id = int(data['part']['id'])
+    else:
+        with app.app_context():
+            new_part = RepairPartUsed.query.filter_by(device_id=device_id).order_by(RepairPartUsed.id.desc()).first()
+            assert new_part is not None
+            part_id = new_part.id
+
+    with app.app_context():
+        part = RepairPartUsed.query.get(part_id)
+        # unit_price should equal the product's sell_price
+        assert part.unit_price == product.sell_price
+        # line_total should be unit_price * qty (1)
+        assert part.line_total == product.sell_price
+        dev = Device.query.get(device_id)
+        # parts_cost must equal the single part's line_total (no doubling)
+        assert dev.parts_cost == product.sell_price
+
+    # add the same product again (qty=1) and ensure totals update correctly (should be 2x, not 4x)
+    resp2 = add_part(client, device_id, product_id, qty=1, ajax=True)
+    assert resp2.status_code in (200, 302)
+
+    with app.app_context():
+        dev = Device.query.get(device_id)
+        # parts_cost should now equal sell_price * 2
+        assert dev.parts_cost == product.sell_price * 2

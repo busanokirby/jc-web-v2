@@ -73,7 +73,7 @@
             <div class="col-md-6">
                 <h6 class="text-muted mb-1">Bill To</h6>
                 {% if sale.customer %}
-                <strong class="small">{{ sale.customer.name }}</strong>
+                <strong class="small">{{ sale.customer.display_name if sale.customer else 'Walk-in Customer' }}</strong>
                 {% if sale.customer.phone %}<br><small><i class="bi bi-telephone"></i> {{ sale.customer.phone }}</small>{% endif %}
                 {% if sale.customer.address %}<br><small><i class="bi bi-geo-alt"></i> {{ sale.customer.address }}</small>{% endif %}
                 {% else %}
@@ -157,6 +157,64 @@
 
         <hr class="my-2">
 
+        <!-- Signatures: Released By (left), Client (right) -->
+        <div style="display:flex; justify-content:space-between; gap:12px; margin-top:12px; align-items:flex-end;">
+            <div style="flex:1; text-align:center;">
+                <div id="invoice-released-by" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:-3px;"><strong>{{ current_user.full_name }}</strong></div>
+
+                <div class="no-print" style="margin-top:6px;">
+                    <input id="invoice-released-by-input" type="text" value="{{ current_user.full_name }}" style="display:none; width:220px; text-align:center; padding:4px;" />
+                    <button id="invoice-released-by-edit" class="btn btn-sm btn-outline-secondary no-print" type="button" style="padding:4px 8px; font-size:12px;">Edit</button>
+                    <button id="invoice-released-by-save" class="btn btn-sm btn-success no-print" type="button" style="padding:4px 8px; font-size:12px; display:none;">Save</button>
+                    <button id="invoice-released-by-cancel" class="btn btn-sm btn-secondary no-print" type="button" style="padding:4px 8px; font-size:12px; display:none;">Cancel</button>
+                </div>
+
+                <div class="bottom-sig-line" style="border-top:1px solid #000; width:80%; margin:6px auto 0; font-size:8px; padding-top:4px;">RELEASED BY</div>
+            </div>
+
+            <div style="flex:1; text-align:center;">
+                <div class="line" style="min-height:18px;">{{ sale.customer.display_name if sale.customer else 'Walk-in Customer' }}</div>
+                <div class="bottom-sig-line" style="border-top:1px solid #000; width:80%; margin:6px auto 0; font-size:8px; padding-top:4px;">CLIENT SIGNATURE OVER PRINTED NAME</div>
+            </div>
+        </div>
+
+        <script>
+        document.addEventListener('DOMContentLoaded', function(){
+            const editBtn = document.getElementById('invoice-released-by-edit');
+            const saveBtn = document.getElementById('invoice-released-by-save');
+            const cancelBtn = document.getElementById('invoice-released-by-cancel');
+            const input = document.getElementById('invoice-released-by-input');
+            const display = document.getElementById('invoice-released-by');
+            if (!display || !editBtn) return;
+
+            let original = display.textContent.trim();
+            editBtn.addEventListener('click', function(){
+                input.value = original;
+                display.style.display = 'none';
+                input.style.display = 'inline-block';
+                editBtn.style.display = 'none';
+                saveBtn.style.display = 'inline-block';
+                cancelBtn.style.display = 'inline-block';
+            });
+            cancelBtn.addEventListener('click', function(){
+                display.style.display = '';
+                input.style.display = 'none';
+                editBtn.style.display = '';
+                saveBtn.style.display = 'none';
+                cancelBtn.style.display = 'none';
+            });
+            saveBtn.addEventListener('click', function(){
+                const newName = (input.value || '').trim() || {{ current_user.full_name|tojson }};
+                display.textContent = newName;
+                display.style.display = '';
+                input.style.display = 'none';
+                editBtn.style.display = '';
+                saveBtn.style.display = 'none';
+                cancelBtn.style.display = 'none';
+            });
+        });
+        </script>
+
         <!-- Footer (branding message) -->
         <div class="text-center text-muted" style="font-size: 0.75rem; margin-top: 0.3rem;">
             <p class="mb-0">Your Computer Needs... Our Job.</p>
@@ -236,7 +294,7 @@
     }
     
     /* Hide navbar, buttons, non-print elements, and footer */
-    nav, .navbar, .d-print-none, .btn, .btn-outline-secondary, .btn-light, .bg-success, footer.jc-footer, .alert {
+    nav, .navbar, .d-print-none, .no-print, .btn, .btn-outline-secondary, .btn-light, .bg-success, footer.jc-footer, .alert {
         display: none !important;
     }
     

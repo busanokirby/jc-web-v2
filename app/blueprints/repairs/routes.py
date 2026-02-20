@@ -194,7 +194,27 @@ def add_repair():
                     created_by_user_id=current_user.id,
                 )
                 db.session.add(customer)
-            db.session.flush()
+
+                # Defensive flush: if customer_code uniqueness fails (rare/race), regenerate and retry a few times
+                from sqlalchemy.exc import IntegrityError
+                for _attempt in range(3):
+                    try:
+                        db.session.flush()
+                        break
+                    except IntegrityError as ie:
+                        db.session.rollback()
+                        err_text = str(ie.orig) if getattr(ie, 'orig', None) else str(ie)
+                        if 'customer.customer_code' in err_text or 'UNIQUE constraint failed: customer.customer_code' in err_text:
+                            # regenerate a fresh customer_code and try again
+                            customer.customer_code = generate_customer_code()
+                            db.session.add(customer)
+                            continue
+                        # not a customer_code conflict -> re-raise
+                        raise
+                else:
+                    # exhausted retries
+                    flash('Could not create customer due to a code conflict. Please try again.', 'danger')
+                    return redirect(url_for('repairs.add_repair'))
 
         device_type = request.form.get("device_type")
         if not device_type:
@@ -373,6 +393,33 @@ def update_device_details(device_id: int):
     return redirect(url_for('repairs.repair_detail', device_id=device.id))
 
 
+@repairs_bp.route("/<int:device_id>/technician-name", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def update_technician_name(device_id: int):
+    """AJAX endpoint to set/clear the `technician_name_override` for a device.
+    Accepts form-encoded or JSON payload: { technician_name: "Name" }
+    """
+    device = Device.query.get_or_404(device_id)
+
+    # Accept either form POST or JSON
+    name_raw = None
+    if request.form.get('technician_name') is not None:
+        name_raw = request.form.get('technician_name')
+    elif request.json and request.json.get('technician_name') is not None:
+        name_raw = request.json.get('technician_name')
+
+    name = (name_raw or "").strip() or None
+    device.technician_name_override = name
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'technician_name': device.technician_name_override or '',
+        'message': 'Technician name updated.'
+    })
+
+
 @repairs_bp.route("/<int:device_id>/parts/add", methods=["POST"])
 @login_required
 @roles_required("ADMIN", "TECH")
@@ -403,25 +450,25 @@ def add_part_used(device_id: int):
         flash(str(e), "danger")
         return redirect(url_for("repairs.repair_detail", device_id=device.id))
 
-    db.session.add(RepairPartUsed(
+    # Create the RepairPartUsed row and flush so relationships/ids are available
+    new_part = RepairPartUsed(
         device_id=device.id,
         product_id=product.id,
         qty=qty,
         unit_price=unit_price,
         line_total=line_total,
-    ))
+    )
+    db.session.add(new_part)
+    # ensure the new row is visible in `device.parts_used_rows` before recalculation
+    db.session.flush()
 
-    # Update device parts_cost from sum of rows
+    # Recalculate device parts_cost from all rows (defensive — avoids double-counting)
     parts_total = sum((row.line_total for row in device.parts_used_rows), start=Decimal("0.00"))
-    parts_total += line_total  # include new row (device.parts_used_rows not refreshed yet)
     device.parts_cost = parts_total
 
     recompute_repair_financials(device)
 
     db.session.commit()
-
-    # Fetch the newly added part for frontend convenience
-    new_part = RepairPartUsed.query.filter_by(device_id=device.id).order_by(RepairPartUsed.id.desc()).first()
 
     # Return JSON for AJAX requests, redirect for form submits
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
