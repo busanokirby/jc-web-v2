@@ -52,6 +52,7 @@ htmlcov/
 
 # Virtual environments
 web2/
+webv2/
 
 # Temporary files
 *.tmp
