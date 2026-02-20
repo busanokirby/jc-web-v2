@@ -79,6 +79,16 @@
             </div>
         </div>
     </div>
+    <!-- Repairs summary card -->
+    <div class="col-md-3 mt-3">
+        <div class="card border-secondary">
+            <div class="card-body text-center">
+                <h6 class="card-title text-uppercase small">Total Repairs</h6>
+                <h4 class="mb-0">₱{{ "%.2f"|format(repairs_total if repairs_total is defined else 0) }}</h4>
+                <small class="mt-2 d-block">{{ repair_transactions if repair_transactions is defined else 0 }} completed</small>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row mb-4">

@@ -40,7 +40,7 @@ def users():
     
     users_list = (
         query.order_by(User.created_at.desc())
-        .paginate(page=page, per_page=50)
+        .paginate(page=page, per_page=50, error_out=False)
     )
     
     return render_template(

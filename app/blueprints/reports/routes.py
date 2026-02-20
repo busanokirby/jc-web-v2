@@ -10,6 +10,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models.repair import Device
+from app.models.sales import Sale
 from app.services.authz import roles_required
 
 from . import reports_bp
@@ -89,7 +90,7 @@ def financial_report():
         except Exception:
             pass
 
-    # Query sales total
+    # Query sales total (sales transactions)
     sales_query = db.session.query(func.coalesce(func.sum(Sale.total), 0).label('total'))
     if 'from' in date_filter_obj:
         sales_query = sales_query.filter(Sale.created_at >= date_filter_obj['from'])
@@ -97,7 +98,7 @@ def financial_report():
         sales_query = sales_query.filter(Sale.created_at <= date_filter_obj['to'])
     sales_total = float(sales_query.scalar() or 0)
 
-    # Query payments total
+    # Query payments total (payments recorded)
     payments_query = db.session.query(func.coalesce(func.sum(SalePayment.amount), 0).label('total'))
     if 'from' in date_filter_obj:
         payments_query = payments_query.filter(SalePayment.paid_at >= date_filter_obj['from'])
@@ -105,21 +106,34 @@ def financial_report():
         payments_query = payments_query.filter(SalePayment.paid_at <= date_filter_obj['to'])
     payments_total = float(payments_query.scalar() or 0)
 
-    # Outstanding: sales_total - payments_total
-    outstanding = max(0.0, sales_total - payments_total)
+    # Include repair transactions completed within the date range (use actual_completion)
+    repairs_query = db.session.query(func.coalesce(func.sum(Device.total_cost), 0).label('total'))
+    if 'from' in date_filter_obj:
+        repairs_query = repairs_query.filter(Device.actual_completion >= date_filter_obj['from'])
+    if 'to' in date_filter_obj:
+        repairs_query = repairs_query.filter(Device.actual_completion <= date_filter_obj['to'])
+    repairs_total = float(repairs_query.scalar() or 0)
+
+    # Add repairs total into sales_total for a full picture of revenue
+    combined_sales_total = sales_total + repairs_total
+
+    # Outstanding: combined sales (sales + repairs) minus payments recorded
+    outstanding = max(0.0, combined_sales_total - payments_total)
 
     # CSV export
     if fmt == 'csv':
         si = StringIO()
         cw = csv.writer(si)
         cw.writerow(["Metric", "Amount"])
-        cw.writerow(["Sales Total", sales_total])
+        cw.writerow(["Sales Total (sales only)", sales_total])
+        cw.writerow(["Repairs Total", repairs_total])
+        cw.writerow(["Sales + Repairs Total", combined_sales_total])
         cw.writerow(["Payments Total", payments_total])
         cw.writerow(["Outstanding", outstanding])
         output = si.getvalue()
         return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=financial_summary.csv"})
 
-    return render_template('reports/financial.html', sales_total=sales_total, payments_total=payments_total, outstanding=outstanding, date_from=date_from, date_to=date_to)
+    return render_template('reports/financial.html', sales_total=sales_total, repairs_total=repairs_total, combined_sales_total=combined_sales_total, payments_total=payments_total, outstanding=outstanding, date_from=date_from, date_to=date_to)
 
 
 @reports_bp.route('/inventory')

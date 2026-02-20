@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import render_template, request, redirect, url_for, flash, jsonify
+from flask import render_template, request, redirect, url_for, flash, jsonify, current_app as app
 from flask_login import login_required
 from app.extensions import db
 from app.models.inventory import Category, Product
@@ -8,6 +8,8 @@ from app.services.authz import roles_required
 from app.services.guards import require_inventory_edit_enabled
 from app.services.stock import stock_in, StockError, adjust_stock
 from app.services.financials import safe_decimal
+from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 
 from . import inventory_bp
 
@@ -16,17 +18,43 @@ from . import inventory_bp
 @login_required
 @roles_required("ADMIN", "SALES")
 def products():
+    from app.services.pagination import get_page_args
+
     q = request.args.get("q", "").strip()
     category_id = request.args.get("category_id", type=int)
+    page, per_page = get_page_args()
+
     query = Product.query.filter_by(is_active=True)
+
     if q:
-        query = query.filter(Product.name.ilike(f"%{q}%"))
+        # Multi-field case-insensitive partial search: name, sku, specs_json (free text), category name
+        pattern = f"%{q}%"
+        app.logger.debug("Inventory search q=%s page=%s per_page=%s", q, page, per_page)
+        query = (
+            query.outerjoin(Category)
+            .options(joinedload(Product.category))
+            .filter(
+                or_(
+                    Product.name.ilike(pattern),
+                    Product.sku.ilike(pattern),
+                    Product.specs_json.ilike(pattern),
+                    Category.name.ilike(pattern),
+                )
+            )
+            .distinct()
+        )
+    else:
+        # eager-load category to avoid N+1 in template
+        query = query.options(joinedload(Product.category))
+
     if category_id:
         query = query.filter_by(category_id=category_id)
-    products_list = query.order_by(Product.name).all()
+
+    # Paginate at DB level to avoid loading entire table
+    products_pagination = query.order_by(Product.name).paginate(page=page, per_page=per_page, error_out=False)
 
     categories = Category.query.order_by(Category.name).all()
-    return render_template("inventory/products.html", products=products_list, categories=categories, q=q, selected_category=category_id)
+    return render_template("inventory/products.html", products=products_pagination, categories=categories, q=q, selected_category=category_id)
 
 
 @inventory_bp.route('/products/<int:product_id>/adjust', methods=['POST'])
@@ -104,18 +132,51 @@ def add_product_quick():
 
 @inventory_bp.route("/categories/<int:category_id>/delete", methods=["POST"])
 @login_required
-@roles_required("ADMIN", "SALES")
+@roles_required("ADMIN")
 @require_inventory_edit_enabled
 def delete_category(category_id: int):
+    """Delete a category only if no active products are assigned.
+
+    - Enforces CSRF when app config enables it
+    - Returns JSON for AJAX requests and redirects for normal form posts
+    - Restricted to ADMIN role for safety
+    """
+    from flask import current_app, session, request, abort
+
+    # Optional CSRF enforcement (disabled in tests by default)
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        token = (request.form.get('csrf_token') or request.headers.get('X-CSRF-Token'))
+        if not token or token != session.get('_csrf_token'):
+            abort(403)
+
     cat = Category.query.get_or_404(category_id)
-    count = Product.query.filter_by(category_id=cat.id, is_active=True).count()
-    if count > 0:
-        flash("Category has products. Reassign or disable products before deleting.", "warning")
-        return redirect(url_for("inventory.categories"))
-    db.session.delete(cat)
-    db.session.commit()
-    flash("Category deleted.", "success")
-    return redirect(url_for("inventory.categories"))
+
+    # Block delete if any active products exist (user must reassign/disable first)
+    active_count = Product.query.filter_by(category_id=cat.id, is_active=True).count()
+    if active_count > 0:
+        msg = "Category has products. Reassign or disable products before deleting."
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'warning')
+        return redirect(url_for('inventory.categories'))
+
+    try:
+        db.session.delete(cat)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        msg = f"Error deleting category: {str(e)}"
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': msg}), 500
+        flash(msg, 'danger')
+        return redirect(url_for('inventory.categories'))
+
+    # Success — support AJAX and normal form post
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'id': cat.id}), 200
+
+    flash('Category deleted.', 'success')
+    return redirect(url_for('inventory.categories'))
 
 
 @inventory_bp.route('/categories/add_quick', methods=['POST'])
@@ -216,6 +277,34 @@ def add_product():
         return redirect(url_for("inventory.products"))
 
     return render_template("inventory/add_product.html", categories=categories)
+
+
+@inventory_bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
+@login_required
+@roles_required('ADMIN', 'SALES')
+@require_inventory_edit_enabled
+def edit_product(product_id: int):
+    """Edit product details (name edit supported)."""
+    p = Product.query.get_or_404(product_id)
+    categories = Category.query.filter_by(is_active=True).order_by(Category.name).all()
+
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        if not name:
+            flash('Product name is required.', 'danger')
+            return redirect(url_for('inventory.edit_product', product_id=product_id))
+
+        # Only update fields we intend to support now (name). Keep other fields unchanged.
+        p.name = name
+        try:
+            db.session.commit()
+            flash('Product updated successfully!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating product: {str(e)}', 'danger')
+        return redirect(url_for('inventory.products'))
+
+    return render_template('inventory/add_product.html', categories=categories, product=p)
 
 
 @inventory_bp.route("/stock-in", methods=["GET", "POST"])

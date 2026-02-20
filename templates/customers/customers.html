@@ -99,46 +99,8 @@
     </div>
 </div>
 
-<!-- Pagination -->
 {% if customers.pages > 1 %}
-<nav class="d-flex justify-content-center">
-    <ul class="pagination">
-        {% if customers.has_prev %}
-        <li class="page-item">
-            <a class="page-link" href="{{ url_for('customers.customers', page=1, q=q or '') }}">First</a>
-        </li>
-        <li class="page-item">
-            <a class="page-link" href="{{ url_for('customers.customers', page=customers.prev_num, q=q or '') }}">Previous</a>
-        </li>
-        {% endif %}
-        
-        {% for page_num in customers.iter_pages(left_edge=1, left_margin=1, right_margin=1, right_edge=1) %}
-            {% if page_num %}
-                {% if page_num == customers.page %}
-                <li class="page-item active">
-                    <span class="page-link">{{ page_num }}</span>
-                </li>
-                {% else %}
-                <li class="page-item">
-                    <a class="page-link" href="{{ url_for('customers.customers', page=page_num, q=q or '') }}">{{ page_num }}</a>
-                </li>
-                {% endif %}
-            {% else %}
-            <li class="page-item disabled">
-                <span class="page-link">...</span>
-            </li>
-            {% endif %}
-        {% endfor %}
-        
-        {% if customers.has_next %}
-        <li class="page-item">
-            <a class="page-link" href="{{ url_for('customers.customers', page=customers.next_num, q=q or '') }}">Next</a>
-        </li>
-        <li class="page-item">
-            <a class="page-link" href="{{ url_for('customers.customers', page=customers.pages, q=q or '') }}">Last</a>
-        </li>
-        {% endif %}
-    </ul>
-</nav>
+    {% set pagination = customers %}
+    {% include 'layouts/pagination.html' %}
 {% endif %}
 {% endblock %}

@@ -193,3 +193,29 @@ def test_credited_repair_shows_full_total_in_credits_list(app, logged_in_client)
     assert ticket.encode() in rv.data
     # The repair entry should show the full total (₱300.00), not just parts_cost (₱50.00)
     assert b'\xe2\x82\xb1300.00' in rv.data
+
+
+def test_sales_list_handles_device_actual_completion_date(app, logged_in_client):
+    """Ensure devices with a Date-only actual_completion do not cause a 500 when listing sales/repairs."""
+    client = logged_in_client
+    import uuid
+    from datetime import date
+    from decimal import Decimal
+    from app.models.repair import Device
+
+    with app.app_context():
+        d = Device(ticket_number=f"T-ACTCOMP-{uuid.uuid4().hex[:6]}", customer_id=1, device_type='phone', issue_description='actual completion test')
+        # Set actual_completion to a date (not datetime) to reproduce the prior TypeError
+        d.actual_completion = date.today()
+        d.total_cost = Decimal('150.00')
+        d.balance_due = Decimal('150.00')
+        d.payment_status = 'Pending'
+        d.claimed_on_credit = False
+        db.session.add(d)
+        db.session.commit()
+        ticket = d.ticket_number
+
+    rv = client.get('/sales/list')
+    assert rv.status_code == 200
+    assert ticket.encode() in rv.data
+

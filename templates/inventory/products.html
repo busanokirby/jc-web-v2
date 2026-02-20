@@ -14,15 +14,16 @@
                 </form>
 
                 <ul class="list-group">
-                    <a href="{{ url_for('inventory.products') }}" class="list-group-item list-group-item-action {% if not selected_category %}active{% endif %}">All <span class="badge bg-secondary float-end ms-2">{{ products|length }}</span></a>
+                    <a href="{{ url_for('inventory.products') }}" class="list-group-item list-group-item-action {% if not selected_category %}active{% endif %}">All <span class="badge bg-secondary float-end ms-2">{{ products.total if products.items is defined else products|length }}</span></a>
                     {% for c in categories %}
                     <li class="list-group-item d-flex justify-content-between align-items-center {% if selected_category and selected_category == c.id %}active{% endif %}">
                         <a href="{{ url_for('inventory.products', category_id=c.id) }}" class="stretched-link text-decoration-none text-reset">{{ c.name }}</a>
                         <span>
                             <small class="text-muted me-2">{{ c.products|selectattr('is_active')|list|length }}</small>
-                            {% if current_user.role in ['ADMIN', 'SALES'] %}
-                            <form method="POST" action="{{ url_for('inventory.delete_category', category_id=c.id) }}" style="display:inline">
-                                <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete category permanently? This is allowed only if no products exist.')">Delete</button>
+                            {% if current_user.role == 'ADMIN' %}
+                            <form method="POST" action="{{ url_for('inventory.delete_category', category_id=c.id) }}" style="display:inline" onsubmit="return confirm('Delete category permanently? This will only succeed if no active products exist.')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger btn-delete-category" data-category-name="{{ c.name }}" style="position: relative; z-index: 2;">Delete</button>
                             </form>
                             {% endif %}
                         </span>
@@ -38,7 +39,14 @@
             <h3>Products</h3>
             <div class="d-flex flex-column flex-md-row gap-2">
                 <form class="flex-grow-1" method="GET">
-                    <input type="text" name="q" class="form-control" placeholder="Search by name or type..." value="{{ q }}" title="Search products by name or category type">
+                    <div class="input-group">
+                        <input type="search" name="q" class="form-control" placeholder="Search name, SKU, brand, category..." value="{{ q }}" title="Search products by name, SKU, category or specs">
+                        {% if q %}
+                        <a href="{{ url_for('inventory.products', category_id=selected_category) }}" class="btn btn-outline-secondary">Clear</a>
+                        {% else %}
+                        <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+                        {% endif %}
+                    </div>
                 </form>
                 {% if current_user.role in ['ADMIN', 'SALES'] %}
                 <a class="btn btn-outline-secondary" href="{{ url_for('inventory.adjust_stock_page') }}"><i class="bi bi-sliders"></i> Adjust Stock & Price</a>
@@ -62,7 +70,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for p in products %}
+                            {# Support both paginated and non-paginated `products` variable for backward compatibility #}
+                            {% set products_iter = products.items if products.items is defined else products %}
+                            {% for p in products_iter %}
                             <tr data-product-id="{{ p.id }}">
                                 <td>{{ p.sku or '' }}</td>
                                 <td>{{ p.name }}</td>
@@ -85,6 +95,7 @@
                                 <td>
                                     {% if current_user.role in ['ADMIN', 'SALES'] %}
                                     <a class="btn btn-sm btn-outline-primary" href="{{ url_for('inventory.adjust_stock_page') }}?product_id={{ p.id }}">Adjust</a>
+                                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('inventory.edit_product', product_id=p.id) }}">Edit</a>
                                     {% endif %}
                                     {% if current_user.role == 'ADMIN' %}
                                     <form method="POST" action="{{ url_for('inventory.delete_product', product_id=p.id) }}" style="display:inline" onsubmit="return confirm('Delete product? This will mark it inactive and hide it from lists.')">
@@ -99,6 +110,12 @@
                         </tbody>
                     </table>
                 </div>
+
+                {# Pagination controls (reuseable partial) #}
+                {% if products.pages is defined %}
+                    {% set pagination = products %}
+                    {% include 'layouts/pagination.html' %}
+                {% endif %}
             </div>
         </div>
     </div>

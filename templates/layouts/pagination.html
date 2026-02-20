@@ -1,0 +1,66 @@
+{# Reusable pagination partial - expects `pagination` variable in context #}
+{% if pagination and pagination.pages > 1 %}
+<nav class="d-flex justify-content-center align-items-center my-3" aria-label="Pagination">
+    <div class="me-3 text-muted small">
+        {# Showing X–Y of Z results #}
+        {% set start = ((pagination.page - 1) * pagination.per_page) + 1 if pagination.total > 0 else 0 %}
+        {% set end = pagination.page * pagination.per_page if pagination.total > 0 else 0 %}
+        {% if end > pagination.total %}
+            {% set end = pagination.total %}
+        {% endif %}
+        Showing {{ start }}–{{ end }} of {{ pagination.total }}
+    </div>
+
+    {# Optional per-page selector - preserves other query params #}
+    <form method="GET" class="me-3 d-flex align-items-center">
+        {% for k, v in request.args.items() %}
+            {% if k != 'per_page' and k != 'page' %}
+                <input type="hidden" name="{{ k }}" value="{{ v }}">
+            {% endif %}
+        {% endfor %}
+        <select name="per_page" class="form-select form-select-sm" onchange="this.form.submit()" style="width:80px;">
+            {% for opt in [10, 20, 50, 100] %}
+                <option value="{{ opt }}" {% if pagination.per_page == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    <ul class="pagination mb-0">
+        {% if pagination.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for_page(1) }}">First</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for_page(pagination.prev_num) }}">Previous</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">First</span></li>
+        <li class="page-item disabled"><span class="page-link">Previous</span></li>
+        {% endif %}
+
+        {% for p in pagination.iter_pages(left_edge=1, left_current=1, right_current=2, right_edge=1) %}
+            {% if p %}
+                {% if p == pagination.page %}
+                <li class="page-item active" aria-current="page"><span class="page-link">{{ p }}</span></li>
+                {% else %}
+                <li class="page-item"><a class="page-link" href="{{ url_for_page(p) }}">{{ p }}</a></li>
+                {% endif %}
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+        {% endfor %}
+
+        {% if pagination.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for_page(pagination.next_num) }}">Next</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for_page(pagination.pages) }}">Last</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Next</span></li>
+        <li class="page-item disabled"><span class="page-link">Last</span></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}

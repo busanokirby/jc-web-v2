@@ -27,15 +27,31 @@
 </form>
 
 <div class="row">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card mb-3">
             <div class="card-body text-center">
-                <h6 class="text-muted">Sales Total</h6>
+                <h6 class="text-muted">Sales (sales only)</h6>
                 <h3>{{ sales_total|currency }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Repairs Total</h6>
+                <h3>{{ repairs_total|currency }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Total Revenue</h6>
+                <h3>{{ combined_sales_total|currency }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
         <div class="card mb-3">
             <div class="card-body text-center">
                 <h6 class="text-muted">Payments</h6>
@@ -43,7 +59,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-12 mt-2">
         <div class="card mb-3">
             <div class="card-body text-center">
                 <h6 class="text-muted">Outstanding</h6>

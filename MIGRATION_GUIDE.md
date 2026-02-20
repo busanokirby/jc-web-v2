@@ -103,12 +103,16 @@ pip install -r requirements.txt
 
 **Set temporary environment variable:**
 ```powershell
-$env:SECRET_KEY='dev-key-migration'
+$env:SECRET_KEY='040d2ab9d20105f4d5d72709a8cd398a43672712fc5aa1c8816508fa0dabe961'
 ```
 
 **Run individual migration scripts (existing method):**
 ```powershell
 python ./scripts/migrate_add_created_by_user_id.py
+python ./scripts/migrate_add_technician_tracking.py
+python ./scripts/migrate_add_is_archived_to_device.py
+python ./scripts/migrate_add_claim_to_sale.py
+python ./scripts/migrate_add_claim_and_waived_to_device.py
 python ./scripts/migrate_add_technician_tracking.py
 ```
 

@@ -73,7 +73,7 @@ def customers():
     
     customers_list = (
         query.order_by(Customer.name)
-        .paginate(page=page, per_page=50)
+        .paginate(page=page, per_page=50, error_out=False)
     )
     
     return render_template(
@@ -93,21 +93,27 @@ def customer_detail(customer_id: int):
         return render_template("errors/403.html"), 403
     
     customer = Customer.query.get_or_404(customer_id)
-    repairs = Device.query.filter_by(customer_id=customer_id).order_by(Device.id.desc()).all()
-    
+
+    # Paginate repairs & sales on the detail page to avoid loading large histories
+    from app.services.pagination import get_page_args
+    repairs_page = request.args.get('repairs_page', 1, type=int)
+    sales_page = request.args.get('sales_page', 1, type=int)
+
+    repairs = Device.query.filter_by(customer_id=customer_id).order_by(Device.id.desc()).paginate(page=repairs_page, per_page=10, error_out=False)
+
     # Calculate customer statistics (include sales)
-    total_repairs = len(repairs)
-    completed_repairs = len([r for r in repairs if r.status == "Completed"])
+    total_repairs = repairs.total if getattr(repairs, 'total', None) is not None else len(repairs)
+    completed_repairs = len([r for r in (repairs.items if getattr(repairs, 'items', None) is not None else repairs) if r.status == "Completed"])
 
-    # Repairs spending
-    total_repairs_spent = sum((r.total_cost or 0) for r in repairs)
-    repairs_balance = sum((r.balance_due or 0) for r in repairs if r.payment_status in ("Pending", "Partial"))
+    # Repairs spending (sum over the paginated set only to keep computation cheap on detail page)
+    total_repairs_spent = sum((r.total_cost or 0) for r in (repairs.items if getattr(repairs, 'items', None) is not None else repairs))
+    repairs_balance = sum((r.balance_due or 0) for r in (repairs.items if getattr(repairs, 'items', None) is not None else repairs) if r.payment_status in ("Pending", "Partial"))
 
-    # Sales associated with this customer
-    sales = Sale.query.filter_by(customer_id=customer_id).all()
-    total_sales_spent = sum((s.total or 0) for s in sales)
+    # Sales associated with this customer (paginated)
+    sales = Sale.query.filter_by(customer_id=customer_id).order_by(Sale.created_at.desc()).paginate(page=sales_page, per_page=10, error_out=False)
+    total_sales_spent = sum((s.total or 0) for s in (sales.items if getattr(sales, 'items', None) is not None else sales))
     sales_balance = 0
-    for s in sales:
+    for s in (sales.items if getattr(sales, 'items', None) is not None else sales):
         paid = sum((p.amount or 0) for p in s.payments)
         outstanding = (s.total or 0) - paid
         if outstanding > 0 and s.status in ("PARTIAL", "DRAFT"):

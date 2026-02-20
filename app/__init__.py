@@ -187,6 +187,27 @@ def create_app(config=None):
             # If DB not ready or migrations pending, fail gracefully
             low_count = 0
         return dict(inventory_low_count=low_count)
+
+    # Helper used by templates to build page links while preserving existing query args
+    @app.context_processor
+    def pagination_url_helper():
+        from flask import request
+        def url_for_page(page):
+            args = request.args.to_dict()
+            args['page'] = page
+            # preserve view args (e.g. blueprint route params)
+            try:
+                return url_for(request.endpoint, **request.view_args, **args)
+            except Exception:
+                # Fallback to path + querystring
+                from urllib.parse import urlencode
+                qs = urlencode(args)
+                return f"{request.path}?{qs}"
+        return dict(url_for_page=url_for_page)
+
+    # Inject security context (CSRF token, etc.) into all templates
+    from app.services.security import inject_security_context as _inject_security_context
+    app.context_processor(_inject_security_context)
     
     # Register error handlers
     @app.errorhandler(403)

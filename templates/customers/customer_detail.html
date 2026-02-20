@@ -158,7 +158,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for repair in repairs %}
+                        {% set repairs_iter = repairs.items if repairs.items is defined else repairs %}
+                        {% for repair in repairs_iter %}
                         <tr>
                             <td>
                                 <a href="{{ url_for('repairs.repair_detail', device_id=repair.id) }}" class="text-decoration-none fw-bold">
@@ -195,6 +196,11 @@
                     </tbody>
                 </table>
             </div>
+
+            {% if repairs.pages is defined %}
+                {% set pagination = repairs %}
+                {% include 'layouts/pagination.html' %}
+            {% endif %}
         </div>
         {% else %}
         <div class="card">
@@ -227,7 +233,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for s in sales %}
+                        {% set sales_iter = sales.items if sales.items is defined else sales %}
+                        {% for s in sales_iter %}
                         <tr>
                             <td>
                                 <a href="{{ url_for('sales.invoice', sale_id=s.id) }}" class="text-decoration-none fw-bold">{{ s.invoice_no or '—' }}</a>
@@ -260,6 +267,11 @@
                     </tbody>
                 </table>
             </div>
+
+            {% if sales.pages is defined %}
+                {% set pagination = sales %}
+                {% include 'layouts/pagination.html' %}
+            {% endif %}
         </div>
         {% else %}
         <div class="card">
@@ -295,7 +307,7 @@
                 </div>
                 {% if repairs %}
                 <p class="text-muted">
-                    <strong>This customer has {{ repairs|length }} repair record(s).</strong>
+                    <strong>This customer has {{ repairs.total if repairs.total is defined else repairs|length }} repair record(s).</strong>
                     {% set pending = repairs|selectattr('status', 'ne', 'Completed')|list %}
                     {% if pending %}
                     <br><span class="text-danger">⚠️ {{ pending|length }} repair(s) are still pending.</span>

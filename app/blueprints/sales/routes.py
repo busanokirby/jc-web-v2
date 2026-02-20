@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from flask import render_template, request, redirect, url_for, flash, jsonify
+from flask import render_template, request, redirect, url_for, flash, jsonify, current_app as app
 from flask_login import login_required
 from datetime import datetime, timedelta
 import json
@@ -11,12 +11,14 @@ from app.models.customer import Customer
 from app.models.inventory import Product
 from app.models.sales import Sale, SaleItem, SalePayment
 from app.models.repair import RepairPartUsed, Device
+from sqlalchemy.orm import joinedload
 from app.services.authz import roles_required
 from app.services.guards import require_pos_enabled
 from app.services.codes import generate_invoice_no
 from app.services.stock import stock_out, StockError
 from app.services.financials import safe_decimal
-from sqlalchemy import func
+from app.services.pagination import get_page_args, paginate_sequence
+from sqlalchemy import func, or_
 
 from . import sales_bp
 
@@ -166,83 +168,270 @@ def pos():
 @login_required
 @roles_required("ADMIN", "SALES")
 def sales_list():
-    # Optional search query
+    # Optional search query + filters
     q = (request.args.get('q') or '').strip()
+    status = (request.args.get('status') or '').strip()
+    date_from_str = request.args.get('date_from')
+    date_to_str = request.args.get('date_to')
 
-    # Regular sales
-    sales = Sale.query.order_by(Sale.created_at.desc()).limit(200).all()
+    # Parse optional dates (YYYY-MM-DD)
+    date_from = None
+    date_to = None
+    try:
+        if date_from_str:
+            date_from = datetime.strptime(date_from_str, '%Y-%m-%d')
+        if date_to_str:
+            # include entire day
+            date_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1) - timedelta(seconds=1)
+    except Exception:
+        date_from = date_to = None
 
-    # Devices that used parts OR devices released on credit — include repairs in sales history
-    from sqlalchemy import or_
-    devices = Device.query.filter(
-        or_(Device.parts_used_rows.any(), Device.claimed_on_credit == True)
-    ).order_by(Device.created_at.desc()).limit(200).all()
+    # Run DB-backed multi-field ilike search whenever there's a query or explicit filters
+    if q or status or date_from or date_to:
+        pattern = f"%{q}%" if q else None
+        page, per_page = get_page_args()
+        fetch_limit = max(per_page * 10, 200)  # cap how many rows each DB query will return for merging
+
+        # Sales queries (use joinedload to avoid N+1 when building history)
+        try:
+            sales_base = Sale.query.options(
+                joinedload(Sale.items).joinedload(SaleItem.product),
+                joinedload(Sale.customer)
+            )
+            if status:
+                sales_base = sales_base.filter(Sale.status.ilike(status.upper()))
+            if date_from:
+                sales_base = sales_base.filter(Sale.created_at >= date_from)
+            if date_to:
+                sales_base = sales_base.filter(Sale.created_at <= date_to)
+
+            sales_invoice = []
+            sales_customer = []
+            sales_product = []
+            if pattern:
+                sales_invoice = sales_base.filter(Sale.invoice_no.ilike(pattern)).order_by(Sale.created_at.desc()).limit(fetch_limit).all()
+                sales_customer = (
+                    sales_base.join(Customer)
+                    .filter(
+                        or_(
+                            Customer.name.ilike(pattern),
+                            Customer.phone.ilike(pattern),
+                            Customer.customer_code.ilike(pattern)
+                        )
+                    )
+                    .order_by(Sale.created_at.desc())
+                    .limit(fetch_limit)
+                    .all()
+                )
+                sales_product = (
+                    sales_base.join(SaleItem).join(Product)
+                    .filter(or_(Product.name.ilike(pattern), Product.sku.ilike(pattern)))
+                    .order_by(Sale.created_at.desc())
+                    .distinct()
+                    .limit(fetch_limit)
+                    .all()
+                )
+
+                # Also allow searching by payment method on the sale (e.g., Cash)
+                sales_payment = (
+                    sales_base.join(SalePayment).filter(SalePayment.method.ilike(pattern)).order_by(Sale.created_at.desc()).distinct().limit(fetch_limit).all()
+                )
+                # include payment-method matches in merge
+                sales_invoice = sales_invoice + sales_payment if sales_payment else sales_invoice
+            else:
+                # no textual query, but filters present -> pull matching sales
+                sales_invoice = sales_base.order_by(Sale.created_at.desc()).limit(fetch_limit).all()
+
+            # Merge and deduplicate
+            sales_set = {}
+            for s in sales_invoice + sales_customer + sales_product:
+                sales_set[s.id] = s
+            sales = list(sales_set.values())
+        except Exception as e:
+            app.logger.error(f"Sales search error: {str(e)}")
+            sales = []
+
+        # Devices / Repairs queries (eager-load parts + owner)
+        try:
+            devices_base = Device.query.options(
+                joinedload(Device.parts_used_rows).joinedload(RepairPartUsed.product),
+                joinedload(Device.owner)
+            )
+            if status:
+                # Device.payment_status is Title-cased (e.g. 'Paid')
+                devices_base = devices_base.filter(Device.payment_status.ilike(status.capitalize()))
+            if date_from:
+                devices_base = devices_base.filter(
+                    or_(Device.actual_completion >= (date_from.date() if hasattr(date_from, 'date') else None), Device.created_at >= date_from)
+                )
+            if date_to:
+                devices_base = devices_base.filter(
+                    or_(Device.actual_completion <= (date_to.date() if hasattr(date_to, 'date') else None), Device.created_at <= date_to)
+                )
+
+            devices_ticket = []
+            devices_service = []
+            devices_customer = []
+            devices_product = []
+            if pattern:
+                devices_ticket = devices_base.filter(Device.ticket_number.ilike(pattern)).order_by(Device.created_at.desc()).limit(fetch_limit).all()
+                devices_service = devices_base.filter(Device.service_type.ilike(pattern)).order_by(Device.created_at.desc()).limit(fetch_limit).all()
+                devices_customer = (
+                    devices_base.join(Customer)
+                    .filter(
+                        or_(
+                            Customer.name.ilike(pattern),
+                            Customer.phone.ilike(pattern),
+                            Customer.customer_code.ilike(pattern)
+                        )
+                    )
+                    .order_by(Device.created_at.desc())
+                    .limit(fetch_limit)
+                    .all()
+                )
+                devices_product = devices_base.join(RepairPartUsed).join(Product).filter(or_(Product.name.ilike(pattern), Product.sku.ilike(pattern))).order_by(Device.created_at.desc()).distinct().limit(fetch_limit).all()
+            else:
+                devices_ticket = devices_base.order_by(Device.created_at.desc()).limit(fetch_limit).all()
+
+            # Merge and deduplicate
+            devices_set = {}
+            for d in devices_ticket + devices_service + devices_customer + devices_product:
+                devices_set[d.id] = d
+            devices = list(devices_set.values())
+        except Exception as e:
+            app.logger.error(f"Devices search error: {str(e)}")
+            devices = []
+    else:
+        # Regular recent sales (eager load items and product to avoid N+1)
+        try:
+            sales = Sale.query.options(
+                joinedload(Sale.items).joinedload(SaleItem.product),
+                joinedload(Sale.customer)
+            ).order_by(Sale.created_at.desc()).limit(200).all()
+        except Exception as e:
+            app.logger.error(f"Sales fetch error: {str(e)}")
+            sales = []
+
+        # Devices that have monetary transactions (parts, repair cost) or released on credit
+        try:
+            devices = Device.query.options(
+                joinedload(Device.parts_used_rows).joinedload(RepairPartUsed.product),
+                joinedload(Device.owner)
+            ).filter(
+                or_(
+                    Device.parts_used_rows.any(),
+                    Device.total_cost > 0,
+                    Device.claimed_on_credit == True
+                )
+            ).order_by(Device.created_at.desc()).limit(200).all()
+        except Exception as e:
+            app.logger.error(f"Devices fetch error: {str(e)}")
+            devices = []
 
     # Build unified history entries with a searchable text blob
     history = []
-    for s in sales:
-        items_count = sum(item.qty for item in s.items) if s.items else 0
-        # Build a searchable string containing invoice, customer name and product SKUs/names
-        parts_text = ' '.join(
-            f"{item.product.sku or ''} {item.product.name or ''}" for item in s.items if item.product
-        )
-        customer_name = s.customer.name if getattr(s, 'customer', None) else ''
-        search_text = f"{s.invoice_no or ''} {customer_name} {parts_text}"
+    try:
+        for s in sales:
+            try:
+                items_count = sum(item.qty for item in (s.items or [])) if s.items else 0
+                # Build a searchable string containing invoice, customer name/code/phone and product SKUs/names
+                parts_text = ' '.join(
+                    f"{item.product.sku or ''} {item.product.name or ''}" for item in (s.items or []) if item.product
+                )
+                customer_name = s.customer.name if getattr(s, 'customer', None) else ''
+                customer_phone = s.customer.phone if getattr(s, 'customer', None) and getattr(s.customer, 'phone', None) else ''
+                customer_code = s.customer.customer_code if getattr(s, 'customer', None) and getattr(s.customer, 'customer_code', None) else ''
+                payment_methods = ' '.join((p.method or '') for p in (s.payments or []))
+                search_text = f"{s.invoice_no or ''} {customer_name} {customer_code} {customer_phone} {parts_text} {payment_methods}"
 
-        # compute payments total and remaining balance for sale
-        payments_total = sum((p.amount or 0) for p in (s.payments or []))
-        balance_due = float((s.total or 0) - payments_total)
+                # compute payments total and remaining balance for sale
+                payments_total = sum((p.amount or 0) for p in (s.payments or []))
+                balance_due = float((s.total or 0) - payments_total)
 
-        history.append({
-            'type': 'sale',
-            'invoice': s.invoice_no,
-            'created_at': s.created_at,
-            'items_count': items_count,
-            'subtotal': float(s.subtotal or 0),
-            'discount': float(s.discount or 0),
-            'total': float(s.total or 0),
-            'status': s.status,
-            'id': s.id,
-            'balance_due': balance_due,
-            'claimed_on_credit': getattr(s, 'claimed_on_credit', False),
-            'search_text': search_text,
-        })
+                history.append({
+                    'type': 'sale',
+                    'invoice': s.invoice_no,
+                    'created_at': s.created_at,
+                    'items_count': items_count,
+                    'subtotal': float(s.subtotal or 0),
+                    'discount': float(s.discount or 0),
+                    'total': float(s.total or 0),
+                    'status': s.status,
+                    'id': s.id,
+                    'balance_due': balance_due,
+                    'claimed_on_credit': getattr(s, 'claimed_on_credit', False),
+                    'search_text': search_text,
+                })
+            except Exception as e:
+                app.logger.warning(f"Error building sale history entry: {str(e)}")
+                continue
+    except Exception as e:
+        app.logger.error(f"Error processing sales: {str(e)}")
 
-    for d in devices:
-        parts_qty = sum(p.qty for p in d.parts_used_rows) if d.parts_used_rows else 0
-        parts_text = ' '.join(
-            f"{p.product.sku or ''} {p.product.name or ''}" for p in d.parts_used_rows if p.product
-        )
-        search_text = f"{d.ticket_number or ''} {parts_text}"
-        history.append({
-            'type': 'repair',
-            'invoice': d.ticket_number,
-            'created_at': d.created_at,
-            'items_count': parts_qty,
-            'subtotal': float(d.total_cost or 0),
-            'discount': 0.0,
-            'total': float(d.total_cost or 0),
-            'status': d.payment_status,
-            'id': d.id,
-            'balance_due': float(d.balance_due or 0),
-            'claimed_on_credit': getattr(d, 'claimed_on_credit', False),
-            'search_text': search_text,
-        })
+    try:
+        for d in devices:
+            try:
+                parts_qty = sum(p.qty for p in (d.parts_used_rows or [])) if d.parts_used_rows else 0
+                parts_text = ' '.join(
+                    f"{p.product.sku or ''} {p.product.name or ''}" for p in (d.parts_used_rows or []) if p.product
+                )
+                customer_name = d.owner.name if getattr(d, 'owner', None) else ''
+                # Prefer actual_completion as the 'created_at' for repair transactions when available
+                # Normalize `actual_completion` (Date) to a datetime so sorting between sales (datetime)
+                # and repairs (date) does not raise TypeError.
+                if d.actual_completion:
+                    # actual_completion is a date object (no time) --> convert to datetime at midnight
+                    try:
+                        from datetime import datetime as _dt, time as _time
+                        if isinstance(d.actual_completion, _dt):
+                            tx_date = d.actual_completion
+                        else:
+                            tx_date = _dt.combine(d.actual_completion, _dt.min.time())
+                    except Exception:
+                        # Fallback to created_at if anything unexpected
+                        tx_date = d.created_at
+                else:
+                    tx_date = d.created_at
 
-    # Sort by created_at desc and limit to recent 200 entries
-    history_sorted = sorted(history, key=lambda x: x['created_at'] or 0, reverse=True)[:200]
+                search_text = f"{d.ticket_number or ''} {customer_name} {parts_text} {d.service_type or ''}"
+                history.append({
+                    'type': 'repair',
+                    'invoice': d.ticket_number,
+                    'created_at': tx_date,
+                    'items_count': parts_qty,
+                    'subtotal': float(d.total_cost or 0),
+                    'discount': 0.0,
+                    'total': float(d.total_cost or 0),
+                    'status': d.payment_status,
+                    'id': d.id,
+                    'balance_due': float(d.balance_due or 0),
+                    'claimed_on_credit': getattr(d, 'claimed_on_credit', False),
+                    'search_text': search_text,
+                })
+            except Exception as e:
+                app.logger.warning(f"Error building device history entry: {str(e)}")
+                continue
+    except Exception as e:
+        app.logger.error(f"Error processing devices: {str(e)}")
 
-    # If a search query is provided, filter the history list in-memory (safe for 200-item limit)
-    if q:
-        ql = q.lower()
-        history_sorted = [h for h in history_sorted if ql in (h.get('search_text') or '').lower() or ql in (h.get('invoice') or '').lower()]
+    # Sort by created_at desc and build a paginated result from the merged history.
+    try:
+        history_sorted = sorted(history, key=lambda x: x.get('created_at') or datetime.min, reverse=True)
+    except TypeError:
+        # Defensive fallback: if mixed/unexpected types remain, coerce to string timestamp and sort
+        app.logger.warning('Mixed date/datetime types detected when sorting history; applying fallback ordering.')
+        history_sorted = sorted(history, key=lambda x: str(x.get('created_at') or ''), reverse=True)
 
-    # Credit summary for quick access
+    # Paginate the in-memory merged history so the UI treats it the same as other list views
+    page, per_page = get_page_args()
+    history_pagination = paginate_sequence(history_sorted, page=page, per_page=per_page)
+
+    # Credit summary for quick access (keep lightweight queries)
     credits_q = Device.query.filter(Device.claimed_on_credit == True)
     credits_count = credits_q.count()
-    credits_total = float(sum((d.balance_due or 0) for d in credits_q.all()))
+    credits_total = float(sum((d.balance_due or 0) for d in credits_q.limit(500).all()))
 
-    return render_template("sales/sales_list.html", history=history_sorted, q=q, credits_count=credits_count, credits_total=credits_total)
+    return render_template("sales/sales_list.html", history=history_pagination, q=q, credits_count=credits_count, credits_total=credits_total)
 
 
 @sales_bp.route('/credits')
@@ -299,6 +488,7 @@ def credits():
             'search_text': search_text,
         })
 
+    # Total credits and paginate the in-memory history for consistent UI behavior
     credits_count = len(history)
     credits_total = 0.0
     for d in devices:
@@ -306,8 +496,12 @@ def credits():
     for s in sales_on_credit:
         credits_total += float((s.total or 0) - sum((p.amount or 0) for p in (s.payments or [])))
 
+    # Paginate the in-memory list so the sales_list template can rely on a Pagination object
+    page, per_page = get_page_args()
+    history_pagination = paginate_sequence(history, page=page, per_page=per_page)
+
     # Render the same sales_list template but indicate credits_only to adjust header/UI
-    return render_template('sales/sales_list.html', history=history, q='', credits_only=True, credits_count=credits_count, credits_total=credits_total)
+    return render_template('sales/sales_list.html', history=history_pagination, q='', credits_only=True, credits_count=credits_count, credits_total=credits_total)
 
 
 @sales_bp.route('/<int:sale_id>/payment', methods=['POST'])
@@ -376,10 +570,14 @@ def reports():
     # Query sales within date range
     sales_period = Sale.query.filter(Sale.created_at >= start_date).all()
     
-    # Query repair parts used within date range
+    # Query devices completed within date range (use actual_completion) and repair parts for product-level aggregation
+    # Convert start_date (datetime) to date for comparison against Device.actual_completion (Date)
+    start_date_only = start_date.date()
+    repairs_period_devices = Device.query.filter(Device.actual_completion != None, Device.actual_completion >= start_date_only).all()
+    # Repair parts used in the selected period (by part created_at or by device completion)
     repair_parts_period = db.session.query(RepairPartUsed).join(
         Device, RepairPartUsed.device_id == Device.id
-    ).filter(Device.created_at >= start_date).all()
+    ).filter(Device.actual_completion != None, Device.actual_completion >= start_date_only).all()
     
     # Calculate KPIs from sales
     total_revenue = Decimal("0.00")
@@ -389,14 +587,17 @@ def reports():
     for sale in sales_period:
         total_revenue += sale.total or Decimal("0.00")
         total_items_sold += sum(item.qty for item in sale.items)
-    
-    # Add repair parts to totals
-    repair_transactions = len(repair_parts_period) if repair_parts_period else 0
-    for part in repair_parts_period:
-        total_revenue += part.line_total or Decimal("0.00")
-        total_items_sold += part.qty
-    
-    # Total transactions include both sales and repair part additions
+
+    # Add repair device transactions (use device.total_cost, not individual parts, to avoid double-counting)
+    repair_transactions = len(repairs_period_devices) if repairs_period_devices else 0
+    repairs_total = Decimal("0.00")
+    for dev in repairs_period_devices:
+        repairs_total += dev.total_cost or Decimal("0.00")
+        total_revenue += dev.total_cost or Decimal("0.00")
+        # count parts used as items sold
+        total_items_sold += sum(p.qty for p in dev.parts_used_rows) if dev.parts_used_rows else 0
+
+    # Total transactions include both sales and repair device completions
     total_transactions += repair_transactions
     
     avg_transaction = (total_revenue / total_transactions) if total_transactions > 0 else Decimal("0.00")
@@ -414,7 +615,7 @@ def reports():
         'total': float(pm.total or 0)
     } for pm in payment_methods]
     
-    # Top 10 products sold - combine sales and repair parts using Python aggregation
+    # Top 10 products sold - combine sales items and repair parts using Python aggregation
     product_sales = {}
     
     # Add sales items
@@ -426,7 +627,7 @@ def reports():
             product_sales[product_name]['qty'] += item.qty
             product_sales[product_name]['amount'] += float(item.line_total or 0)
     
-    # Add repair parts
+    # Add repair parts (use parts list for product-level aggregation)
     for part in repair_parts_period:
         product_name = part.product.name if part.product else "Unknown"
         if product_name not in product_sales:
@@ -452,15 +653,15 @@ def reports():
         daily_totals[date_key]['count'] += 1
         daily_totals[date_key]['total'] += float(sale.total or 0)
     
-    # Add repair part transactions
-    for part in repair_parts_period:
-        dev = db.session.query(Device).filter(Device.id == part.device_id).first()
-        if dev:
-            date_key = dev.created_at.date()
-            if date_key not in daily_totals:
-                daily_totals[date_key] = {'count': 0, 'total': 0}
-            daily_totals[date_key]['count'] += 1
-            daily_totals[date_key]['total'] += float(part.line_total or 0)
+    # Add repair device transactions (use actual_completion as date and device.total_cost as total)
+    for dev in repairs_period_devices:
+        date_key = dev.actual_completion if hasattr(dev.actual_completion, 'isoformat') else dev.created_at.date()
+        if isinstance(date_key, datetime):
+            date_key = date_key.date()
+        if date_key not in daily_totals:
+            daily_totals[date_key] = {'count': 0, 'total': 0}
+        daily_totals[date_key]['count'] += 1
+        daily_totals[date_key]['total'] += float(dev.total_cost or 0)
     
     # Convert to sorted list
     daily_trend = [
@@ -472,6 +673,8 @@ def reports():
         "sales/reports.html",
         days_back=days_back,
         total_revenue=float(total_revenue),
+        repairs_total=float(repairs_total),
+        repair_transactions=repair_transactions,
         total_transactions=total_transactions,
         total_items_sold=total_items_sold,
         avg_transaction=float(avg_transaction),

@@ -32,7 +32,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for r in rows %}
+                    {% set rows_iter = rows.items if rows.items is defined else rows %}
+                    {% for r in rows_iter %}
                     <tr>
                         <td>{{ r.created_at|datetimeformat }}</td>
                         <td>{{ r.product.name }}</td>
@@ -48,5 +49,11 @@
             </table>
         </div>
     </div>
+
+    {# Pagination #}
+    {% if rows.pages is defined %}
+        {% set pagination = rows %}
+        {% include 'layouts/pagination.html' %}
+    {% endif %}
 </div>
 {% endblock %}

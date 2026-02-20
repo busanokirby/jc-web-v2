@@ -3,18 +3,23 @@
 {% block title %}Add Product{% endblock %}
 
 {% block content %}
-<h1>Add Product</h1>
+<h1>{% if product %}Edit Product{% else %}Add Product{% endif %}</h1>
+{% if product %}
+<a href="{{ url_for('inventory.products') }}" class="btn btn-sm btn-outline-secondary mb-3">
+    <i class="bi bi-arrow-left"></i> Back to Products
+</a>
+{% endif %}
 <div class="card">
     <div class="card-body">
         <form method="POST">
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Name</label>
-                    <input type="text" name="name" class="form-control" required>
+                    <input type="text" name="name" class="form-control" required value="{{ product.name if product else '' }}">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">SKU</label>
-                    <input type="text" name="sku" class="form-control">
+                    <input type="text" name="sku" class="form-control" value="{{ product.sku if product and product.sku else '' }}">
                 </div>
 
                 <div class="col-md-6">
@@ -23,7 +28,7 @@
                         <select name="category_id" class="form-select" id="category-select">
                             <option value="">-- Select type --</option>
                             {% for c in categories %}
-                            <option value="{{ c.id }}">{{ c.name }}</option>
+                            <option value="{{ c.id }}" {% if product and product.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
                             {% endfor %}
                         </select>
                         <button class="btn btn-outline-secondary" type="button" id="add-category-btn"><i class="bi bi-plus"></i> Add Type</button>
@@ -37,23 +42,25 @@
                 </div>-->
                 <div class="col-md-4">
                     <label class="form-label">Sell Price</label>
-                    <input type="text" name="sell_price" class="form-control">
+                    <input type="text" name="sell_price" class="form-control" value="{{ product.sell_price if product and product.sell_price is not none else '' }}">
                 </div>
+                {% if not product %}
                 <div class="col-md-4">
                     <label class="form-label">Opening Stock</label>
                     <input type="number" name="opening_stock" class="form-control" value="0">
                 </div>
+                {% endif %}
 
                 <div class="col-md-4">
                     <label class="form-label">Reorder Threshold</label>
-                    <input type="number" name="reorder_threshold" class="form-control" value="5">
+                    <input type="number" name="reorder_threshold" class="form-control" value="{{ product.reorder_threshold if product else 5 }}">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Reorder To</label>
-                    <input type="number" name="reorder_to" class="form-control" value="20">
+                    <input type="number" name="reorder_to" class="form-control" value="{{ product.reorder_to if product else 20 }}">
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
-                    <button class="btn btn-primary" type="submit">Add Product</button>
+                    <button class="btn btn-primary" type="submit">{% if product %}Save Changes{% else %}Add Product{% endif %}</button>
                 </div>
             </div>
         </form>

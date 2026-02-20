@@ -6,13 +6,51 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="d-flex align-items-center gap-3">
         <h1 class="m-0"><i class="bi bi-receipt"></i> {% if credits_only %}Credit Claims{% else %}Sales History{% endif %}</h1>
-        <form class="d-flex" method="get" action="{{ url_for('sales.sales_list') }}" style="min-width:360px;">
-            <input type="search" name="q" class="form-control form-control-sm me-2" placeholder="Search invoice, ticket, SKU or product" value="{{ q or '' }}">
+        <form id="sales-filter-form" class="d-flex" method="get" action="{{ url_for('sales.sales_list') }}" style="min-width:360px;">
+            <input id="sales-search" type="search" name="q" class="form-control form-control-sm me-2" placeholder="Search invoice, ticket, SKU, product, customer, service" value="{{ q or '' }}">
+            <select id="sales-status" name="status" class="form-select form-select-sm me-2" style="width:140px;" data-auto-submit="true">
+                <option value="">All statuses</option>
+                <option value="PAID" {% if request.args.get('status') == 'PAID' %}selected{% endif %}>Paid</option>
+                <option value="PARTIAL" {% if request.args.get('status') == 'PARTIAL' %}selected{% endif %}>Partial</option>
+                <option value="VOID" {% if request.args.get('status') == 'VOID' %}selected{% endif %}>Void</option>
+            </select>
+            <input id="sales-date-from" type="date" name="date_from" class="form-control form-control-sm me-2" placeholder="From" value="{{ request.args.get('date_from', '') }}" style="max-width:140px;" data-auto-submit="true">
+            <input id="sales-date-to" type="date" name="date_to" class="form-control form-control-sm me-2" placeholder="To" value="{{ request.args.get('date_to', '') }}" style="max-width:140px;" data-auto-submit="true">
             <button class="btn btn-sm btn-outline-secondary me-2" type="submit">Search</button>
-            {% if q %}
+            {% if q or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') %}
                 <a href="{{ url_for('sales.sales_list') }}" class="btn btn-sm btn-outline-light">Clear</a>
             {% endif %}
         </form>
+        {% block extra_js %}
+        <script>
+        // Auto-submit sales filter form when status/date changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('sales-filter-form');
+            const autoSubmitElements = document.querySelectorAll('#sales-filter-form [data-auto-submit="true"]');
+
+            if (!form) return;
+
+            autoSubmitElements.forEach(element => {
+                element.addEventListener('change', function() {
+                    clearTimeout(window.salesFilterTimeout);
+                    window.salesFilterTimeout = setTimeout(() => {
+                        form.submit();
+                    }, 200);
+                });
+            });
+
+            const searchInput = document.getElementById('sales-search');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        form.submit();
+                    }
+                });
+            }
+        });
+        </script>
+        {% endblock %}
     </div>
 
     <div class="d-flex align-items-center gap-2">
@@ -26,7 +64,7 @@
     </div>
 </div>
 
-{% if history %}
+{% if history and history.total > 0 %}
 {% if credits_only %}
 <div class="alert alert-warning d-flex justify-content-between align-items-center">
     <div>
@@ -55,7 +93,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for entry in history %}
+                {% for entry in history.items %}
                 <tr>
                     <td>
                         <strong>{{ entry.invoice }}</strong>
@@ -131,6 +169,10 @@
             </tbody>
         </table>
     </div>
+
+    {# Pagination for unified history #}
+    {% set pagination = history %}
+    {% include 'layouts/pagination.html' %}
 </div>
 {% else %}
 <div class="alert alert-info">

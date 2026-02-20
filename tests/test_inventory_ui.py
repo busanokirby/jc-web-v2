@@ -36,6 +36,12 @@ def test_category_delete_blocked_and_delete(logged_in_client):
         db.session.commit()
         cat_id = cat.id
 
+    # The categories page should include a Back button and CSRF hidden input
+    r_page = client.get('/inventory/categories')
+    html = r_page.data.decode('utf-8')
+    assert 'Back to Products' in html
+    assert 'name="csrf_token"' in html
+
     # Attempt to delete - should be blocked
     rv = client.post(f'/inventory/categories/{cat_id}/delete', follow_redirects=True)
     assert b'Category has products' in rv.data
@@ -48,6 +54,60 @@ def test_category_delete_blocked_and_delete(logged_in_client):
 
     rv2 = client.post(f'/inventory/categories/{cat_id}/delete', follow_redirects=True)
     # Ensure category no longer exists
+    with app.app_context():
+        assert Category.query.get(cat_id) is None
+
+
+def test_category_delete_requires_csrf_when_enabled(logged_in_client):
+    client = logged_in_client
+    app = client.application
+
+    # Create an empty category that can be deleted
+    with app.app_context():
+        cat = Category(name='CSRFTestCat', is_active=True)
+        db.session.add(cat)
+        db.session.commit()
+        cat_id = cat.id
+
+    # Enable CSRF enforcement for this test
+    app.config['WTF_CSRF_ENABLED'] = True
+
+    # Without setting session token, requests should be rejected (403)
+    rv = client.post(f'/inventory/categories/{cat_id}/delete')
+    assert rv.status_code == 403
+
+    # Now set a valid CSRF token in the session and retry
+    with client.session_transaction() as sess:
+        sess['_csrf_token'] = 'test-token-123'
+
+    rv2 = client.post(f'/inventory/categories/{cat_id}/delete', data={'csrf_token': 'test-token-123'}, follow_redirects=True)
+    assert rv2.status_code == 200
+
+    with app.app_context():
+        assert Category.query.get(cat_id) is None
+
+
+def test_delete_category_from_products_sidebar(logged_in_client):
+    client = logged_in_client
+    app = client.application
+
+    # Create an empty category that can be deleted via the products page sidebar
+    with app.app_context():
+        cat = Category(name='SidebarDeleteCat', is_active=True)
+        db.session.add(cat)
+        db.session.commit()
+        cat_id = cat.id
+
+    # Products page should include a delete form for ADMIN users
+    r = client.get('/inventory/products')
+    html = r.data.decode('utf-8')
+    assert f'/inventory/categories/{cat_id}/delete' in html
+    assert 'name="csrf_token"' in html
+
+    # Perform delete from the sidebar (no CSRF enforced in tests by default)
+    rv = client.post(f'/inventory/categories/{cat_id}/delete', follow_redirects=True)
+    assert rv.status_code == 200
+
     with app.app_context():
         assert Category.query.get(cat_id) is None
 
@@ -112,6 +172,33 @@ def test_delete_product_marks_inactive(logged_in_client):
         p2 = Product.query.get(pid)
         assert p2 is None
 
+
+def test_edit_product_name_updates_name(logged_in_client):
+    client = logged_in_client
+    app = client.application
+    with app.app_context():
+        sku = f"ED-{uuid.uuid4().hex[:8]}"
+        p = Product(name='Old Product Name', sku=sku, stock_on_hand=3, is_active=True)
+        db.session.add(p)
+        db.session.commit()
+        pid = p.id
+
+    # Fetch edit page and ensure form is prefilled
+    r = client.get(f'/inventory/products/{pid}/edit')
+    assert r.status_code == 200
+    html = r.data.decode('utf-8')
+    assert 'Edit Product' in html
+    assert 'Old Product Name' in html
+    # Edit page should include a Back button to return to the products list
+    assert 'Back to Products' in html
+
+    # Submit a corrected name
+    rv = client.post(f'/inventory/products/{pid}/edit', data={'name': 'Corrected Product Name'}, follow_redirects=True)
+    assert rv.status_code == 200
+
+    with app.app_context():
+        p2 = Product.query.get(pid)
+        assert p2.name == 'Corrected Product Name'
 
 def test_adjust_buttons_stay_after_adjust(logged_in_client):
     client = logged_in_client

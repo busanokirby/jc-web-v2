@@ -41,9 +41,12 @@ def movements():
         except Exception:
             pass
 
-    rows = query.order_by(StockMovement.created_at.desc()).limit(200).all()
+    from app.services.pagination import get_page_args
+    page, per_page = get_page_args()
+
+    rows_pagination = query.order_by(StockMovement.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     products = Product.query.order_by(Product.name).all()
-    return render_template('inventory/movements.html', rows=rows, products=products, q=q, product_id=product_id, date_from=date_from, date_to=date_to)
+    return render_template('inventory/movements.html', rows=rows_pagination, products=products, q=q, product_id=product_id, date_from=date_from, date_to=date_to)
 
 
 @inventory_bp.route('/low-stock')

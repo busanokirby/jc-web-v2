@@ -5,6 +5,7 @@ from decimal import Decimal
 from flask import render_template, request, redirect, url_for, flash, Response, jsonify
 import json
 from flask_login import login_required, current_user
+from sqlalchemy import or_
 
 from app.extensions import db
 from app.models.customer import Customer
@@ -23,7 +24,7 @@ from . import repairs_bp
 @login_required
 @roles_required("ADMIN", "TECH")
 def repairs():
-    """List and search repairs"""
+    """List and search repairs with multi-field search support"""
     q = request.args.get("q", "").strip()
     status = request.args.get("status", "")
     date_from = request.args.get("date_from", "")
@@ -32,38 +33,61 @@ def repairs():
 
     archived = request.args.get("archived", "")
 
-    # Default behavior: show only active (non-archived) repairs unless user requests otherwise
-    if archived == '1':
-        query = Device.query.filter(Device.is_archived == True)
-    elif status:
-        # honor explicit status filter (Completed will show completed/archived items)
-        query = Device.query.filter(Device.status == status)
-    else:
-        query = Device.query.filter(Device.is_archived == False)
+    try:
+        # Default behavior: show only active (non-archived) repairs unless user requests otherwise
+        if archived == '1':
+            query = Device.query.filter(Device.is_archived == True)
+        elif status:
+            # honor explicit status filter (Completed will show completed/archived items)
+            query = Device.query.filter(Device.status == status)
+        else:
+            query = Device.query.filter(Device.is_archived == False)
 
-    if q:
-        # search by ticket number or customer name or device model
-        query = query.join(Customer, Device.customer_id == Customer.id).filter(
-            (Device.ticket_number.ilike(f"%{q}%")) |
-            (Customer.name.ilike(f"%{q}%")) |
-            (Device.model.ilike(f"%{q}%"))
+        # Multi-field search: ticket number, customer name, device model, brand, device type, issue description
+        if q:
+            pattern = f"%{q}%"
+            query = query.outerjoin(Customer).filter(
+                or_(
+                    Device.ticket_number.ilike(pattern),
+                    Customer.name.ilike(pattern),
+                    Device.model.ilike(pattern),
+                    Device.brand.ilike(pattern),
+                    Device.device_type.ilike(pattern),
+                    Device.issue_description.ilike(pattern),
+                    Device.serial_number.ilike(pattern)
+                )
+            )
+
+        # Apply date range filters
+        if date_from:
+            try:
+                df = datetime.fromisoformat(date_from).date()
+                query = query.filter(Device.received_date >= df)
+            except (ValueError, TypeError):
+                pass  # Silently ignore invalid dates
+
+        if date_to:
+            try:
+                dt = datetime.fromisoformat(date_to).date()
+                query = query.filter(Device.received_date <= dt)
+            except (ValueError, TypeError):
+                pass  # Silently ignore invalid dates
+
+        # Eager load relationships to prevent N+1 queries
+        from sqlalchemy.orm import joinedload
+        query = query.options(
+            joinedload(Device.owner),
+            joinedload(Device.parts_used_rows).joinedload(RepairPartUsed.product)
         )
 
-    if date_from:
-        try:
-            df = datetime.fromisoformat(date_from).date()
-            query = query.filter(Device.received_date >= df)
-        except Exception:
-            pass
+        # Paginate results
+        devices_pagination = query.order_by(Device.id.desc()).paginate(page=page, per_page=50, error_out=False)
 
-    if date_to:
-        try:
-            dt = datetime.fromisoformat(date_to).date()
-            query = query.filter(Device.received_date <= dt)
-        except Exception:
-            pass
-
-    devices_pagination = query.order_by(Device.id.desc()).paginate(page=page, per_page=50)
+    except Exception as e:
+        import logging
+        logging.error(f"Error in repairs search: {str(e)}")
+        # Return empty results instead of crashing
+        devices_pagination = Device.query.paginate(page=1, per_page=50, error_out=False)
 
     return render_template("repairs/repairs.html", devices=devices_pagination, q=q, status=status, date_from=date_from, date_to=date_to)
 

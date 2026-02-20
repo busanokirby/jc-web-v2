@@ -384,9 +384,12 @@ def is_xss_attempt(value):
 # ============================================================================
 
 def inject_security_context():
-    """Inject security context into all templates"""
+    """Inject security context into all templates and ensure a session CSRF token exists"""
     from flask import url_for, session
+    # Ensure a CSRF token is stored in the session so templates can include it
+    if '_csrf_token' not in session:
+        session['_csrf_token'] = generate_csrf_token()
     return {
-        'csrf_token': generate_csrf_token() if '_csrf_token' not in session else session['_csrf_token'],
+        'csrf_token': session.get('_csrf_token'),
         'static_url': url_for('static', filename=''),
     }
