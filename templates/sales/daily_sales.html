@@ -5,7 +5,6 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Daily Sales Report</h2>
-    <div></div>
 </div>
 
 <div class="card mb-4">
@@ -15,7 +14,7 @@
                 <div class="col-auto">
                     <label class="form-label" for="sales-date">Select Date</label>
                     <input type="date" id="sales-date" name="date" class="form-control"
-                        value="{{ selected_date }}" max="{{ today }}" onchange="this.form.submit()">
+                        value="{{ report_date }}" max="{{ today }}" onchange="this.form.submit()">
                 </div>
             </div>
         </form>

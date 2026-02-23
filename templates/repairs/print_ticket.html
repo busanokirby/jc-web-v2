@@ -146,7 +146,7 @@
   </style>
 </head>
 
-<body>
+<body data-redirect-url="{{ url_for('repairs.repair_detail', device_id=device.id) }}" data-update-url="{{ url_for('repairs.update_technician_name', device_id=device.id) }}">
 
 {% set brand_lc = (device.brand or '')|lower %}
 
@@ -305,7 +305,7 @@
         {%- endif -%}
 
         <div style="margin-top: 20px;">
-          <div class="sig-name" id="technician-name-display" style="font-size: 14px;">{{ technician_display_name }}</div>
+          <div class="sig-name" id="technician-name-display" style="font-size: 14px;" data-fallback-name="{{ (device.created_by_user.full_name if device.created_by_user else 'Judith Balaba')|e }}">{{ technician_display_name }}</div>
 
           <div class="no-print" style="text-align:center; margin-top:8px; margin-right:5px;">
             <input id="technician-name-input" type="text" value="{{ technician_display_name }}" style="display:none; width:220px; text-align:center; padding:4px;" />
@@ -478,7 +478,8 @@
     const cancelBtn = document.getElementById('technician-name-cancel-btn');
     const input = document.getElementById('technician-name-input');
     const display = document.getElementById('technician-name-display');
-    const fallbackName = {{ (device.created_by_user.full_name if device.created_by_user else 'Judith Balaba')|tojson }};
+    // retrieve fallback name from data attribute to avoid template syntax in JS
+    const fallbackName = (display && display.dataset && display.dataset.fallbackName) || 'Judith Balaba';
 
     if (!display || !editBtn) return;
 
@@ -514,7 +515,7 @@
       cancelBtn.style.display = 'none';
 
       try {
-        const res = await fetch('{{ url_for("repairs.update_technician_name", device_id=device.id) }}', {
+        const res = await fetch(document.body.dataset.updateUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -536,7 +537,10 @@
 
   // Auto-redirect to repair detail after printing
   window.addEventListener('afterprint', function() {
-    window.location.href = "{{ url_for('repairs.repair_detail', device_id=device.id) }}";
+    const redirectUrl = document.body.dataset.redirectUrl || '';
+    if (redirectUrl) {
+      window.location.href = redirectUrl;
+    }
   });
 </script>
 

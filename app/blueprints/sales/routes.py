@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from flask import render_template, request, redirect, url_for, flash, jsonify, current_app as app
+from flask import render_template, request, redirect, url_for, flash, jsonify, current_app as app, Response
 from flask_login import login_required
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import json
+from io import StringIO
+import csv
 
 from app.extensions import db
 from app.models.customer import Customer
@@ -612,8 +614,8 @@ def daily_sales():
 
     for d in repairs:
         cust = d.owner.display_name if hasattr(d, 'owner') and d.owner else 'Walk-in Customer'
-        # use actual_completion for date/time; fallback to created_at
-        dt = datetime.combine(d.actual_completion, datetime.min.time()) if isinstance(d.actual_completion, (datetime,)) else datetime.combine(d.actual_completion, datetime.min.time())
+        # use actual_completion for date; combine with min time for datetime
+        dt = datetime.combine(d.actual_completion, datetime.min.time()) if isinstance(d.actual_completion, date) else datetime.combine(datetime.now().date(), datetime.min.time())
         desc = d.device_type or 'Repair'
         records.append({
             'datetime': dt,
@@ -627,11 +629,29 @@ def daily_sales():
     records.sort(key=lambda r: r['datetime'], reverse=True)
     total_sales = sum(r['amount'] for r in records)
 
+    # support CSV export for daily sales (use ?format=csv)
+    fmt = request.args.get('format', 'html')
+    if fmt == 'csv':
+        si = StringIO()
+        cw = csv.writer(si)
+        cw.writerow(["Date/Time", "Customer", "Type", "Description", "Amount"])
+        for r in records:
+            dt = r['datetime']
+            try:
+                dt_str = dt.strftime('%Y-%m-%d %H:%M:%S') if hasattr(dt, 'strftime') else str(dt)
+            except Exception:
+                dt_str = str(dt)
+            cw.writerow([dt_str, r.get('customer', ''), r.get('type', ''), r.get('description', ''), r.get('amount', 0)])
+        output = si.getvalue()
+        return Response(output, mimetype='text/csv', headers={
+            'Content-Disposition': f'attachment; filename="daily_sales_{selected_date.isoformat()}.csv"'
+        })
+
     return render_template(
         'sales/daily_sales.html',
         sales_records=records,
         total_sales=total_sales,
-        selected_date=selected_date.isoformat(),
+        report_date=selected_date,
         today=today_date.isoformat()
     )
 

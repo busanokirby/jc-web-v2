@@ -82,6 +82,11 @@ def test_can_override_technician_name_from_print(app, logged_in_client):
     rv = client.get(f'/repairs/{device_id}/print')
     assert rv.status_code == 200
     body = rv.data.decode('utf-8')
+    # new attributes should be present for fallback and update endpoint
+    assert 'data-fallback-name' in body
+    # body tag should include update-url so script can read it
+    assert 'data-update-url' in body
+    assert 'data-redirect-url' in body
 
     # Now set an override via the new endpoint
     resp = client.post(f'/repairs/{device_id}/technician-name', data={'technician_name': 'Ana Tech'})
@@ -95,6 +100,8 @@ def test_can_override_technician_name_from_print(app, logged_in_client):
     assert rv2.status_code == 200
     body2 = rv2.data.decode('utf-8')
     assert 'Ana Tech' in body2
+    # fallback data attribute should still exist
+    assert 'data-fallback-name' in body2
 
     # Clearing the override should revert to fallback
     resp2 = client.post(f'/repairs/{device_id}/technician-name', data={'technician_name': ''})
@@ -107,3 +114,5 @@ def test_can_override_technician_name_from_print(app, logged_in_client):
     body3 = rv3.data.decode('utf-8')
     # fallback must appear (either created_by_user.full_name or 'Judith Balaba')
     assert 'Judith Balaba' in body3 or dev.created_by_user.full_name in body3
+    # data attribute persisted after clearing override
+    assert 'data-fallback-name' in body3

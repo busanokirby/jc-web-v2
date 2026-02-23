@@ -3,7 +3,7 @@ Application factory for JC Icons Management System V2
 """
 import os
 import logging
-from flask import Flask, render_template
+from flask import Flask, render_template, url_for
 from decimal import Decimal, ROUND_HALF_UP
 from app.extensions import db, login_manager
 from app.models.user import User
