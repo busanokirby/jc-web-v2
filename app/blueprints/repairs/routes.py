@@ -269,6 +269,10 @@ def add_repair():
             technician_name_override=(request.form.get("technician_name_override") or "").strip() or None,
         )
 
+        # Record deposit timestamp when creating ticket with an initial deposit
+        if orig_deposit and orig_deposit > 0:
+            d.deposit_paid_at = datetime.now()
+
         # If created already with a 'no-charge' status treat as waived
         if d.status in ('Pulled out', 'Beyond repair'):
             d.charge_waived = True
@@ -529,6 +533,8 @@ def add_payment(device_id: int):
         # Accept only up to remaining; cap any overpayment
         accepted = amount if amount <= remaining else remaining
         device.deposit_paid = current_deposit + accepted
+        # record deposit timestamp for reporting (use local time so date matches report date)
+        device.deposit_paid_at = datetime.now()
         recompute_repair_financials(device)
 
         # If this clears the balance and the device was previously released on credit, clear the claim

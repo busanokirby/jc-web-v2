@@ -4,46 +4,120 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Stock Movements</h1>
-    <form class="d-flex" method="GET">
-        <input type="text" name="q" class="form-control me-2" placeholder="Product name..." value="{{ q }}">
-        <select name="product_id" class="form-select me-2">
-            <option value="">All products</option>
-            {% for p in products %}
-            <option value="{{ p.id }}" {% if product_id == p.id %}selected{% endif %}>{{ p.name }}</option>
-            {% endfor %}
-        </select>
-        <button class="btn btn-outline-secondary" type="submit">Filter</button>
-    </form>
+    <div>
+        <h1 class="mb-2">
+            <i class="bi bi-arrow-left-right"></i> Stock Movements
+        </h1>
+        <p class="text-muted mb-0">Track all inventory adjustments, sales, and transfers</p>
+    </div>
+    <a href="{{ url_for('inventory.products') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Products
+    </a>
 </div>
 
-<div class="card">
+<!-- Filter Card -->
+<div class="card mb-4 d-print-none">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">
+            <i class="bi bi-funnel"></i> Filter Movements
+        </h5>
+    </div>
     <div class="card-body">
+        <form class="row g-3" method="GET">
+            <div class="col-md-6">
+                <label class="form-label">Product Name</label>
+                <input type="text" name="q" class="form-control" placeholder="Search product..." value="{{ q or '' }}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Filter by Product</label>
+                <select name="product_id" class="form-select">
+                    <option value="">All products</option>
+                    {% for p in products %}
+                    <option value="{{ p.id }}" {% if product_id == p.id %}selected{% endif %}>
+                        {{ p.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12">
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-search"></i> Apply Filters
+                </button>
+                {% if q or product_id %}
+                <a href="{{ url_for('inventory.movements') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise"></i> Clear
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Results Card -->
+<div class="card">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">
+            <i class="bi bi-list-check"></i> Recent Movements
+        </h5>
+    </div>
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-sm">
-                <thead>
+            <table class="table table-hover mb-0">
+                <thead class="table-light sticky-top">
                     <tr>
-                        <th>Date</th>
-                        <th>Product</th>
-                        <th>Type</th>
-                        <th>Qty</th>
-                        <th>Ref</th>
-                        <th>Notes</th>
+                        <th style="width: 15%">Date & Time</th>
+                        <th style="width: 25%">Product</th>
+                        <th style="width: 12%">Type</th>
+                        <th class="text-center" style="width: 10%">Quantity</th>
+                        <th style="width: 20%">Reference</th>
+                        <th style="width: 18%">Notes</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% set rows_iter = rows.items if rows.items is defined else rows %}
                     {% for r in rows_iter %}
                     <tr>
-                        <td>{{ r.created_at|datetimeformat }}</td>
-                        <td>{{ r.product.name }}</td>
-                        <td>{{ r.movement_type }}</td>
-                        <td>{{ r.qty }}</td>
-                        <td>{{ r.reference_type }}{% if r.reference_id %}:{{ r.reference_id }}{% endif %}</td>
-                        <td>{{ r.notes }}</td>
+                        <td class="text-nowrap">
+                            <small>{{ r.created_at|datetimeformat }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ r.product.name }}</strong>
+                            {% if r.product.sku %}
+                            <br><code class="text-muted small">{{ r.product.sku }}</code>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if r.movement_type == 'IN' %}bg-success
+                                {% elif r.movement_type == 'OUT' %}bg-danger 
+                                {% elif r.movement_type == 'ADJUST' %}bg-warning text-dark
+                                {% else %}bg-secondary{% endif %}">
+                                {{ r.movement_type }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <strong>{{ r.qty }}</strong>
+                        </td>
+                        <td>
+                            <small>
+                                <span class="badge bg-light text-dark">
+                                    {{ r.reference_type }}
+                                </span>
+                                {% if r.reference_id %}
+                                <code class="ms-1">#{{ r.reference_id }}</code>
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            <small class="text-muted">{{ r.notes or '—' }}</small>
+                        </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="6" class="text-center text-muted">No movements found</td></tr>
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            No movements found
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -56,4 +130,25 @@
         {% include 'layouts/pagination.html' %}
     {% endif %}
 </div>
+
+<style>
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    @media print {
+        .d-print-none {
+            display: none !important;
+        }
+        .card {
+            border: none;
+            box-shadow: none;
+        }
+        table {
+            font-size: 0.85rem;
+        }
+    }
+</style>
+
 {% endblock %}

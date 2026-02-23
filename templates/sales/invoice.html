@@ -170,7 +170,8 @@
                     <button id="invoice-released-by-cancel" class="btn btn-sm btn-secondary no-print" type="button" style="padding:4px 8px; font-size:12px; display:none;">Cancel</button>
                 </div>
                 <div class="bottom-sig-line" style="border-top:1px solid #000; width:80%; margin:6px auto 0; font-size:8px; padding-top:4px;"></div>
-                <div id="released-by-display" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:-10px;"><strong>{{ current_user.full_name }}</strong></div>
+                <div id="released-by-display" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:-10px;" data-fallback-name="{{ current_user.full_name }}" data-company="{{ current_user.company }}"><strong>{{ current_user.full_name }}</strong></div>
+                <div style="text-align:center; font-size:11px; color:#666; margin-top:2px;">{{ current_user.company }}</div>
             </div>
 
             <div style="flex:1; text-align:center;">
@@ -185,9 +186,10 @@
             const saveBtn = document.getElementById('invoice-released-by-save');
             const cancelBtn = document.getElementById('invoice-released-by-cancel');
             const input = document.getElementById('invoice-released-by-input');
-            const display = document.getElementById('invoice-released-by');
+            const display = document.getElementById('released-by-display');
             if (!display || !editBtn) return;
 
+            const fallbackName = (display && display.dataset && display.dataset.fallbackName) || '';
             let original = display.textContent.trim();
             editBtn.addEventListener('click', function(){
                 input.value = original;
@@ -205,7 +207,7 @@
                 cancelBtn.style.display = 'none';
             });
             saveBtn.addEventListener('click', function(){
-                const newName = (input.value || '').trim() || {{ current_user.full_name|tojson }};
+                const newName = (input.value || '').trim() || fallbackName;
                 display.textContent = newName;
                 display.style.display = '';
                 input.style.display = 'none';

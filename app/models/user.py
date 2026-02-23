@@ -14,6 +14,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
+    company = db.Column(db.String(100), default='JC Icons', nullable=False)  # Company/Organization name
     role = db.Column(db.String(20), nullable=False)  # ADMIN, SALES, TECH
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

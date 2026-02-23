@@ -83,7 +83,8 @@ def _create_repair_on_date(app, date_obj, total_cost=Decimal('30.00')):
             model='X',
             issue_description='Test issue',
             actual_completion=date_obj,
-            total_cost=total_cost
+            total_cost=total_cost,
+            payment_status='Paid'  # Set to 'Paid' so it appears in daily sales report (received payment)
         )
         db.session.add(dev)
         db.session.commit()
@@ -120,7 +121,8 @@ def test_daily_sales_combines_sources(app, logged_in_client):
     # total should match calculated value
     import re
     text = data.decode('utf-8')
-    m = re.search(r'Total Sales:.*?₱([0-9]+\.[0-9]{2})', text)
+    # Look for the print footer total or screen total cards
+    m = re.search(r'Total\s+₱([0-9]+\.[0-9]{2})', text)
     assert m, "total not found in page"
     page_total = float(m.group(1))
     assert page_total == expected_total

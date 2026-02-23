@@ -1,42 +1,137 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %}Low Stock{% endblock %}
+{% block title %}Low Stock Items - Inventory{% endblock %}
 
 {% block content %}
-<h1>Low Stock Items</h1>
-<div class="mb-3">
-    <a class="btn btn-outline-secondary" href="?format=csv">Export CSV</a>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-2">
+            <i class="bi bi-exclamation-circle"></i> Low Stock Items
+        </h1>
+        <p class="text-muted mb-0">Products below reorder threshold - review and replenish</p>
+    </div>
+    <div class="d-flex gap-2 d-print-none">
+        <a class="btn btn-outline-secondary" href="?format=csv" title="Download as CSV">
+            <i class="bi bi-download"></i> Export CSV
+        </a>
+        <button class="btn btn-outline-secondary" onclick="window.print();" title="Print this report">
+            <i class="bi bi-printer"></i> Print
+        </button>
+        <a href="{{ url_for('inventory.products') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
 </div>
+
+{% set low_stock_items = rows|selectattr('low')|list if rows else [] %}
+
+{% if low_stock_items|length > 0 %}
 <div class="card">
-    <div class="card-body">
+    <div class="card-header bg-light d-print-none">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">{{ low_stock_items|length }} Product{{ 's' if low_stock_items|length != 1 else '' }} Need Attention</h5>
+            <span class="badge bg-danger">{{ low_stock_items|length }}</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-sm">
-                <thead>
+            <table class="table table-hover mb-0">
+                <thead class="table-light sticky-top">
                     <tr>
-                        <th>SKU</th>
-                        <th>Name</th>
-                        <th>Stock</th>
-                        <th>Threshold</th>
-                        <th>Reorder To</th>
-                        <th>Suggested Qty</th>
+                        <th style="width: 15%">SKU</th>
+                        <th style="width: 30%">Product Name</th>
+                        <th class="text-center" style="width: 12%">Current Stock</th>
+                        <th class="text-center" style="width: 12%">Threshold</th>
+                        <th class="text-center" style="width: 12%">Reorder To</th>
+                        <th class="text-end" style="width: 19%">Qty to Order</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for r in rows if r.low %}
-                    <tr>
-                        <td>{{ r.product.sku or '' }}</td>
-                        <td>{{ r.product.name }}</td>
-                        <td>{{ r.product.stock_on_hand }}</td>
-                        <td>{{ r.threshold }}</td>
-                        <td>{{ r.product.reorder_to }}</td>
-                        <td><strong>{{ r.reorder_qty }}</strong></td>
+                    {% for r in low_stock_items %}
+                    <tr class="{% if r.product.stock_on_hand == 0 %}table-danger table-danger-25{% elif r.product.stock_on_hand <= r.threshold %}table-warning table-warning-25{% endif %}">
+                        <td>
+                            <code class="text-nowrap">{{ r.product.sku or '—' }}</code>
+                        </td>
+                        <td>
+                            <strong>{{ r.product.name }}</strong>
+                            {% if r.product.category %}
+                            <br><small class="text-muted">{{ r.product.category.name }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge {% if r.product.stock_on_hand == 0 %}bg-danger{% elif r.product.stock_on_hand <= r.threshold %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ r.product.stock_on_hand }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            {{ r.threshold }}
+                        </td>
+                        <td class="text-center">
+                            <strong>{{ r.product.reorder_to }}</strong>
+                        </td>
+                        <td class="text-end">
+                            <strong class="text-danger fs-5">
+                                {{ r.reorder_qty }} units
+                            </strong>
+                        </td>
                     </tr>
-                    {% else %}
-                    <tr><td colspan="6" class="text-center text-muted">No low stock items</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+    <div class="card-footer bg-light text-muted d-print-none">
+        <small>
+            <i class="bi bi-info-circle"></i>
+            <strong>Suggested Qty to Order</strong> = (Reorder To) − (Current Stock)
+        </small>
+    </div>
 </div>
+
+<style>
+    .table-danger-25 {
+        background-color: rgba(220, 53, 69, 0.15) !important;
+    }
+    .table-warning-25 {
+        background-color: rgba(255, 193, 7, 0.15) !important;
+    }
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    @media print {
+        .d-print-none {
+            display: none !important;
+        }
+        .card {
+            border: 1px solid #dee2e6;
+            page-break-inside: avoid;
+        }
+        .table {
+            font-size: 0.85rem;
+        }
+        thead {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        tbody tr {
+            page-break-inside: avoid;
+        }
+    }
+</style>
+
+{% else %}
+<div class="card">
+    <div class="card-body py-5 text-center">
+        <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+        <h5 class="mt-3 mb-2">All Products Stocked Well</h5>
+        <p class="text-muted mb-0">No items are currently below reorder threshold.</p>
+        <a href="{{ url_for('inventory.products') }}" class="btn btn-outline-secondary mt-3">
+            <i class="bi bi-arrow-left"></i> Back to Products
+        </a>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

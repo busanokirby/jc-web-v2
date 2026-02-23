@@ -10,7 +10,10 @@
                 <i class="bi bi-tools"></i> Repair Ticket #{{ device.ticket_number }}
             </h1>
             <p class="text-muted mb-0">
-                <strong>Customer:</strong> {{ device.owner.display_name }}<br>
+                <strong>Customer:</strong> {{ device.owner.display_name }}
+                {% if device.owner and device.owner.business_name %}
+                  <span class="badge bg-light text-dark ms-2"><i class="bi bi-briefcase"></i> {{ device.owner.business_name }}</span>
+                {% endif %}<br>
                 <strong>Phone:</strong> {{ device.owner.phone }}<br>
                 <strong>Days in Shop:</strong> <span class="badge bg-warning">{{ days_in_shop }} days</span>
             </p>
@@ -36,11 +39,9 @@
         <a href="{{ url_for('repairs.print_ticket', device_id=device.id) }}" class="btn btn-outline-primary">
             <i class="bi bi-printer"></i> Print Ticket
         </a>
-        {% if device.payment_status != 'Pending' %}
         <a href="{{ url_for('repairs.print_receipt', device_id=device.id) }}" class="btn btn-outline-success" target="_blank">
             <i class="bi bi-receipt"></i> Print Receipt
         </a>
-        {% endif %}
         {% if device.status == 'Completed' and not device.is_archived and (current_user.role == 'ADMIN' or current_user.role == 'TECH') %}
         <form method="POST" action="{{ url_for('repairs.archive_repair', device_id=device.id) }}" style="display:inline; margin-left:6px;">
             <button type="submit" class="btn btn-outline-secondary" onclick="return confirm('Archive this completed repair? This will hide it from the active list.');">
@@ -205,44 +206,49 @@
 
         <!-- Parts Used -->
         <div class="card mb-4">
-            <div class="card-header bg-light">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="bi bi-box-seam"></i> Parts Used</h5>
+                {% if device.parts_used_rows %}
+                <span class="badge bg-primary">{{ device.parts_used_rows|length }} part(s)</span>
+                {% endif %}
             </div>
             <div class="card-body">
                 {% if device.parts_used_rows %}
-                <div class="table-responsive mb-4">
-                    <table class="table table-sm mb-0">
-                        <thead>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
                             <tr>
-                                <th>Product</th>
-                                <th class="text-end">Qty</th>
-                                <th class="text-end">Unit Price</th>
-                                <th class="text-end">Line Total</th>
-                                <!--<th class="text-center">Action</th>-->
+                                <th><i class="bi bi-box"></i> Product</th>
+                                <th class="text-center"><i class="bi bi-hash"></i> Qty</th>
+                                <th class="text-end"><i class="bi bi-tag"></i> Unit Price</th>
+                                <th class="text-end"><i class="bi bi-calculator"></i> Line Total</th>
+                                <th class="text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for part in device.parts_used_rows %}
-                            <tr data-part-id="{{ part.id }}" data-qty="{{ part.qty }}">
-                                <td>{{ part.product.name }}</td>
-                                <td class="text-end qty-display">{{ part.qty }}</td>
-                                <td class="text-end price-cell {% if device.payment_status == 'Paid' or device.is_archived %}locked{% endif %}" style="background-color: #f8f9fa; padding: 8px;" title="{% if device.payment_status != 'Paid' and not device.is_archived %}Click to edit price{% else %}Locked{% endif %}">
-                                    <span class="price-display">{{ part.unit_price|currency }}</span>
+                            <tr data-part-id="{{ part.id }}" data-qty="{{ part.qty }}" class="align-middle">
+                                <td><small class="text-muted">{{ part.product.name }}</small></td>
+                                <td class="text-center qty-display fw-bold">{{ part.qty }}</td>
+                                <td class="text-end price-cell {% if device.payment_status == 'Paid' or device.is_archived %}locked{% endif %}" {% if device.payment_status != 'Paid' and not device.is_archived %}data-editable="true"{% endif %} style="padding: 8px; border-radius: 4px;" title="{% if device.payment_status != 'Paid' and not device.is_archived %}Click to edit price{% else %}Locked from editing{% endif %}">
+                                    <span class="price-display fw-bold">{{ part.unit_price|currency }}</span>
                                     {% if device.payment_status != 'Paid' and not device.is_archived %}
                                     <input type="number" class="form-control form-control-sm price-input" style="display:none; width:100px;" step="0.01" min="0" value="{{ part.unit_price }}">
                                     {% endif %}
                                 </td>
-                                <td class="text-end fw-bold line-total-cell">{{ part.line_total|currency }}</td>
+                                <td class="text-end"><strong class="line-total-cell fs-6" style="color: #0d6efd;">{{ part.line_total|currency }}</strong></td>
                                 <td class="text-center">
                                     {% if device.payment_status != 'Paid' and not device.is_archived %}
-                                    <button type="button" class="btn btn-sm btn-outline-primary edit-qty-btn" data-part-id="{{ part.id }}" data-bs-toggle="modal" data-bs-target="#editQtyModal">
-                                        <i class="bi bi-pencil"></i> Edit Qty
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger delete-part-btn" data-part-id="{{ part.id }}">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-primary edit-qty-btn" data-part-id="{{ part.id }}" data-bs-toggle="modal" data-bs-target="#editQtyModal" title="Edit quantity">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger delete-part-btn" data-part-id="{{ part.id }}" title="Remove part">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
                                     {% else %}
-                                    <span class="text-muted">Locked</span>
+                                    <span class="badge bg-secondary">Locked</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -250,18 +256,29 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="mt-2 text-end text-muted small">
+                    {% if device.payment_status != 'Paid' and not device.is_archived %}
+                    <i class="bi bi-info-circle"></i> Click price to edit • Use buttons for qty/delete
+                    {% else %}
+                    <i class="bi bi-lock"></i> Parts locked (repair is processing/archived)
+                    {% endif %}
+                </div>
                 {% else %}
-                <p class="text-muted">No parts added yet</p>
+                <div class="text-center py-4">
+                    <i class="bi bi-inbox" style="font-size: 2rem; color: #ccc;"></i>
+                    <p class="text-muted mt-2">No parts added yet</p>
+                </div>
                 {% endif %}
 
                 <form id="addPartForm" method="POST" action="{{ url_for('repairs.add_part_used', device_id=device.id) }}" class="mt-4">
                     <div class="row">
                         <div class="col-md-6">
-                            <label for="product_id" class="form-label">Add Part</label>
+                            <label for="product_search" class="form-label">Search & Add Part</label>
+                            <input type="text" class="form-control mb-2" id="product_search" placeholder="Search by part name...">
                             <select class="form-select" id="product_id" name="product_id" required>
                                 <option value="">-- Select Product --</option>
                                 {% for product in products %}
-                                <option value="{{ product.id }}">{{ product.name }} ({{ product.sell_price|currency }})</option>
+                                <option value="{{ product.id }}" data-name="{{ product.name|lower }}">{{ product.name }} ({{ product.sell_price|currency }})</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -399,8 +416,129 @@
     </div>
 </div>
 
+<style>
+.price-cell[data-editable="true"] {
+    cursor: pointer;
+    background-color: #e7f1ff;
+}
+
+.price-cell.locked {
+    background-color: #f8f9fa;
+}
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function(){
+    // Product search functionality for Add Part form
+    const searchInput = document.getElementById('product_search');
+    const productSelect = document.getElementById('product_id');
+
+    if (searchInput && productSelect) {
+        searchInput.addEventListener('input', function(){
+            const searchTerm = this.value.toLowerCase().trim();
+            const options = productSelect.querySelectorAll('option');
+            let hasMatches = false;
+
+            if (!searchTerm) {
+                // Show all options when search is empty
+                options.forEach(option => {
+                    option.style.display = '';
+                });
+                return;
+            }
+
+            // Enhanced matching: exact words, partial words, and fuzzy matching
+            function getMatchScore(productName, searchTerm) {
+                const name = productName.toLowerCase();
+                const terms = searchTerm.split(/\s+/);
+                let score = 0;
+
+                terms.forEach(term => {
+                    // Exact word match (highest priority)
+                    if (name.split(/\s+/).some(word => word === term)) {
+                        score += 100;
+                    }
+                    // Word starts with term
+                    else if (name.split(/\s+/).some(word => word.startsWith(term))) {
+                        score += 50;
+                    }
+                    // Substring match
+                    else if (name.includes(term)) {
+                        score += 25;
+                    }
+                    // Partial character match (at least 70% similar)
+                    else {
+                        const matches = term.split('').filter(char => name.includes(char)).length;
+                        if (matches >= term.length * 0.7) {
+                            score += 10;
+                        }
+                    }
+                });
+
+                return score;
+            }
+
+            // Calculate scores and sort options
+            const optionsWithScores = [];
+            options.forEach(option => {
+                if (option.value === '') return; // Skip default option
+
+                const productName = option.dataset.name || option.textContent.toLowerCase();
+                const score = getMatchScore(productName, searchTerm);
+                
+                if (score > 0) {
+                    optionsWithScores.push({ option, score });
+                    hasMatches = true;
+                }
+            });
+
+            // Sort by score (highest first)
+            optionsWithScores.sort((a, b) => b.score - a.score);
+
+            // Update display
+            options.forEach(option => {
+                if (option.value === '') {
+                    option.style.display = ''; // Always show default
+                    return;
+                }
+                option.style.display = 'none';
+            });
+
+            // Show matching options in order
+            optionsWithScores.forEach(({ option }) => {
+                option.style.display = '';
+            });
+
+            // Open dropdown to show results
+            if (hasMatches) {
+                productSelect.size = Math.min(optionsWithScores.length + 1, 8); // Show up to 8 options
+            }
+        });
+
+        // Reset dropdown size when clicking away
+        searchInput.addEventListener('blur', function(){
+            setTimeout(() => {
+                productSelect.size = 0; // Reset to normal dropdown
+            }, 200);
+        });
+
+        // Clear search when select changes
+        productSelect.addEventListener('change', function(){
+            if (this.value) {
+                searchInput.value = '';
+                this.size = 0; // Reset dropdown size
+            }
+        });
+
+        // Allow typing to search in the select too
+        productSelect.addEventListener('keydown', function(e){
+            if (e.key.length === 1) {
+                searchInput.value += e.key.toLowerCase();
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        });
+    }
+
     // Make unit price editable in parts table
 // Handle adding parts via AJAX to update UI without full reload
 document.addEventListener('DOMContentLoaded', function(){

@@ -1,0 +1,725 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ device.ticket_number }} - Repair Detail - JC Icons{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="mb-2">
+                <i class="bi bi-ticket-detailed"></i> Ticket #{{ device.ticket_number }}
+            </h1>
+            <p class="text-muted mb-0">
+                Customer: <strong>{{ device.owner.display_name if device.owner else 'N/A' }}</strong>
+                {% if device.owner and device.owner.business_name %}
+                  <span class="badge bg-light text-dark ms-2"><i class="bi bi-briefcase"></i> {{ device.owner.business_name }}</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-secondary me-2">{{ device.status }}</span>
+            {% if device.priority == 'Emergency' %}
+                <span class="badge bg-danger">{{ device.priority }} Priority</span>
+            {% elif device.priority == 'High' %}
+                <span class="badge bg-warning text-dark">{{ device.priority }} Priority</span>
+            {% elif device.priority == 'Normal' %}
+                <span class="badge bg-info">{{ device.priority }} Priority</span>
+            {% else %}
+                <span class="badge bg-success">{{ device.priority }} Priority</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="btn-group" role="group">
+        <a href="{{ url_for('repairs.repairs') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Repairs
+        </a>
+        <a href="{{ url_for('repairs.print_ticket', device_id=device.id) }}" class="btn btn-outline-primary">
+            <i class="bi bi-printer"></i> Print Ticket
+        </a>
+        <a href="{{ url_for('repairs.print_receipt', device_id=device.id) }}" class="btn btn-outline-success" target="_blank">
+            <i class="bi bi-receipt"></i> Print Receipt
+        </a>
+        {% if device.status == 'Completed' and not device.is_archived and (current_user.role == 'ADMIN' or current_user.role == 'TECH') %}
+        <form method="POST" action="{{ url_for('repairs.archive_repair', device_id=device.id) }}" style="display:inline; margin-left:6px;">
+            <button type="submit" class="btn btn-outline-secondary" onclick="return confirm('Archive this completed repair? This will hide it from the active list.');">
+                <i class="bi bi-archive"></i> Archive
+            </button>
+        </form>
+        {% endif %}
+
+        {% if current_user.role == 'ADMIN' %}
+        <form method="POST" action="{{ url_for('repairs.delete_repair', device_id=device.id) }}" style="display:inline;">
+            <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Delete this repair ticket? This will attempt to restore used parts to stock.');">
+                <i class="bi bi-trash"></i> Delete
+            </button>
+        </form>
+        {% if device.payment_status == 'Paid' or device.is_archived %}
+        <form method="POST" action="{{ url_for('repairs.revert_repair', device_id=device.id) }}" style="display:inline; margin-left:6px;">
+            <button type="submit" class="btn btn-outline-warning" onclick="return confirm('Revert this repair to editable state? This will allow editing parts and prices.');">
+                <i class="bi bi-arrow-counterclockwise"></i> Revert
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Device Information -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-laptop"></i> Device Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Device Type</label>
+                        <p class="mb-0"><strong>{{ device.device_type|title }}</strong></p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Brand / Model</label>
+                        <p class="mb-0"><strong>{{ device.brand or 'N/A' }} {{ device.model or '' }}</strong></p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Serial Number</label>
+                        <p class="mb-0"><strong>{{ device.serial_number or 'Not provided' }}</strong></p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Device Age</label>
+                        <p class="mb-0"><strong>{{ device.device_age or 'Not specified' }}</strong></p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Warranty Status</label>
+                        <p class="mb-0">
+                            {% if device.under_warranty %}
+                            <span class="badge bg-success">Under Warranty</span>
+                            {% else %}
+                            <span class="badge bg-secondary">No Warranty</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Accessories Received</label>
+                        <p class="mb-0"><strong>{{ device.accessories or 'None noted' }}</strong></p>
+                    </div>
+                </div>
+                <hr>
+                <div class="mb-2">
+                    <label class="form-label text-muted small">Issue Description</label>
+                    <p class="mb-0"><strong>{{ device.issue_description }}</strong></p>
+                </div>
+                <div>
+                    <label class="form-label text-muted small">Symptoms Observed</label>
+                    <p class="mb-0">{{ device.symptoms or 'Not specified' }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status & Notes Update -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> Status & Notes</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('repairs.update_status', device_id=device.id) }}">
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Current Status</label>
+                        <select id="status" name="status" class="form-select">
+                            <option value="Received" {% if device.status == 'Received' %}selected{% endif %}>Received</option>
+                            <option value="Diagnosing" {% if device.status == 'Diagnosing' %}selected{% endif %}>Diagnosing</option>
+                            <option value="Repairing" {% if device.status == 'Repairing' %}selected{% endif %}>Repairing</option>
+                            <option value="Waiting Parts" {% if device.status == 'Waiting Parts' %}selected{% endif %}>Waiting Parts</option>
+                            <option value="Ready" {% if device.status == 'Ready' %}selected{% endif %}>Ready</option>
+                            <option value="Completed" {% if device.status == 'Completed' %}selected{% endif %}>Completed</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="repair_cost" class="form-label">Repair Cost</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₱</span>
+                            <input type="number" id="repair_cost" name="repair_cost" class="form-control" step="0.01" min="0" value="{{ "%.2f"|format(device.repair_cost or 0) }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="diagnostic_fee" class="form-label">Diagnostic Fee</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₱</span>
+                            <input type="number" id="diagnostic_fee" name="diagnostic_fee" class="form-control" step="0.01" min="0" value="{{ "%.2f"|format(device.diagnostic_fee or 0) }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="technician_notes" class="form-label">Technician Notes</label>
+                        <textarea id="technician_notes" name="technician_notes" class="form-control" rows="4" placeholder="Add internal notes about diagnosis, repairs, blockers...">{{ device.technician_notes or '' }}</textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Update Status & Notes
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Parts Used -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-boxes"></i> Parts Used</h5>
+            </div>
+            <div class="card-body">
+                {% if device.parts_used_rows %}
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Part Name</th>
+                                <th class="text-center">Qty</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for part in device.parts_used_rows %}
+                            <tr data-part-id="{{ part.id }}" data-qty="{{ part.qty }}">
+                                <td>{{ part.product.name if part.product else 'Unknown Part' }}</td>
+                                <td class="text-center">{{ part.qty }}</td>
+                                <td class="text-end price-cell" {% if part.is_locked %}data-locked="true"{% endif %}>
+                                    <span class="price-display">₱{{ "%.2f"|format(part.unit_price) }}</span>
+                                    <input type="text" class="form-control form-control-sm price-input" style="display:none; width:100px;" value="{{ "%.2f"|format(part.unit_price) }}">
+                                </td>
+                                <td class="text-end"><strong>₱{{ "%.2f"|format(part.line_total) }}</strong></td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary edit-qty-btn me-1">
+                                        <i class="bi bi-pencil"></i> Qty
+                                    </button>
+                                    {% if not part.is_locked %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-part-btn">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">
+                    <i class="bi bi-inbox" style="font-size: 1.5rem;"></i><br>
+                    No parts added yet
+                </p>
+                {% endif %}
+
+                <!-- Add Part Form -->
+                <hr class="my-3">
+                <h6 class="mb-3">Add a Part</h6>
+                <form method="POST" action="{{ url_for('repairs.add_part_used', device_id=device.id) }}" id="addPartForm">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label for="product_search" class="form-label">Search Part <span class="text-danger">*</span></label>
+                            <input type="text" id="product_search" class="form-control mb-2" placeholder="Search by part name...">
+                            <label for="product_id" class="form-label">Select Part <span class="text-danger">*</span></label>
+                            <select name="product_id" id="product_id" class="form-select" required>
+                                <option value="">-- Choose a part --</option>
+                                {% for product in products %}
+                                <option value="{{ product.id }}" data-name="{{ product.name|lower }}">{{ product.name }} (Stock: {{ product.stock_on_hand }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="qty" class="form-label">Quantity <span class="text-danger">*</span></label>
+                            <input type="number" name="qty" id="qty" class="form-control" min="1" value="1" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="unit_price" class="form-label">Unit Price <span class="text-danger">*</span></label>
+                            <input type="number" name="unit_price" id="unit_price" class="form-control" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success mt-2">
+                        <i class="bi bi-plus-circle"></i> Add Part
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: Financial Info & Actions -->
+    <div class="col-lg-4">
+        <!-- Financial Summary -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-cash-coin"></i> Financial Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-2">
+                    <div class="col-6"><span class="text-muted">Repair Cost</span></div>
+                    <div class="col-6 text-end"><strong>₱{{ "%.2f"|format(device.repair_cost) }}</strong></div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-6"><span class="text-muted">Parts Cost</span></div>
+                    <div class="col-6 text-end"><strong>₱{{ "%.2f"|format(device.parts_cost) }}</strong></div>
+                </div>
+                <hr class="my-2">
+                <div class="row mb-3">
+                    <div class="col-6"><span class="fw-bold">Total Cost</span></div>
+                    <div class="col-6 text-end"><strong class="fs-5">₱{{ "%.2f"|format(device.total_cost) }}</strong></div>
+                </div>
+
+                <div class="row mb-2">
+                    <div class="col-6"><span class="text-muted">Deposit Paid</span></div>
+                    <div class="col-6 text-end"><strong>₱{{ "%.2f"|format(device.deposit_paid or 0) }}</strong></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-6"><span class="fw-bold">Balance Due</span></div>
+                    <div class="col-6 text-end"><strong class="{% if device.balance_due > 0 %}text-danger{% else %}text-success{% endif %}">₱{{ "%.2f"|format(device.balance_due) }}</strong></div>
+                </div>
+
+                <div class="mt-2 text-center">
+                    <span class="badge {% if device.payment_status == 'Paid' %}bg-success{% elif device.payment_status == 'Partial' %}bg-warning text-dark{% else %}bg-secondary{% endif %} fs-6">
+                        {{ device.payment_status }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Record Payment -->
+        {% if device.balance_due > 0 %}
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-credit-card"></i> Record Payment</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('repairs.add_payment', device_id=device.id) }}">
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Payment Amount <span class="text-danger">*</span></label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text">₱</span>
+                            <input type="number" name="amount" id="amount" class="form-control" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+                        <small class="form-text text-muted d-block mt-1">Balance due: <strong>₱{{ "%.2f"|format(device.balance_due) }}</strong></small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="payment_method" class="form-label">Payment Method</label>
+                        <select name="payment_method" id="payment_method" class="form-select">
+                            <option value="Cash">Cash</option>
+                            <option value="Check">Check</option>
+                            <option value="Card">Card</option>
+                            <option value="Transfer">Bank Transfer</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="apply_as_deposit" id="apply_as_deposit" value="yes">
+                            <label class="form-check-label" for="apply_as_deposit">
+                                Apply as deposit (partial payment)
+                            </label>
+                        </div>
+                        <small class="form-text text-muted">If unchecked, payment amount must cover remaining balance to settle the repair.</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-check-circle"></i> Record Payment
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Dates Info -->
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-calendar-event"></i> Timeline</h5>
+            </div>
+            <div class="card-body small">
+                <div class="mb-3">
+                    <label class="text-muted d-block">Received Date</label>
+                    <strong>{{ device.received_date.strftime('%b %d, %Y at %I:%M %p') if device.received_date else 'N/A' }}</strong>
+                </div>
+
+                {% if device.completed_date %}
+                <div class="mb-3">
+                    <label class="text-muted d-block">Completed Date</label>
+                    <strong>{{ device.completed_date.strftime('%b %d, %Y at %I:%M %p') }}</strong>
+                </div>
+                {% endif %}
+
+                {% if device.archived_date %}
+                <div>
+                    <label class="text-muted d-block">Archived Date</label>
+                    <strong>{{ device.archived_date.strftime('%b %d, %Y at %I:%M %p') }}</strong>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Editing Part Quantity -->
+<div class="modal fade" id="editQtyModal" tabindex="-1" aria-labelledby="editQtyModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editQtyModalLabel">Edit Part Quantity</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="editQtyForm">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="newQty" class="form-label">New Quantity</label>
+            <input type="number" id="newQty" class="form-control" min="1" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style media="print">
+  /* Hide UI controls and nav when printing */
+  nav, .navbar, .btn-group, .d-print-none, footer { display: none !important; }
+  
+  /* Optimize for print */
+  @page { size: A4; margin: 0.5in; }
+  .card { break-inside: avoid; page-break-inside: avoid; }
+  body { font-size: 10pt; line-height: 1.4; }
+  h1, h5 { page-break-after: avoid; }
+  .table { page-break-inside: avoid; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    // Product search functionality for Add Part form
+    const searchInput = document.getElementById('product_search');
+    const productSelect = document.getElementById('product_id');
+
+    if (searchInput && productSelect) {
+        searchInput.addEventListener('input', function(){
+            const searchTerm = this.value.toLowerCase().trim();
+            const options = productSelect.querySelectorAll('option');
+            let hasMatches = false;
+
+            if (!searchTerm) {
+                // Show all options when search is empty
+                options.forEach(option => {
+                    option.style.display = '';
+                });
+                return;
+            }
+
+            // Enhanced matching: exact words, partial words, and fuzzy matching
+            function getMatchScore(productName, searchTerm) {
+                const name = productName.toLowerCase();
+                const terms = searchTerm.split(/\s+/);
+                let score = 0;
+
+                terms.forEach(term => {
+                    // Exact word match (highest priority)
+                    if (name.split(/\s+/).some(word => word === term)) {
+                        score += 100;
+                    }
+                    // Word starts with term
+                    else if (name.split(/\s+/).some(word => word.startsWith(term))) {
+                        score += 50;
+                    }
+                    // Substring match
+                    else if (name.includes(term)) {
+                        score += 25;
+                    }
+                    // Partial character match (at least 70% similar)
+                    else {
+                        const matches = term.split('').filter(char => name.includes(char)).length;
+                        if (matches >= term.length * 0.7) {
+                            score += 10;
+                        }
+                    }
+                });
+
+                return score;
+            }
+
+            // Calculate scores and sort options
+            const optionsWithScores = [];
+            options.forEach(option => {
+                if (option.value === '') return; // Skip default option
+
+                const productName = option.dataset.name || option.textContent.toLowerCase();
+                const score = getMatchScore(productName, searchTerm);
+                
+                if (score > 0) {
+                    optionsWithScores.push({ option, score });
+                    hasMatches = true;
+                }
+            });
+
+            // Sort by score (highest first)
+            optionsWithScores.sort((a, b) => b.score - a.score);
+
+            // Update display
+            options.forEach(option => {
+                if (option.value === '') {
+                    option.style.display = ''; // Always show default
+                    return;
+                }
+                option.style.display = 'none';
+            });
+
+            // Show matching options in order
+            optionsWithScores.forEach(({ option }) => {
+                option.style.display = '';
+            });
+
+            // Open dropdown to show results
+            if (hasMatches) {
+                productSelect.size = Math.min(optionsWithScores.length + 1, 8); // Show up to 8 options
+            }
+        });
+
+        // Reset dropdown size when clicking away
+        searchInput.addEventListener('blur', function(){
+            setTimeout(() => {
+                productSelect.size = 0; // Reset to normal dropdown
+            }, 200);
+        });
+
+        // Clear search when select changes
+        productSelect.addEventListener('change', function(){
+            if (this.value) {
+                searchInput.value = '';
+                this.size = 0; // Reset dropdown size
+            }
+        });
+
+        // Allow typing to search in the select too
+        productSelect.addEventListener('keydown', function(e){
+            if (e.key.length === 1) {
+                searchInput.value += e.key.toLowerCase();
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        });
+    }
+
+    const addPartForm = document.getElementById('addPartForm');
+    if (!addPartForm) return;
+
+    addPartForm.addEventListener('submit', async function(e){
+        e.preventDefault();
+        const form = e.target;
+        const url = form.action;
+        const formData = new FormData(form);
+
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            });
+
+            if (!res.ok) throw new Error('Server error');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Error adding part');
+
+            // Remove 'No parts added yet' message if present
+            const noParts = document.querySelector('[style*="py-4"]');
+            if (noParts && noParts.textContent.includes('No parts')) noParts.remove();
+
+            // Add new row to table
+            const table = document.querySelector('table tbody');
+            if (table) {
+                const row = document.createElement('tr');
+                row.dataset.partId = data.part_id;
+                row.dataset.qty = data.qty;
+                row.innerHTML = `
+                    <td>${data.product_name}</td>
+                    <td class="text-center">${data.qty}</td>
+                    <td class="text-end price-cell">
+                        <span class="price-display">₱${parseFloat(data.unit_price).toFixed(2)}</span>
+                        <input type="text" class="form-control form-control-sm price-input" style="display:none;" value="${parseFloat(data.unit_price).toFixed(2)}">
+                    </td>
+                    <td class="text-end"><strong>₱${parseFloat(data.line_total).toFixed(2)}</strong></td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-secondary edit-qty-btn me-1"><i class="bi bi-pencil"></i> Qty</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger delete-part-btn"><i class="bi bi-trash"></i></button>
+                    </td>
+                `;
+                table.appendChild(row);
+            }
+
+            updateFinancialSummary(data);
+            form.reset();
+        } catch (err) {
+            alert('Error adding part: ' + err.message);
+        }
+    });
+
+    // Price editing
+    document.querySelectorAll('.price-cell').forEach(cell => {
+        if (cell.dataset.locked) return;
+        const display = cell.querySelector('.price-display');
+        const input = cell.querySelector('.price-input');
+        if (!input) return;
+
+        cell.addEventListener('click', function(){
+            display.style.display = 'none';
+            input.style.display = 'inline-block';
+            input.focus();
+        });
+
+        input.addEventListener('blur', function(){
+            updateLineTotal(this);
+        });
+        input.addEventListener('keypress', function(e){
+            if (e.key === 'Enter') updateLineTotal(this);
+        });
+    });
+
+    function updateLineTotal(priceInput){
+        const row = priceInput.closest('tr');
+        const qty = parseInt(row.dataset.qty);
+        const newPrice = parseFloat(priceInput.value);
+        
+        if (isNaN(newPrice) || newPrice < 0) {
+            priceInput.style.display = 'none';
+            priceInput.previousElementSibling.style.display = '';
+            return;
+        }
+
+        const partId = row.dataset.partId;
+        const display = priceInput.previousElementSibling;
+        const lineTotal = qty * newPrice;
+        
+        display.textContent = '₱' + newPrice.toFixed(2);
+        display.style.display = '';
+        priceInput.style.display = 'none';
+        
+        // Update line total
+        const lineTotalCell = row.querySelector('.text-end:nth-of-type(2)');
+        if (lineTotalCell) lineTotalCell.innerHTML = '<strong>₱' + lineTotal.toFixed(2) + '</strong>';
+
+        // Call backend to update
+        const updateUrl = `{{ url_for('repairs.update_part_price', device_id=device.id, part_id='PART_ID_PLACEHOLDER') }}`.replace('PART_ID_PLACEHOLDER', partId);
+        fetch(updateUrl, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+            body: JSON.stringify({unit_price: newPrice})
+        }).catch(err => console.error('Price update failed:', err));
+    }
+
+    // Edit quantity modal
+    const editQtyModal = new bootstrap.Modal(document.getElementById('editQtyModal'), {});
+    const editQtyForm = document.getElementById('editQtyForm');
+    let currentPartId = null;
+
+    document.querySelectorAll('.edit-qty-btn').forEach(btn => {
+        btn.addEventListener('click', function(){
+            const row = this.closest('tr');
+            currentPartId = row.dataset.partId;
+            const currentQty = parseInt(row.dataset.qty);
+            document.getElementById('newQty').value = currentQty;
+            editQtyModal.show();
+        });
+    });
+
+    editQtyForm.addEventListener('submit', async function(e){
+        e.preventDefault();
+        if (!currentPartId) return;
+
+        const newQty = parseInt(document.getElementById('newQty').value);
+        if (newQty <= 0) {
+            alert('Quantity must be greater than 0');
+            return;
+        }
+
+        try {
+            const updateUrl = `{{ url_for('repairs.update_part_qty', device_id=device.id, part_id='PART_ID_PLACEHOLDER') }}`.replace('PART_ID_PLACEHOLDER', currentPartId);
+            const res = await fetch(updateUrl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                body: JSON.stringify({qty: newQty})
+            });
+
+            if (!res.ok) throw new Error('Server error');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Error updating quantity');
+
+            // Update row
+            const row = document.querySelector(`tr[data-part-id="${currentPartId}"]`);
+            if (row) {
+                row.dataset.qty = newQty;
+                row.querySelector('td:nth-child(2)').textContent = newQty;
+                const price = parseFloat(row.querySelector('.price-display').textContent.replace('₱', ''));
+                const lineTotal = newQty * price;
+                row.querySelector('.text-end:nth-of-type(2)').innerHTML = '<strong>₱' + lineTotal.toFixed(2) + '</strong>';
+            }
+
+            updateFinancialSummary(data);
+            editQtyModal.hide();
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    });
+
+    // Delete part
+    document.querySelectorAll('.delete-part-btn').forEach(btn => {
+        btn.addEventListener('click', async function(){
+            if (!confirm('Delete this part?')) return;
+
+            const row = this.closest('tr');
+            const partId = row.dataset.partId;
+
+            try {
+                const deleteUrl = `{{ url_for('repairs.delete_part', device_id=device.id, part_id='PART_ID_PLACEHOLDER') }}`.replace('PART_ID_PLACEHOLDER', partId);
+                const res = await fetch(deleteUrl, {
+                    method: 'POST',
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                });
+
+                if (!res.ok) throw new Error('Server error');
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message || 'Error deleting part');
+
+                row.remove();
+                updateFinancialSummary(data);
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        });
+    });
+});
+
+function updateFinancialSummary(data) {
+    const formatCurrency = (value) => {
+        return '₱' + parseFloat(value).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    };
+
+    const financialCard = document.querySelector('.card-header')?.parentElement;
+    if (!financialCard) return;
+
+    const rows = document.querySelectorAll('.card-body .row');
+    rows.forEach(r => {
+        const text = r.textContent;
+        if (text.includes('Parts Cost')) r.querySelector('.col-6:last-child').innerHTML = '<strong>' + formatCurrency(data.parts_cost) + '</strong>';
+        if (text.includes('Total Cost')) r.querySelector('.col-6:last-child').innerHTML = '<strong class="fs-5">' + formatCurrency(data.total_cost) + '</strong>';
+        if (text.includes('Balance Due')) {
+            const balanceEl = r.querySelector('.col-6:last-child strong');
+            balanceEl.textContent = formatCurrency(data.balance_due);
+            balanceEl.className = parseFloat(data.balance_due) > 0 ? 'text-danger' : 'text-success';
+        }
+    });
+}
+</script>
+{% endblock %}

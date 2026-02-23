@@ -1,55 +1,457 @@
 {% extends 'layouts/base.html' %}
-
 {% block title %}Daily Sales Report - JC Icons{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Daily Sales Report</h2>
-</div>
 
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="GET" id="daily-sales-filter" class="mb-3">
-            <div class="row g-2 align-items-end">
-                <div class="col-auto">
-                    <label class="form-label" for="sales-date">Select Date</label>
-                    <input type="date" id="sales-date" name="date" class="form-control"
-                        value="{{ report_date }}" max="{{ today }}" onchange="this.form.submit()">
-                </div>
-            </div>
-        </form>
-
-        {% if sales_records and sales_records|length > 0 %}
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Customer Name</th>
-                        <th>Transaction Type</th>
-                        <th>Description</th>
-                        <th class="text-end">Amount Paid</th>
-                        <th>Date &amp; Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for rec in sales_records %}
-                    <tr>
-                        <td>{{ rec.customer }}</td>
-                        <td>{{ rec.type }}</td>
-                        <td>{{ rec.description }}</td>
-                        <td class="text-end">₱{{ "%.2f"|format(rec.amount) }}</td>
-                        <td>{{ rec.datetime.strftime('%Y-%m-%d %I:%M %p') if rec.datetime }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="text-end mt-2">
-            <strong>Total Sales: ₱{{ "%.2f"|format(total_sales) }}</strong>
-        </div>
-        {% else %}
-        <p class="text-muted">No sales recorded for the selected date.</p>
-        {% endif %}
+<!-- Screen Header (HIDDEN IN PRINT) -->
+<div class="d-flex justify-content-between align-items-center mb-4 d-print-none">
+    <div>
+        <h1 class="mb-1"><i class="bi bi-calendar-day"></i> Daily Sales Report</h1>
+        <p class="text-muted mb-0">Comprehensive payment tracking for sales and repairs completed on the selected date</p>
+    </div>
+    <div>
+        <button onclick="window.print()" class="btn btn-success" title="Print report with professional layout">
+            <i class="bi bi-printer"></i> Print Report
+        </button>
     </div>
 </div>
+
+<!-- Filter Card (hidden in print) -->
+<div class="card mb-4 border-start border-success border-4 d-print-none">
+    <div class="card-header bg-light d-flex align-items-center gap-2">
+        <i class="bi bi-funnel text-success"></i>
+        <h5 class="mb-0">Filter by Date</h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" id="daily-sales-filter" class="row g-3 align-items-end">
+            <div class="col-auto">
+                <label class="form-label" for="sales-date">
+                    <i class="bi bi-calendar"></i> Select Date
+                </label>
+                <input
+                    type="date"
+                    id="sales-date"
+                    name="date"
+                    class="form-control"
+                    value="{{ report_date }}"
+                    max="{{ today }}"
+                    onchange="this.form.submit()"
+                    style="min-width: 200px;"
+                >
+            </div>
+            <div class="col-auto">
+                <small class="text-muted d-block">Select a past or today’s date to view transactions</small>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# ------------------------------
+   FILTER: show ONLY received payments
+   - amount > 0 means money was received
+   ------------------------------ #}
+{% if sales_records and sales_records|length > 0 %}
+    {% set received_records = (sales_records
+        | selectattr('amount')
+        | selectattr('amount', 'gt', 0)
+        | list) %}
+
+    {% set partial_records = received_records | selectattr('is_partial') | list %}
+    {% set total_received = received_records | sum(attribute='amount') %}
+    {% set total_partial_count_local = partial_records | length %}
+    {% set total_partial_amount_local = partial_records | sum(attribute='amount') %}
+
+    {% if received_records|length > 0 %}
+
+    <!-- Print Header (print only) -->
+    <div class="d-none d-print-block print-header">
+        <div class="print-header__top">
+            <div class="print-brand">
+                <img
+                    src="{{ url_for('static', filename='images/jc-logo.png') }}"
+                    alt="JC Icons Logo"
+                    class="print-logo"
+                >
+                <div class="print-brand__text">
+                    <div class="print-company">JC ICONS COMPUTER SALES &amp; SERVICES</div>
+                    <div class="print-meta">J.A CLARIN COR. HONTANOSAS, POBLACION 3, TAGBILARAN CITY</div>
+                    <div class="print-meta">CONTACT: (038) 411-2134 • 09985771468 • 09208036494</div>
+                </div>
+            </div>
+
+            <div class="print-report-meta">
+                <div><strong>Report Date:</strong> {{ report_date.strftime('%B %d, %Y') }}</div>
+                <div><strong>Generated:</strong> {{ now.strftime('%I:%M %p') }}</div>
+            </div>
+        </div>
+
+        <div class="print-title-line">
+            <strong>Daily Sales Report (Received Payments Only)</strong>
+        </div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="card mb-4">
+        <div class="card-header bg-light d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-receipt text-primary"></i>
+                <h5 class="mb-0">Transactions ({{ received_records|length }})</h5>
+            </div>
+            <div class="d-print-none">
+                <small class="text-muted">Click any row to view full receipt details</small>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 daily-sales-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th><i class="bi bi-person"></i> Customer</th>
+                            <th><i class="bi bi-tag"></i> Type</th>
+                            <th><i class="bi bi-info-circle"></i> Description</th>
+                            <th class="text-center"><i class="bi bi-banknote"></i> Payment Status</th>
+                            <th class="text-end"><i class="bi bi-cash-coin"></i> Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in received_records %}
+                        <tr
+                            class="daily-sales-row"
+                            data-receipt-type="{{ rec.receipt_type }}"
+                            data-receipt-id="{{ rec.receipt_id }}"
+                            id="row-{{ rec.receipt_type }}-{{ rec.receipt_id }}"
+                            style="cursor:pointer;"
+                        >
+                            <td class="clickable-row"><strong>{{ rec.customer }}</strong></td>
+
+                            <td class="clickable-row">
+                                {% if rec.type == 'Purchase' %}
+                                    <span class="badge bg-primary"><i class="bi bi-bag"></i> {{ rec.type }}</span>
+                                {% else %}
+                                    <span class="badge bg-info"><i class="bi bi-wrench"></i> {{ rec.type }}</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="clickable-row"><small>{{ rec.description }}</small></td>
+
+                            <td class="text-center clickable-row">
+                                {% if rec.is_partial %}
+                                    <span class="badge bg-warning text-dark" title="Partial payment received">
+                                        <i class="bi bi-hourglass-split"></i> Partial
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-success" title="Full payment received">
+                                        <i class="bi bi-check-circle"></i> Paid
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td class="text-end clickable-row">
+                                <strong class="text-success">₱{{ "%.2f"|format(rec.amount) }}</strong>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Summary Cards (SCREEN ONLY) -->
+    <div class="row mb-4 d-print-none">
+        <div class="col-md-4">
+            <div class="card border-success border-4 bg-light h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-1"><i class="bi bi-graph-up"></i> Total Payments</p>
+                            <h3 class="mb-0 text-success"><strong>₱{{ "%.2f"|format(total_received) }}</strong></h3>
+                        </div>
+                        <div style="font-size: 2.5rem; opacity: 0.15;">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-warning border-4 bg-light h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-1"><i class="bi bi-hourglass-split"></i> Partial Payments</p>
+                            <h3 class="mb-0 text-warning"><strong>{{ total_partial_count_local }}</strong></h3>
+                        </div>
+                        <div style="font-size: 2.5rem; opacity: 0.15;">
+                            <i class="bi bi-hourglass"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-info border-4 bg-light h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-1"><i class="bi bi-cash"></i> Total Partial Amount</p>
+                            <h3 class="mb-0 text-info"><strong>₱{{ "%.2f"|format(total_partial_amount_local) }}</strong></h3>
+                        </div>
+                        <div style="font-size: 2.5rem; opacity: 0.15;">
+                            <i class="bi bi-cash-stack"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+        <div class="card border-warning border-4">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: #ffc107; opacity: 0.5;"></i>
+                <p class="text-muted mt-3 mb-0"><strong>No Received Payments</strong></p>
+                <p class="text-muted small mb-0">Transactions exist for this date, but no payments were recorded.</p>
+            </div>
+        </div>
+    {% endif %}
+
+{% else %}
+    <div class="card border-warning border-4">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 3rem; color: #ffc107; opacity: 0.5;"></i>
+            <p class="text-muted mt-3 mb-0"><strong>No Sales Found</strong></p>
+            <p class="text-muted small mb-0">No sales or repairs recorded for the selected date.</p>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Print Watermark (print only) -->
+<div class="d-none d-print-block print-watermark" aria-hidden="true">
+    JC Icons Confidential
+</div>
+
+<!-- Print Footer (repeats on each printed page, COMPACT to save paper) -->
+<div class="d-none d-print-block print-footer" aria-hidden="true">
+    <div class="print-footer__content">
+        <div class="print-footer__left">
+            <strong>Summary:</strong>
+            Total ₱{{ "%.2f"|format(total_received if sales_records else 0) }}
+            &nbsp;|&nbsp; Partial {{ total_partial_count_local if sales_records else 0 }}
+            (₱{{ "%.2f"|format(total_partial_amount_local if sales_records else 0) }})
+        </div>
+        <div class="print-footer__right">
+            <span class="page-number"></span>
+        </div>
+    </div>
+</div>
+
+<!-- Redirect Script (NO DELETE) -->
+<script>
+function viewReceipt(type, id) {
+    const routes = {
+        sale: `/sales/${id}/invoice`,
+        repair: `/repairs/${id}/receipt`
+    };
+    if (routes[type]) window.location.href = routes[type];
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.daily-sales-row').forEach(row => {
+        row.addEventListener('click', function(){
+            const type = this.dataset.receiptType;
+            const id = this.dataset.receiptId;
+            viewReceipt(type, id);
+        });
+    });
+});
+</script>
+
+<!-- PRINT STYLES -->
+<style media="print">
+    /* Hide non-report UI */
+    nav, .navbar, .jc-footer, footer, .d-print-none {
+        display: none !important;
+    }
+
+    /* A4 setup */
+    @page {
+        size: A4 portrait;
+        margin: 0.4in;
+    }
+
+    /* Full-width print layout (override Bootstrap constraints) */
+    .container, .container-fluid, .card, .card-body {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body {
+        font-size: 10pt;
+        line-height: 1.35;
+        color: #000;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+
+        /* Space for compact fixed footer */
+        margin-bottom: 0.55in;
+    }
+
+    /* Cards become simple report blocks */
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        margin-bottom: 0.15in !important;
+    }
+
+    .card-header {
+        background: #f3f3f3 !important;
+        border-bottom: 1px solid #cfcfcf !important;
+        padding: 0.10in 0.12in !important;
+        font-weight: 700 !important;
+    }
+
+    /* Full-width table */
+    table.table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 9pt !important;
+        margin: 0 !important;
+    }
+
+    .table thead th {
+        background: #eaeaea !important;
+        font-weight: 700 !important;
+    }
+
+    .table th, .table td {
+        border: 0.6pt solid #ccc !important;
+        padding: 6px !important;
+        vertical-align: top !important;
+    }
+
+    /* Prevent splitting rows across pages */
+    .table tr { page-break-inside: avoid; }
+
+    /* Print header */
+    .print-header {
+        display: block !important;
+        width: 100%;
+        margin-bottom: 0.18in;
+        padding: 0.18in 0.18in;
+        background: #2ea863 !important;
+        color: #fff !important;
+        border-radius: 10px;
+        position: relative;
+        z-index: 2;
+    }
+
+    .print-header__top {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.2in;
+        align-items: flex-start;
+    }
+
+    .print-brand {
+        display: flex;
+        gap: 0.12in;
+        align-items: center;
+    }
+
+    .print-logo {
+        width: 0.52in;
+        height: 0.52in;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #fff;
+    }
+
+    .print-company {
+        font-size: 12pt;
+        font-weight: 800;
+        line-height: 1.1;
+    }
+
+    .print-meta {
+        font-size: 8.3pt;
+        opacity: 0.95;
+        line-height: 1.2;
+    }
+
+    .print-report-meta {
+        text-align: right;
+        font-size: 8.8pt;
+        line-height: 1.25;
+        white-space: nowrap;
+    }
+
+    .print-title-line {
+        margin-top: 6px;
+        font-size: 9.5pt;
+        opacity: 0.95;
+    }
+
+    /* Watermark */
+    .print-watermark {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-30deg);
+        transform-origin: center;
+        font-size: 60pt;
+        font-weight: 900;
+        color: #2ea863;
+        opacity: 0.07;
+        letter-spacing: 2px;
+        white-space: nowrap;
+        pointer-events: none;
+        user-select: none;
+        z-index: 0;
+    }
+
+    /* Compact repeating footer (minimal height) */
+    .print-footer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #fff !important;
+        border-top: 1px solid #bcbcbc;
+        padding: 4px 0;
+        z-index: 3;
+    }
+
+    .print-footer__content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        font-size: 8.2pt;
+        line-height: 1.1;
+    }
+
+    .print-footer__left {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .print-footer__right {
+        white-space: nowrap;
+        text-align: right;
+    }
+
+    /* Page numbering */
+    .page-number::before {
+        content: "Page " counter(page) " of " counter(pages);
+    }
+</style>
+
 {% endblock %}

@@ -3,72 +3,315 @@
 {% block title %}Adjust Stock & Price{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Adjust Stock & Price</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <a class="btn btn-outline-secondary" href="{{ url_for('inventory.products') }}"><i class="bi bi-arrow-left"></i> Back to Products</a>
+        <h1 class="mb-2">
+            <i class="bi bi-sliders"></i> Adjust Stock & Price
+        </h1>
+        <p class="text-muted mb-0">Modify inventory levels and update product pricing</p>
     </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('inventory.products') }}">
+        <i class="bi bi-arrow-left"></i> Back to Products
+    </a>
 </div>
-<div class="card">
-    <div class="card-body">
-        <form method="POST">
-            <div class="mb-3 d-flex align-items-center">
-                <div style="flex:1">
-                    <label class="form-label">Product</label>
-                    <select name="product_id" id="adjust-product-select" class="form-select">
-                        <option value="">-- Select a product --</option>
+
+<div class="row">
+    <div class="col-lg-8">
+        <form method="POST" id="adjust-form">
+            <!-- Product Selection -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-box-seam"></i> Select Product
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <label class="form-label fw-bold">Product <span class="text-danger">*</span></label>
+                    <select name="product_id" id="adjust-product-select" class="form-select form-select-lg" required>
+                        <option value="">-- Choose a Product --</option>
                         {% for p in products %}
                         <option value="{{ p.id }}" {% if p.id == selected_product_id %}selected{% endif %}>
-                            {{ p.name }} (Stock: {{ p.stock_on_hand }}, Price: ₱{{ "%.2f"|format(p.sell_price) }})
+                            {{ p.name }}
+                            <span class="text-muted"> (Stock: {{ p.stock_on_hand }} | Price: ₱{{ "%.2f"|format(p.sell_price) }})</span>
                         </option>
                         {% endfor %}
                     </select>
-                </div>
-                {% if current_user.role == 'ADMIN' %}
-                <div class="ms-3" style="white-space:nowrap;">
-                    <button id="delete-product-btn" type="button" class="btn btn-outline-danger mt-4">Delete</button>
-                </div>
-                {% endif %}
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Stock Adjustment (positive to add, negative to reduce)</label>
-                <input type="number" name="delta" class="form-control" value="0" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">New Selling Price (optional - leave blank to keep current)</label>
-                <div class="input-group">
-                    <span class="input-group-text">₱</span>
-                    <input type="number" name="sell_price" class="form-control" step="0.01" min="0" placeholder="e.g., 1500.00">
+                    <small class="form-text text-muted d-block mt-2">
+                        <i class="bi bi-info-circle"></i> Current stock and pricing shown in list
+                    </small>
+                    <!-- Hidden: Product data for JavaScript -->
+                    {% set product_list = [] %}
+                    {% for p in products %}
+                        {% set _ = product_list.append({"id": p.id, "name": p.name, "stock": p.stock_on_hand, "price": p.sell_price, "category": p.category.name if p.category else ""}) %}
+                    {% endfor %}
+                    <span id="product-data-store" data-products="{{ {"products": product_list} | tojson }}"></span>
                 </div>
             </div>
-            <div class="d-flex justify-content-end">
-                <button class="btn btn-primary" type="submit">Apply Changes</button>
+
+            <!-- Stock Adjustment Section -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-plus-minus"></i> Stock Adjustment
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <label class="form-label fw-bold">Quantity Change <span class="text-danger">*</span></label>
+                    <div class="input-group input-group-lg mb-3">
+                        <input type="number" name="delta" id="delta-input" class="form-control" value="0" required>
+                        <span class="input-group-text">units</span>
+                    </div>
+                    <small class="form-text text-muted d-block">
+                        <strong>Positive</strong> numbers add stock (e.g., +50 for incoming shipment)<br>
+                        <strong>Negative</strong> numbers reduce stock (e.g., -10 for damage/loss)
+                    </small>
+                    <div id="delta-warning" class="alert alert-warning mt-3 d-none" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Negative adjustment:</strong> This will reduce stock by <span id="warning-qty"></span> units.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price Change Section -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-cash-coin"></i> Price Update (Optional)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <label class="form-label fw-bold">New Selling Price</label>
+                    <div class="input-group input-group-lg mb-3">
+                        <span class="input-group-text">₱</span>
+                        <input type="number" name="sell_price" id="price-input" class="form-control" 
+                               step="0.01" min="0" placeholder="Leave blank to keep current price">
+                    </div>
+                    <small class="form-text text-muted d-block">
+                        Enter a new price to update it, or leave blank to keep existing price
+                    </small>
+                    <div id="price-warning" class="alert alert-warning mt-3 d-none" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Price change:</strong> New price will be ₱<span id="warning-price"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-lg" type="submit">
+                    <i class="bi bi-check-circle"></i> Apply Changes
+                </button>
+                <a href="{{ url_for('inventory.products') }}" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
             </div>
         </form>
     </div>
+
+    <!-- Sidebar: Quick Info & Danger Zone -->
+    <div class="col-lg-4">
+        <div class="card position-sticky mb-4" style="top: 1rem;">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Current Product Info
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="product-info-empty" class="text-muted text-center py-4">
+                    <p class="mb-0">Select a product to see details</p>
+                </div>
+                <div id="product-info" style="display: none;">
+                    <div class="mb-3">
+                        <small class="text-muted">Stock on Hand</small>
+                        <p class="mb-0"><strong id="info-stock" class="fs-5">—</strong></p>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Current Price</small>
+                        <p class="mb-0"><strong id="info-price" class="fs-5">—</strong></p>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Category</small>
+                        <p class="mb-0"><span id="info-category">—</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if current_user.role == 'ADMIN' %}
+        <div class="card border-danger">
+            <div class="card-header bg-danger bg-opacity-10 border-danger">
+                <h5 class="mb-0 text-danger">
+                    <i class="bi bi-trash"></i> Danger Zone
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    Permanently delete this product. This action marks the product as inactive.
+                </p>
+                <button id="delete-product-btn" type="button" class="btn btn-danger w-100">
+                    <i class="bi bi-trash"></i> Delete Product
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteProductModal" tabindex="-1" aria-labelledby="deleteProductModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger bg-opacity-10 border-danger">
+                <h5 class="modal-title" id="deleteProductModalLabel">
+                    <i class="bi bi-exclamation-triangle"></i> Delete Product?
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Delete <strong id="delete-product-name"></strong>?
+                </p>
+                <p class="text-muted small mt-2 mb-0">
+                    This will mark the product as inactive and hide it from active product lists. The product data is preserved.
+                </p>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-product-btn">
+                    <i class="bi bi-trash"></i> Delete Product
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .d-none {
+        display: none !important;
+    }
+    @media print {
+        .btn, .card-header, form, .border-danger {
+            display: none !important;
+        }
+    }
+</style>
+
 {% endblock %}
+
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-    const delBtn = document.getElementById('delete-product-btn');
-    if (!delBtn) return;
-    delBtn.addEventListener('click', async function(){
-        const sel = document.getElementById('adjust-product-select');
-        const pid = sel.value;
-        if (!pid) return alert('No product selected');
-        if (!confirm('Delete product? This will mark it inactive and hide it from lists. Continue?')) return;
+    const select = document.getElementById('adjust-product-select');
+    const deltaInput = document.getElementById('delta-input');
+    const priceInput = document.getElementById('price-input');
+    const deltaWarning = document.getElementById('delta-warning');
+    const priceWarning = document.getElementById('price-warning');
+    const deleteBtn = document.getElementById('delete-product-btn');
+    const productInfo = document.getElementById('product-info');
+    const productInfoEmpty = document.getElementById('product-info-empty');
+    
+    // Product data for quick reference - loaded from hidden data attribute
+    let productData = {};
+    const productDataStore = document.getElementById('product-data-store');
+    if (productDataStore) {
         try {
-            const res = await fetch(`/inventory/products/${pid}/delete`, { method: 'POST' });
-            if (res.ok) {
-                window.location.reload();
-            } else {
-                alert('Failed to delete product');
+            const dataAttr = productDataStore.getAttribute('data-products');
+            if (dataAttr) {
+                const parsedData = JSON.parse(dataAttr);
+                if (parsedData.products && Array.isArray(parsedData.products)) {
+                    parsedData.products.forEach(function(p) {
+                        productData[p.id] = {
+                            "name": p.name,
+                            "stock": p.stock,
+                            "price": p.price,
+                            "category": p.category
+                        };
+                    });
+                }
             }
-        } catch (err) {
-            alert('Error deleting product');
+        } catch(e) {
+            console.error('Error parsing product data:', e);
         }
-    });
+    }
+
+    function updateProductInfo() {
+        const pid = select.value;
+        if (pid && productData[pid]) {
+            const data = productData[pid];
+            productInfoEmpty.style.display = 'none';
+            productInfo.style.display = 'block';
+            document.getElementById('info-stock').textContent = data.stock;
+            document.getElementById('info-price').textContent = '₱' + data.price.toFixed(2);
+            document.getElementById('info-category').textContent = data.category || '(Uncategorized)';
+        } else {
+            productInfoEmpty.style.display = 'block';
+            productInfo.style.display = 'none';
+        }
+    }
+
+    function updateWarnings() {
+        const delta = parseInt(deltaInput.value) || 0;
+        const price = parseFloat(priceInput.value) || null;
+
+        // Delta warning
+        if (delta < 0) {
+            deltaWarning.classList.remove('d-none');
+            document.getElementById('warning-qty').textContent = Math.abs(delta);
+        } else {
+            deltaWarning.classList.add('d-none');
+        }
+
+        // Price warning
+        if (price !== null && price > 0) {
+            priceWarning.classList.remove('d-none');
+            document.getElementById('warning-price').textContent = price.toFixed(2);
+        } else {
+            priceWarning.classList.add('d-none');
+        }
+    }
+
+    select.addEventListener('change', updateProductInfo);
+    deltaInput.addEventListener('input', updateWarnings);
+    priceInput.addEventListener('input', updateWarnings);
+
+    // Delete functionality
+    if (deleteBtn) {
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteProductModal'));
+        deleteBtn.addEventListener('click', function(){
+            const pid = select.value;
+            if (!pid) {
+                alert('Please select a product first');
+                return;
+            }
+            const data = productData[pid];
+            if (data) {
+                document.getElementById('delete-product-name').textContent = data.name;
+                deleteModal.show();
+            }
+        });
+
+        document.getElementById('confirm-delete-product-btn').addEventListener('click', async function(){
+            const pid = select.value;
+            if (!pid) return;
+            try {
+                const res = await fetch(`/inventory/products/${pid}/delete`, { method: 'POST' });
+                if (res.ok) {
+                    window.location.href = "{{ url_for('inventory.products') }}";
+                } else {
+                    alert('Failed to delete product');
+                }
+            } catch (err) {
+                console.error('Delete error:', err);
+                alert('Error deleting product');
+            }
+        });
+    }
+
+    // Initial state
+    updateProductInfo();
+    updateWarnings();
 });
 </script>
 {% endblock %}

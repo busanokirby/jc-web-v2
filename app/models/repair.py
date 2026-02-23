@@ -40,6 +40,7 @@ class Device(db.Model):
     parts_cost = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     total_cost = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     deposit_paid = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
+    deposit_paid_at = db.Column(db.DateTime, nullable=True)
     balance_due = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     payment_status = db.Column(db.String(20), default="Pending")  # Pending/Partial/Paid
 

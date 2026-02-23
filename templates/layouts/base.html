@@ -12,6 +12,9 @@
             --jc-green: #1e7f43;
             --jc-green-dark: #145c32;
             --jc-green-light: #a8e6b0;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
         }
         
         html, body {
@@ -21,43 +24,355 @@
         body {
             display: flex;
             flex-direction: column;
+            background-color: #f8f9fa;
         }
         
         main {
             flex: 1;
         }
         
+        /* Enhanced Navbar Styling */
         .jc-navbar {
             background: linear-gradient(135deg, var(--jc-green) 0%, var(--jc-green-dark) 100%);
             border-bottom: 3px solid var(--jc-green-light);
+            box-shadow: var(--shadow-md);
         }
         
         .jc-navbar .navbar-brand {
             transition: all 0.3s ease;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
         
         .jc-navbar .navbar-brand:hover {
             transform: translateY(-2px);
         }
         
+        /* Active Nav Link Highlighting */
+        .jc-navbar .nav-link {
+            transition: all 0.2s ease;
+            position: relative;
+            color: rgba(255, 255, 255, 0.85) !important;
+            font-weight: 500;
+            margin: 0 4px;
+        }
+        
+        .jc-navbar .nav-link:hover {
+            color: white !important;
+            transform: translateY(-1px);
+        }
+        
+        .jc-navbar .nav-link.active {
+            color: white !important;
+            font-weight: 600;
+        }
+        
+        .jc-navbar .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40%;
+            height: 3px;
+            background-color: var(--jc-green-light);
+            border-radius: 2px;
+        }
+        
+        /* Keyboard Focus Indicator */
+        .jc-navbar .nav-link:focus-visible {
+            outline: 2px solid var(--jc-green-light);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+        
+        /* Dropdown Menu improvements */
+        .jc-navbar .dropdown-menu {
+            border: none;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            border-radius: 8px;
+        }
+        
+        .jc-navbar .dropdown-item {
+            color: #212529;
+            transition: all 0.2s ease;
+            padding: 0.75rem 1.5rem;
+        }
+        
+        .jc-navbar .dropdown-item:hover {
+            background-color: rgba(30, 127, 67, 0.1);
+            color: var(--jc-green);
+            padding-left: 1.75rem;
+        }
+        
+        .jc-navbar .dropdown-item:focus-visible {
+            outline: 2px solid var(--jc-green);
+            outline-offset: -2px;
+        }
+        
+        /* Mobile Navbar Toggle */
+        .jc-navbar .navbar-toggler {
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .jc-navbar .navbar-toggler:hover {
+            border-color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .jc-navbar .navbar-toggler:focus-visible {
+            outline: 2px solid var(--jc-green-light);
+            outline-offset: 2px;
+        }
+        
+        /* Badge animation */
+        .jc-navbar .badge {
+            animation: pulse-badge 2s infinite;
+        }
+        
+        @keyframes pulse-badge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Mobile Nav Collapse improvements */
+        @media (max-width: 991px) {
+            .jc-navbar .navbar-collapse {
+                background-color: rgba(0, 0, 0, 0.2);
+                border-radius: 8px;
+                margin-top: 10px;
+                padding: 15px;
+                backdrop-filter: blur(10px);
+            }
+            
+            .jc-navbar .nav-link {
+                padding: 0.75rem 0 !important;
+                border-radius: 6px;
+                margin: 0.25rem 0;
+            }
+            
+            .jc-navbar .nav-link.active::after {
+                display: none;
+            }
+            
+            .jc-navbar .nav-link.active {
+                background-color: rgba(255, 255, 255, 0.2);
+                border-left: 3px solid var(--jc-green-light);
+                padding-left: 12px !important;
+            }
+        }
+        
         .jc-navbar .nav-link {
             transition: all 0.2s ease;
             color: rgba(255, 255, 255, 0.9) !important;
+            margin: 0 4px;
+            border-radius: 4px;
+            padding: 8px 12px !important;
         }
         
         .jc-navbar .nav-link:hover {
             color: #a8e6b0 !important;
+            background-color: rgba(255, 255, 255, 0.1);
         }
         
         .jc-navbar .nav-link.active {
             color: #a8e6b0 !important;
             border-bottom: 2px solid #a8e6b0;
+            background-color: rgba(255, 255, 255, 0.1);
         }
         
+        /* Enhanced Card Styling */
+        .card {
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            border-radius: 8px;
+        }
+        
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        
+        .card-header {
+            border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+            font-weight: 600;
+            background-color: #f0f2f5;
+            border-radius: 7px 7px 0 0;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        /* Enhanced Flash Messages */
+        .alert {
+            border-radius: 8px;
+            border: none;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 1rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .alert-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        /* Enhanced Form Styling */
+        .form-control, .form-select {
+            border-radius: 6px;
+            border: 1.5px solid #dee2e6;
+            transition: all 0.2s ease;
+            padding: 0.6rem 0.9rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--jc-green);
+            box-shadow: 0 0 0 3px rgba(30, 127, 67, 0.1);
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.6rem;
+        }
+        
+        /* Enhanced Button Styling */
+        .btn {
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            padding: 0.6rem 1rem;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            border: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #198754 0%, #145a32 100%);
+            border: none;
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: #0d6efd;
+            color: white;
+        }
+        
+        /* Page Headers */
+        h1, h2 {
+            color: #212529;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+        
+        h1 {
+            font-size: 2rem;
+        }
+        
+        h2 {
+            font-size: 1.5rem;
+        }
+        
+        /* Section Separators */
+        .section-divider {
+            border-bottom: 2px solid rgba(30, 127, 67, 0.15);
+            margin: 2rem 0;
+        }
+        
+        /* Enhanced Footer */
         .jc-footer {
             background: linear-gradient(135deg, var(--jc-green-dark) 0%, #0f3d21 100%);
             border-top: 3px solid var(--jc-green-light);
             margin-top: auto;
+            box-shadow: var(--shadow-md);
+        }
+        
+        /* Table Styling */
+        .table {
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .table thead {
+            background-color: #f0f2f5;
+            font-weight: 600;
+        }
+        
+        .table tbody tr {
+            transition: all 0.2s ease;
+        }
+        
+        .table tbody tr:hover {
+            background-color: rgba(30, 127, 67, 0.05);
+        }
+        
+        /* Badge Styling */
+        .badge {
+            padding: 0.4rem 0.8rem;
+            font-weight: 600;
+            border-radius: 20px;
+        }
+        
+        /* Clickable Daily Sales Rows */
+        .daily-sales-row {
+            transition: all 0.15s ease;
+        }
+        
+        .daily-sales-row:hover {
+            background-color: rgba(30, 127, 67, 0.08) !important;
+            box-shadow: inset 3px 0 0 var(--jc-green);
+        }
+        
+        .daily-sales-row:active {
+            background-color: rgba(30, 127, 67, 0.12) !important;
+        }
+        
+        /* Responsive Improvements */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .container {
+                padding: 0 15px;
+            }
+            
+            .btn-sm {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.85rem;
+            }
         }
         
         @media print {
@@ -84,36 +399,36 @@
                     <small style="line-height: 1.2; opacity: 0.9;">Management System</small>
                 </div>
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('core.dashboard') }}">
-                            <i class="bi bi-house"></i> Dashboard
+                        <a class="nav-link{% if request.endpoint == 'core.dashboard' %} active{% endif %}" href="{{ url_for('core.dashboard') }}" aria-label="Dashboard" aria-current="{% if request.endpoint == 'core.dashboard' %}page{% else %}false{% endif %}">
+                            <i class="bi bi-house" aria-hidden="true"></i> Dashboard
                         </a>
                     </li>
                     
                     {% if current_user.role in ['ADMIN', 'TECH'] %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('repairs.repairs') }}">
-                            <i class="bi bi-wrench"></i> Repairs
+                        <a class="nav-link{% if request.endpoint in ['repairs.repairs', 'repairs.add_repair', 'repairs.repair_detail'] %} active{% endif %}" href="{{ url_for('repairs.repairs') }}" aria-label="Repairs and Maintenance" aria-current="{% if request.endpoint in ['repairs.repairs', 'repairs.add_repair', 'repairs.repair_detail'] %}page{% else %}false{% endif %}">
+                            <i class="bi bi-wrench" aria-hidden="true"></i> Repairs
                         </a>
                     </li>
                     {% endif %}
                     
                     {% if current_user.role in ['ADMIN', 'SALES'] %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('customers.customers') }}">
-                            <i class="bi bi-people"></i> Customers
+                        <a class="nav-link{% if request.endpoint in ['customers.customers', 'customers.add_customer'] %} active{% endif %}" href="{{ url_for('customers.customers') }}" aria-label="Customers" aria-current="{% if request.endpoint in ['customers.customers', 'customers.add_customer'] %}page{% else %}false{% endif %}">
+                            <i class="bi bi-people" aria-hidden="true"></i> Customers
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('inventory.products') }}">
-                            <i class="bi bi-box-seam"></i> Inventory
+                        <a class="nav-link{% if request.endpoint in ['inventory.products', 'inventory.add_product'] %} active{% endif %}" href="{{ url_for('inventory.products') }}" aria-label="Inventory and Products{% if inventory_low_count %} - {{ inventory_low_count }} low stock items{% endif %}" aria-current="{% if request.endpoint in ['inventory.products', 'inventory.add_product'] %}page{% else %}false{% endif %}">
+                            <i class="bi bi-box-seam" aria-hidden="true"></i> Inventory
                             {% if inventory_low_count and inventory_low_count > 0 %}
-                                <span class="badge bg-danger ms-1">{{ inventory_low_count }}</span>
+                                <span class="badge bg-danger ms-1" aria-label="{{ inventory_low_count }} products with low stock">{{ inventory_low_count }}</span>
                             {% endif %}
                         </a>
                     </li>
@@ -121,29 +436,29 @@
                     
                     {% if current_user.role in ['ADMIN', 'SALES'] %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('sales.reports') }}">
-                            <i class="bi bi-graph-up"></i> Reports
+                        <a class="nav-link{% if request.endpoint in ['sales.reports', 'sales.sales_list'] %} active{% endif %}" href="{{ url_for('sales.reports') }}" aria-label="Sales Reports and Analytics" aria-current="{% if request.endpoint in ['sales.reports', 'sales.sales_list'] %}page{% else %}false{% endif %}">
+                            <i class="bi bi-graph-up" aria-hidden="true"></i> Reports
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('sales.daily_sales') }}">
-                            <i class="bi bi-calendar-day"></i> Daily Sales
-                        </a>
-                    </li>
-                    {% endif %}
-                    
-                    {% if current_user.role in ['ADMIN'] %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('users.users') }}">
-                            <i class="bi bi-shield-lock"></i> Users
+                        <a class="nav-link{% if request.endpoint == 'sales.daily_sales' or request.endpoint == 'sales.pos' %} active{% endif %}" href="{{ url_for('sales.daily_sales') }}" aria-label="Daily Sales Report" aria-current="{% if request.endpoint == 'sales.daily_sales' %}page{% else %}false{% endif %}">
+                            <i class="bi bi-calendar-day" aria-hidden="true"></i> Daily Sales
                         </a>
                     </li>
                     {% endif %}
                     
                     {% if current_user.role in ['ADMIN'] %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('core.settings') }}">
-                            <i class="bi bi-gear"></i> Settings
+                        <a class="nav-link{% if request.endpoint in ['users.users', 'users.add_user'] %} active{% endif %}" href="{{ url_for('users.users') }}" aria-label="User Management" aria-current="{% if request.endpoint in ['users.users', 'users.add_user'] %}page{% else %}false{% endif %}">
+                            <i class="bi bi-shield-lock" aria-hidden="true"></i> Users
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% if current_user.role in ['ADMIN'] %}
+                    <li class="nav-item">
+                        <a class="nav-link{% if request.endpoint == 'core.settings' %} active{% endif %}" href="{{ url_for('core.settings') }}" aria-label="System Settings" aria-current="{% if request.endpoint == 'core.settings' %}page{% else %}false{% endif %}">
+                            <i class="bi bi-gear" aria-hidden="true"></i> Settings
                         </a>
                     </li>
                     {% endif %}
@@ -152,16 +467,19 @@
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
-                           data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle"></i> {{ current_user.full_name }} ({{ current_user.role }})
+                           data-bs-toggle="dropdown" aria-expanded="false" aria-label="User account menu for {{ current_user.full_name }}">
+                            <i class="bi bi-person-circle" aria-hidden="true"></i> 
+                            <span class="d-none d-lg-inline">{{ current_user.full_name }}</span> 
+                            <span class="badge bg-secondary d-lg-inline ms-1">{{ current_user.role }}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li class="dropdown-header" aria-label="Logged in as {{ current_user.full_name }}">{{ current_user.full_name }}</li>
                             <li><a class="dropdown-item" href="{{ url_for('users.change_password') }}">
-                                <i class="bi bi-lock"></i> Change Password
+                                <i class="bi bi-lock" aria-hidden="true"></i> Change Password
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
-                                <i class="bi bi-box-arrow-right"></i> Logout
+                                <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Logout
                             </a></li>
                         </ul>
                     </li>

@@ -3,128 +3,333 @@
 {% block title %}Dashboard - JC Icons{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>
-        <i class="bi bi-speedometer2"></i> Dashboard
-    </h1>
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-3 margin-top:-10px;">
     <div>
-        <span class="badge bg-primary">{{ current_user.role }}</span>
+        <h1 style="margin-bottom: 0.3rem;">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </h1>
+        <p class="text-muted mb-0" style="font-size: 0.9rem;">{{ current_user.full_name }} • {{ current_user.role }}</p>
+    </div>
+    <div class="d-none d-sm-block">
+        <span class="badge bg-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600;">
+            <i class="bi bi-shield-check" aria-hidden="true"></i> {{ current_user.role }}
+        </span>
     </div>
 </div>
 
+<style>
+    /* Enhanced Dashboard Card Styling */
+    .dashboard-card {
+        transition: all 0.3s ease;
+        border: none;
+        border-left: 4px solid;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    }
+
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .dashboard-card .card-body {
+        padding: 1.25rem 1rem;
+    }
+
+    /* Circle Icon Background */
+    .icon-circle {
+        width: 65px;
+        height: 65px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin: 0 auto 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .dashboard-card:hover .icon-circle {
+        transform: scale(1.08) rotate(5deg);
+    }
+
+    /* Card Title and Text */
+    .dashboard-card .card-title {
+        font-weight: 700;
+        color: #212529;
+        margin-bottom: 0.25rem;
+        font-size: 1.1rem;
+        line-height: 1.2;
+    }
+
+    .dashboard-card .card-text {
+        color: #6c757d;
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+        line-height: 1.3;
+    }
+
+    /* Button Styling in Cards */
+    .dashboard-card .btn {
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        margin: 0.125rem;
+        padding: 0.45rem 0.85rem;
+        font-size: 0.875rem;
+    }
+
+    .dashboard-card .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .dashboard-card .d-grid {
+        gap: 0.5rem;
+    }
+
+    /* Link styling in cards */
+    .dashboard-card a.text-decoration-none {
+        color: inherit;
+    }
+
+    /* Keyboard Focus Indicators */
+    .dashboard-card:focus-within {
+        box-shadow: var(--shadow-md), 0 0 0 3px rgba(30, 127, 67, 0.2);
+    }
+
+    .dashboard-card .btn:focus-visible,
+    .dashboard-card a:focus-visible {
+        outline: 2px solid var(--jc-green);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+
+    /* Divider Styling */
+    .dashboard-divider {
+        border: none;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(30, 127, 67, 0.15), transparent);
+        margin: 1.5rem 0;
+    }
+
+    /* Color-specific card styling */
+    .card-primary { border-left-color: #0d6efd; }
+    .card-success { border-left-color: #198754; }
+    .card-warning { border-left-color: #ffc107; }
+    .card-info { border-left-color: #0dcaf0; }
+    .card-danger { border-left-color: #dc3545; }
+    .card-secondary { border-left-color: #6c757d; }
+
+    /* Responsive Grid */
+    @media (max-width: 1200px) {
+        .dashboard-card .card-body {
+            padding: 1rem 0.85rem;
+        }
+
+        .icon-circle {
+            width: 60px;
+            height: 60px;
+            font-size: 1.8rem;
+            margin: 0 auto 0.5rem;
+        }
+
+        .dashboard-card .card-title {
+            font-size: 1rem;
+        }
+    }
+
+    @media (max-width: 992px) {
+        .dashboard-card .card-body {
+            padding: 1rem 0.75rem;
+        }
+
+        .icon-circle {
+            width: 55px;
+            height: 55px;
+            font-size: 1.6rem;
+        }
+
+        .dashboard-card .card-title {
+            font-size: 0.95rem;
+        }
+
+        .dashboard-card .card-text {
+            font-size: 0.8rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .dashboard-card .btn {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .dashboard-card .card-body {
+            padding: 0.9rem 0.7rem;
+        }
+
+        .icon-circle {
+            width: 50px;
+            height: 50px;
+            font-size: 1.4rem;
+            margin: 0 auto 0.4rem;
+        }
+
+        .dashboard-card .card-title {
+            font-size: 0.9rem;
+        }
+
+        .dashboard-card .card-text {
+            font-size: 0.75rem;
+            margin-bottom: 0.6rem;
+            display: none;
+        }
+
+        .dashboard-card .btn {
+            padding: 0.35rem 0.6rem;
+            font-size: 0.75rem;
+        }
+
+        .d-flex.justify-content-between.align-items-center {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+
+        .badge {
+            margin-top: 0.5rem;
+        }
+    }
+</style>
 
 
 <!-- ADMIN DASHBOARD -->
 {% if current_user.role == 'ADMIN' %}
-<div class="row mt-4">
-    <!-- Repairs Card -->
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('repairs.repairs') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-wrench-adjustable" style="font-size: 3rem; color: #0d6efd;"></i>
-                    <h5 class="card-title mt-3">Repairs & Maintenance</h5>
-                    <p class="card-text text-muted">Full system administration</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('repairs.repairs') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-list"></i> View All
+<div role="region" aria-label="Admin Dashboard Controls">
+    <div class="row mt-3 g-2">
+        <!-- Repairs Card -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card dashboard-card card-primary h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('repairs.repairs') }}" class="text-decoration-none d-block" aria-label="Repairs and Maintenance Management">
+                        <div class="icon-circle bg-primary bg-opacity-10">
+                            <i class="bi bi-wrench-adjustable" style="color: #0d6efd;"></i>
+                        </div>
+                        <h5 class="card-title">Repairs</h5>
+                        <p class="card-text">Service tickets</p>
                     </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('repairs.repairs') }}" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-list" aria-hidden="true"></i> Manage
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Card -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card dashboard-card card-success h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('inventory.products') }}" class="text-decoration-none d-block" aria-label="Inventory and Product Management">
+                        <div class="icon-circle bg-success bg-opacity-10">
+                            <i class="bi bi-box-seam" style="color: var(--jc-green);"></i>
+                        </div>
+                        <h5 class="card-title">Inventory</h5>
+                        <p class="card-text">Stock management</p>
+                    </a>
+                    <div class="mt-2">
+                        <a class="btn btn-success btn-sm w-100" href="{{ url_for('inventory.add_product') }}">
+                            <i class="bi bi-plus-circle" aria-hidden="true"></i> Add
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sales / POS Card -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card dashboard-card card-warning h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('sales.pos') }}" class="text-decoration-none d-block" aria-label="Sales and Point of Sale">
+                        <div class="icon-circle bg-warning bg-opacity-10">
+                            <i class="bi bi-cart3" style="color: #ffc107;"></i>
+                        </div>
+                        <h5 class="card-title">Sales/POS</h5>
+                        <p class="card-text">Transactions</p>
+                    </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('sales.pos') }}" class="btn btn-warning btn-sm w-100">
+                            <i class="bi bi-plus-circle" aria-hidden="true"></i> Sale
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Inventory Card -->
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('inventory.products') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-box-seam" style="font-size: 3rem; color: var(--jc-green);"></i>
-                    <h5 class="card-title mt-3">Inventory</h5>
-                    <p class="card-text text-muted">Products & stock management</p>
-                </a>
-                <div class="mt-3">
-                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('inventory.add_product') }}">
-                        <i class="bi bi-plus-circle"></i> Add Product
+    <hr class="dashboard-divider" aria-hidden="true">
+
+    <div class="row g-2">
+        <!-- Users Management Card -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card dashboard-card card-info h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('users.users') }}" class="text-decoration-none d-block" aria-label="User Account Management">
+                        <div class="icon-circle bg-info bg-opacity-10">
+                            <i class="bi bi-people" style="color: #0dcaf0;"></i>
+                        </div>
+                        <h5 class="card-title">Users</h5>
+                        <p class="card-text">Manage accounts</p>
                     </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('users.users') }}" class="btn btn-info btn-sm w-100">
+                            <i class="bi bi-list" aria-hidden="true"></i> Manage
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Sales / POS Card -->
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('sales.pos') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-cart3" style="font-size: 3rem; color: #198754;"></i>
-                    <h5 class="card-title mt-3">Sales / POS</h5>
-                    <p class="card-text text-muted">Transactions & reporting</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('sales.pos') }}" class="btn btn-sm btn-outline-success">
-                        <i class="bi bi-plus-circle"></i> New Sale
+        <!-- Customers Card -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card dashboard-card card-danger h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block" aria-label="Customer Database Management">
+                        <div class="icon-circle bg-danger bg-opacity-10">
+                            <i class="bi bi-person-vcard" style="color: #dc3545;"></i>
+                        </div>
+                        <h5 class="card-title">Customers</h5>
+                        <p class="card-text">Customer info</p>
                     </a>
-                    <a href="{{ url_for('sales.reports') }}" class="btn btn-sm btn-outline-info">
-                        <i class="bi bi-graph-up"></i> Reports
-                    </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('customers.customers') }}" class="btn btn-danger btn-sm w-100">
+                            <i class="bi bi-list" aria-hidden="true"></i> View
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="row mt-4">
-    <!-- Users Management Card -->
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('users.users') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-people" style="font-size: 3rem; color: #fd7e14;"></i>
-                    <h5 class="card-title mt-3">User Management</h5>
-                    <p class="card-text text-muted">Create & manage users</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('users.users') }}" class="btn btn-sm btn-outline-warning">
-                        <i class="bi bi-list"></i> Manage Users
+        <!-- Settings Card -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card dashboard-card card-secondary h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('core.settings') }}" class="text-decoration-none d-block" aria-label="System Configuration and Settings">
+                        <div class="icon-circle bg-secondary bg-opacity-10">
+                            <i class="bi bi-gear" style="color: #6c757d;"></i>
+                        </div>
+                        <h5 class="card-title">Settings</h5>
+                        <p class="card-text">Configure</p>
                     </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Customers Card -->
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-person-vcard" style="font-size: 3rem; color: #6f42c1;"></i>
-                    <h5 class="card-title mt-3">Customers</h5>
-                    <p class="card-text text-muted">Customer database</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('customers.customers') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-list"></i> View Customers
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Settings Card -->
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('core.settings') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-gear" style="font-size: 3rem; color: #6c757d;"></i>
-                    <h5 class="card-title mt-3">Settings</h5>
-                    <p class="card-text text-muted">System configuration</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('core.settings') }}" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-sliders"></i> Configure
-                    </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('core.settings') }}" class="btn btn-secondary btn-sm w-100">
+                            <i class="bi bi-sliders" aria-hidden="true"></i> Setup
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -133,79 +338,88 @@
 
 <!-- SALES DASHBOARD -->
 {% elif current_user.role == 'SALES' %}
-<div class="row mt-4">
-    <!-- Sales / POS Card (Primary) -->
-    <div class="col-md-6">
-        <div class="card border-success">
-            <div class="card-body text-center">
-                <a href="{{ url_for('sales.pos') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-cart-check" style="font-size: 3rem; color: #198754;"></i>
-                    <h5 class="card-title mt-3">Point of Sale</h5>
-                    <p class="card-text text-muted">Process customer transactions</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('sales.pos') }}" class="btn btn-success">
-                        <i class="bi bi-plus-circle"></i> New Sale
+<div role="region" aria-label="Sales Dashboard Controls">
+    <div class="row mt-3 g-2">
+        <!-- POS Card (Primary) -->
+        <div class="col-lg-6 col-md-6">
+            <div class="card dashboard-card card-warning h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('sales.pos') }}" class="text-decoration-none d-block" aria-label="Point of Sale System">
+                        <div class="icon-circle bg-warning bg-opacity-10">
+                            <i class="bi bi-cart3" style="color: #ffc107;"></i>
+                        </div>
+                        <h5 class="card-title">POS</h5>
+                        <p class="card-text">New transaction</p>
                     </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('sales.pos') }}" class="btn btn-warning btn-sm w-100">
+                            <i class="bi bi-plus-circle" aria-hidden="true"></i> New Sale
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Card -->
+        <div class="col-lg-6 col-md-6">
+            <div class="card dashboard-card card-info h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('sales.reports') }}" class="text-decoration-none d-block" aria-label="Sales Reports and Analytics">
+                        <div class="icon-circle bg-info bg-opacity-10">
+                            <i class="bi bi-graph-up" style="color: #0dcaf0;"></i>
+                        </div>
+                        <h5 class="card-title">Reports</h5>
+                        <p class="card-text">Analytics</p>
+                    </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('sales.reports') }}" class="btn btn-info btn-sm w-100">
+                            <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> View
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Sales Reports Card -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('sales.reports') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-graph-up" style="font-size: 3rem; color: #0d6efd;"></i>
-                    <h5 class="card-title mt-3">Sales Reports</h5>
-                    <p class="card-text text-muted">View analytics & trends</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('sales.reports') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-chart-line"></i> View Reports
+    <hr class="dashboard-divider" aria-hidden="true">
+
+    <div class="row g-2">
+        <!-- Inventory Card -->
+        <div class="col-lg-6 col-md-6">
+            <div class="card dashboard-card card-success h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('inventory.products') }}" class="text-decoration-none d-block" aria-label="Product Inventory">
+                        <div class="icon-circle bg-success bg-opacity-10">
+                            <i class="bi bi-box-seam" style="color: var(--jc-green);"></i>
+                        </div>
+                        <h5 class="card-title">Inventory</h5>
+                        <p class="card-text">Stock levels</p>
                     </a>
-                    <a href="{{ url_for('sales.sales_list') }}" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-list"></i> Sales History
-                    </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('inventory.products') }}" class="btn btn-success btn-sm w-100">
+                            <i class="bi bi-list" aria-hidden="true"></i> View
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="row mt-4">
-    <!-- Inventory Card (Read-only) -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('inventory.products') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-box-seam" style="font-size: 3rem; color: var(--jc-green);"></i>
-                    <h5 class="card-title mt-3">Inventory</h5>
-                    <p class="card-text text-muted">View available products</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('inventory.products') }}" class="btn btn-sm btn-outline-success">
-                        <i class="bi bi-list"></i> View Products
+        <!-- Customers Card -->
+        <div class="col-lg-6 col-md-6">
+            <div class="card dashboard-card card-danger h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block" aria-label="Customer Information">
+                        <div class="icon-circle bg-danger bg-opacity-10">
+                            <i class="bi bi-person-vcard" style="color: #dc3545;"></i>
+                        </div>
+                        <h5 class="card-title">Customers</h5>
+                        <p class="card-text">Customer info</p>
                     </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Customers Card -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-person-vcard" style="font-size: 3rem; color: #6f42c1;"></i>
-                    <h5 class="card-title mt-3">Customers</h5>
-                    <p class="card-text text-muted">Customer information</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('customers.customers') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-list"></i> View Customers
-                    </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('customers.customers') }}" class="btn btn-danger btn-sm w-100">
+                            <i class="bi bi-list" aria-hidden="true"></i> View
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -214,41 +428,44 @@
 
 <!-- TECH DASHBOARD -->
 {% elif current_user.role == 'TECH' %}
-<div class="row mt-4">
-    <!-- Repairs Card (Primary) -->
-    <div class="col-md-8">
-        <div class="card border-primary">
-            <div class="card-body text-center">
-                <a href="{{ url_for('repairs.repairs') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-wrench-adjustable" style="font-size: 3rem; color: #0d6efd;"></i>
-                    <h5 class="card-title mt-3">Repair Tickets</h5>
-                    <p class="card-text text-muted">Manage all repair requests</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('repairs.add_repair') }}" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> Add Repair
+<div role="region" aria-label="Technician Dashboard Controls">
+    <div class="row mt-3 g-2">
+        <!-- Repairs Card (Primary) -->
+        <div class="col-lg-8 col-md-12">
+            <div class="card dashboard-card card-primary h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('repairs.repairs') }}" class="text-decoration-none d-block" aria-label="Repair Ticket Management">
+                        <div class="icon-circle bg-primary bg-opacity-10">
+                            <i class="bi bi-wrench-adjustable" style="color: #0d6efd;"></i>
+                        </div>
+                        <h5 class="card-title">Repairs</h5>
+                        <p class="card-text">Service tickets</p>
                     </a>
-                    <a href="{{ url_for('repairs.repairs') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-list"></i> View All
-                    </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('repairs.repairs') }}" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-list" aria-hidden="true"></i> Manage
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Customers Card -->
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block">
-                    <i class="bi bi-person-vcard" style="font-size: 3rem; color: #6f42c1;"></i>
-                    <h5 class="card-title mt-3">Customers</h5>
-                    <p class="card-text text-muted">Customer details</p>
-                </a>
-                <div class="mt-3">
-                    <a href="{{ url_for('customers.customers') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-list"></i> View
+        <!-- Customers Card -->
+        <div class="col-lg-4 col-md-12">
+            <div class="card dashboard-card card-danger h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block" aria-label="Customer Contact Information">
+                        <div class="icon-circle bg-danger bg-opacity-10">
+                            <i class="bi bi-person-vcard" style="color: #dc3545;"></i>
+                        </div>
+                        <h5 class="card-title">Customers</h5>
+                        <p class="card-text">Customer info</p>
                     </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('customers.customers') }}" class="btn btn-danger btn-sm w-100">
+                            <i class="bi bi-list" aria-hidden="true"></i> View
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -256,13 +473,10 @@
 </div>
 
 {% else %}
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="alert alert-warning">
-            <h5><i class="bi bi-exclamation-triangle"></i> Access Denied</h5>
-            <p class="mb-0">Your role does not have access to any modules. Please contact an administrator.</p>
-        </div>
-    </div>
+<div role="alert" class="alert alert-danger alert-dismissible fade show" style="margin-top: 2rem;">
+    <h5><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Access Denied</h5>
+    <p class="mb-0">Your user role does not have access to any dashboard modules. Please contact an administrator for assistance.</p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close alert"></button>
 </div>
 {% endif %}
 {% endblock %}
