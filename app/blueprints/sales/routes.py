@@ -555,20 +555,108 @@ def invoice(sale_id: int):
     return render_template("sales/invoice.html", sale=sale)
 
 
+@sales_bp.route("/daily-sales")
+@login_required
+@roles_required("ADMIN", "SALES")
+def daily_sales():
+    """Dedicated daily sales report combining product purchases and repair fees."""
+
+    # parse and validate date parameter
+    date_str = request.args.get('date', '')
+    today_date = datetime.now().date()
+    if date_str:
+        try:
+            selected_date = datetime.fromisoformat(date_str).date()
+        except Exception:
+            selected_date = today_date
+    else:
+        selected_date = today_date
+
+    if selected_date > today_date:
+        # never allow future dates
+        return redirect(url_for('sales.daily_sales', date=today_date.isoformat()))
+
+    # prepare bounds for datetime comparisons
+    start_dt = datetime.combine(selected_date, datetime.min.time())
+    end_dt = datetime.combine(selected_date, datetime.max.time())
+
+    # sales records for the date
+    sale_query = (
+        Sale.query
+        .options(joinedload(Sale.customer), joinedload(Sale.items).joinedload(SaleItem.product))
+        .filter(Sale.created_at >= start_dt, Sale.created_at <= end_dt)
+    )
+    sales = sale_query.all()
+
+    # repairs completed on the date
+    repair_query = (
+        Device.query
+        .options(joinedload(Device.owner))
+        .filter(Device.actual_completion == selected_date)
+    )
+    repairs = repair_query.all()
+
+    records = []
+    for s in sales:
+        cust = s.customer.display_name if s.customer else 'Walk-in Customer'
+        desc = ''
+        if s.items:
+            desc = ', '.join(f"{it.qty}×{it.product.name if it.product else 'Unknown'}" for it in s.items)
+        records.append({
+            'datetime': s.created_at,
+            'customer': cust,
+            'type': 'Purchase',
+            'description': desc,
+            'amount': float(s.total or 0)
+        })
+
+    for d in repairs:
+        cust = d.owner.display_name if hasattr(d, 'owner') and d.owner else 'Walk-in Customer'
+        # use actual_completion for date/time; fallback to created_at
+        dt = datetime.combine(d.actual_completion, datetime.min.time()) if isinstance(d.actual_completion, (datetime,)) else datetime.combine(d.actual_completion, datetime.min.time())
+        desc = d.device_type or 'Repair'
+        records.append({
+            'datetime': dt,
+            'customer': cust,
+            'type': 'Repair',
+            'description': desc,
+            'amount': float(d.total_cost or 0)
+        })
+
+    # sort newest first
+    records.sort(key=lambda r: r['datetime'], reverse=True)
+    total_sales = sum(r['amount'] for r in records)
+
+    return render_template(
+        'sales/daily_sales.html',
+        sales_records=records,
+        total_sales=total_sales,
+        selected_date=selected_date.isoformat(),
+        today=today_date.isoformat()
+    )
+
+
 @sales_bp.route("/reports")
 @login_required
 @roles_required("ADMIN", "SALES")
 def reports():
     """Sales analytics and reporting dashboard - includes repairs in sales reporting"""
     
-    # Date range filter
+    # Date range filter for KPIs and charts
     days_back = request.args.get('days', 30, type=int)
     if days_back < 1:
         days_back = 30
     start_date = datetime.now() - timedelta(days=days_back)
-    
-    # Query sales within date range
-    sales_period = Sale.query.filter(Sale.created_at >= start_date).all()
+
+    # Query sales within date range (used by KPI calculations and trends)
+    # eager load related items to prevent N+1 issues when iterating
+    sales_period = (
+        Sale.query.options(joinedload(Sale.items).joinedload(SaleItem.product))
+        .filter(Sale.created_at >= start_date)
+        .all()
+    )
+
+    # Daily sales moved to dedicated route `/sales/daily-sales`.
     
     # Query devices completed within date range (use actual_completion) and repair parts for product-level aggregation
     # Convert start_date (datetime) to date for comparison against Device.actual_completion (Date)
@@ -680,7 +768,7 @@ def reports():
         avg_transaction=float(avg_transaction),
         payment_data=payment_data,
         top_products=top_products_data,
-        daily_trend=daily_trend
+        daily_trend=daily_trend,
     )
 
 

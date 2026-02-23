@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Reports - JC Icons</title>
+    <link rel="icon" type="image/png" href="/static/images/jc-logo.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --jc-green: #1e7f43;
+            --jc-green-dark: #145c32;
+            --jc-green-light: #a8e6b0;
+        }
+        
+        html, body {
+            height: 100%;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        main {
+            flex: 1;
+        }
+        
+        .jc-navbar {
+            background: linear-gradient(135deg, var(--jc-green) 0%, var(--jc-green-dark) 100%);
+            border-bottom: 3px solid var(--jc-green-light);
+        }
+        
+        .jc-navbar .navbar-brand {
+            transition: all 0.3s ease;
+        }
+        
+        .jc-navbar .navbar-brand:hover {
+            transform: translateY(-2px);
+        }
+        
+        .jc-navbar .nav-link {
+            transition: all 0.2s ease;
+            color: rgba(255, 255, 255, 0.9) !important;
+        }
+        
+        .jc-navbar .nav-link:hover {
+            color: #a8e6b0 !important;
+        }
+        
+        .jc-navbar .nav-link.active {
+            color: #a8e6b0 !important;
+            border-bottom: 2px solid #a8e6b0;
+        }
+        
+        .jc-footer {
+            background: linear-gradient(135deg, var(--jc-green-dark) 0%, #0f3d21 100%);
+            border-top: 3px solid var(--jc-green-light);
+            margin-top: auto;
+        }
+        
+        @media print {
+            .alert {
+                display: none !important;
+            }
+            .d-print-none {
+                display: none !important;
+            }
+        }
+    </style>
+    
+</head>
+<body>
+    <!-- Navigation -->
+    
+    <nav class="navbar navbar-expand-lg navbar-dark jc-navbar">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+                <img src="/static/images/jc-logo.png" 
+                     alt="JC Icons Logo" style="height: 50px; margin-right: 12px;">
+                <div>
+                    <div class="fw-bold" style="line-height: 1.2; letter-spacing: -0.5px;">JC ICONS</div>
+                    <small style="line-height: 1.2; opacity: 0.9;">Management System</small>
+                </div>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">
+                            <i class="bi bi-house"></i> Dashboard
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="/repairs/">
+                            <i class="bi bi-wrench"></i> Repairs
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="/customers/">
+                            <i class="bi bi-people"></i> Customers
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/inventory/products">
+                            <i class="bi bi-box-seam"></i> Inventory
+                            
+                                <span class="badge bg-danger ms-1">22</span>
+                            
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="/sales/reports">
+                            <i class="bi bi-graph-up"></i> Reports
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="/users/">
+                            <i class="bi bi-shield-lock"></i> Users
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings">
+                            <i class="bi bi-gear"></i> Settings
+                        </a>
+                    </li>
+                    
+                </ul>
+                
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> Judith D. Balaba (ADMIN)
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="/users/change-password">
+                                <i class="bi bi-lock"></i> Change Password
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/auth/logout">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+
+    <!-- Flash Messages -->
+    <div class="container mt-3">
+        
+            
+        
+    </div>
+
+    <!-- Main Content -->
+    <main class="container my-4">
+        
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-graph-up"></i> Sales Reports</h1>
+    <div class="d-flex gap-2">
+        <a href="/sales/list" class="btn btn-outline-secondary">
+            <i class="bi bi-list"></i> Sales List
+        </a>
+        <a href="/sales/pos" class="btn btn-outline-primary">
+            <i class="bi bi-cart-check"></i> New Sale
+        </a>
+        <button id="refreshReportsBtn" type="button" class="btn btn-outline-info" title="Reload latest sales data">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+        
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#resetModal">
+            <i class="bi bi-trash"></i> Reset Sales
+        </button>
+        
+    </div>
+</div>
+
+<!-- Date Range Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="d-flex gap-2 align-items-end">
+            <div class="flex-grow-1">
+                <label class="form-label">Period</label>
+                <select name="days" class="form-select" onchange="this.form.submit()">
+                    <option value="7" >Last 7 days</option>
+                    <option value="14" >Last 14 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="60" >Last 60 days</option>
+                    <option value="90" >Last 90 days</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase small">Total Revenue</h6>
+                <h3 class="mb-0">₱113625.00</h3>
+                <small class="mt-2 d-block">35 transactions</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase small">Avg Transaction</h6>
+                <h3 class="mb-0">₱3246.43</h3>
+                <small class="mt-2 d-block">Per sale</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase small">Items Sold</h6>
+                <h3 class="mb-0">35</h3>
+                <small class="mt-2 d-block">Total units</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase small">Transactions</h6>
+                <h3 class="mb-0">35</h3>
+                <small class="mt-2 d-block">Total sales</small>
+            </div>
+        </div>
+    </div>
+    <!-- Repairs summary card -->
+    <div class="col-md-3 mt-3">
+        <div class="card border-secondary">
+            <div class="card-body text-center">
+                <h6 class="card-title text-uppercase small">Total Repairs</h6>
+                <h4 class="mb-0">₱21750.00</h4>
+                <small class="mt-2 d-block">22 completed</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Sales Report Section -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Daily Sales Report</h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" id="daily-sales-filter" class="mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label" for="sales-date">Select Date</label>
+                    <input type="date" id="sales-date" name="date" class="form-control"
+                        value="2026-02-23" max="2026-02-23" onchange="this.form.submit()">
+                </div>
+                
+                <input type="hidden" name="days" value="30">
+                
+            </div>
+        </form>
+        
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Customer Name</th>
+                        <th>Purchase Made</th>
+                        <th class="text-end">Amount Paid</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>Walk-in Customer</td>
+                        <td>1×Test Product</td>
+                        <td class="text-end">₱20.00</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Walk-in Customer</td>
+                        <td>1×Test Product</td>
+                        <td class="text-end">₱20.00</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+        <div class="text-end mt-2">
+            <strong>Total Sales: ₱40.00</strong>
+        </div>
+        
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Daily Sales Trend -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Daily Sales Trend</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="dailyTrendChart" height="80"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Method Breakdown -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Payment Methods</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="paymentChart" height="130"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Products -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Top Products Sold</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Product Name</th>
+                        <th class="text-end">Units Sold</th>
+                        <th class="text-end">Revenue</th>
+                        <th class="text-end">% of Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    
+                    <tr>
+                        <td><strong>EPSON 003 MAGENTA</strong></td>
+                        <td class="text-end">6</td>
+                        <td class="text-end">₱1000.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">1.2%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>EPSON 003 CYAN</strong></td>
+                        <td class="text-end">5</td>
+                        <td class="text-end">₱1000.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">1.2%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>EPSON 003 YELLOW</strong></td>
+                        <td class="text-end">5</td>
+                        <td class="text-end">₱1000.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">1.2%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>EPSON 003 BLACK</strong></td>
+                        <td class="text-end">5</td>
+                        <td class="text-end">₱1000.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">1.2%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>Test Product</strong></td>
+                        <td class="text-end">4</td>
+                        <td class="text-end">₱80.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">0.1%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>WASTE INK PAD</strong></td>
+                        <td class="text-end">3</td>
+                        <td class="text-end">₱1000.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">1.2%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>PRINTHEAD COLOR</strong></td>
+                        <td class="text-end">3</td>
+                        <td class="text-end">₱2900.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">3.4%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>LENOVO CORE I5</strong></td>
+                        <td class="text-end">1</td>
+                        <td class="text-end">₱36995.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">43.8%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>ACER</strong></td>
+                        <td class="text-end">1</td>
+                        <td class="text-end">₱2450.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">2.9%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>ACER ACER ASPIRE GO AG14-71M-55Q4 ULTRA 5-115U/8GB+8GB/512GB NVME/14/W11H/OFC24H+365BASI</strong></td>
+                        <td class="text-end">1</td>
+                        <td class="text-end">₱36995.00</td>
+                        <td class="text-end">
+                            
+                                <span class="badge bg-secondary">43.8%</span>
+                            
+                        </td>
+                    </tr>
+                    
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Methods Detailed -->
+<div class="card">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Payment Method Summary</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Payment Method</th>
+                        <th class="text-end">Transactions</th>
+                        <th class="text-end">Total Amount</th>
+                        <th class="text-end">Avg Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td><strong>Cash</strong></td>
+                        <td class="text-end">8</td>
+                        <td class="text-end">₱54800.00</td>
+                        <td class="text-end">₱6850.00</td>
+                    </tr>
+                    
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Sales Modal -->
+<div class="modal fade" id="resetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle"></i> Reset All Sales Data
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-danger fw-bold mb-3">⚠️ This action cannot be undone!</p>
+                <p>This will permanently delete:</p>
+                <ul>
+                    <li>All sales records</li>
+                    <li>All sale items</li>
+                    <li>All payment records</li>
+                    <li>All invoices</li>
+                </ul>
+                <p class="text-muted">Are you absolutely sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="/sales/reset" style="display: inline;">
+                    <input type="hidden" name="confirm" value="yes">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Delete All Sales Data
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="jc-footer text-center py-3 mt-5">
+        <div class="container d-flex justify-content-center align-items-center gap-2">
+            <small class="text-light">JC Icons Management System V2 &copy; 2026</small>
+            <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="tooltip" data-bs-title="Developed by Kirby Busano assisted by Alleya Anto et al., students at Tagbilaran City Science High School" style="font-size: 0.75rem;">
+                <i class="bi bi-info-circle"></i>
+            </button>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    </script>
+    
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+<script id="daily-trend-data" type="application/json">
+[{"count": 4, "date": "2026-02-16", "total": 3500.0}, {"count": 6, "date": "2026-02-17", "total": 41700.0}, {"count": 4, "date": "2026-02-18", "total": 2500.0}, {"count": 4, "date": "2026-02-19", "total": 2600.0}, {"count": 7, "date": "2026-02-20", "total": 43195.0}, {"count": 6, "date": "2026-02-21", "total": 20050.0}, {"count": 2, "date": "2026-02-22", "total": 40.0}, {"count": 2, "date": "2026-02-23", "total": 40.0}]
+</script>
+<script id="payment-data-json" type="application/json">
+[{"count": 8, "method": "Cash", "total": 54800.0}]
+</script>
+<script>
+// Refresh button reloads page to pick up any externally-added historical sales
+document.addEventListener('DOMContentLoaded', function(){
+    const btn = document.getElementById('refreshReportsBtn');
+    if (btn) btn.addEventListener('click', function(){
+        // preserve query string and reload
+        window.location.href = window.location.pathname + window.location.search;
+    });
+});
+
+// Daily Sales Trend Chart
+const dailyTrendData = JSON.parse(document.getElementById('daily-trend-data').textContent);
+if (dailyTrendData.length > 0) {
+    const dailyCtx = document.getElementById('dailyTrendChart').getContext('2d');
+    new Chart(dailyCtx, {
+        type: 'line',
+        data: {
+            labels: dailyTrendData.map(d => d.date),
+            datasets: [{
+                label: 'Daily Revenue (₱)',
+                data: dailyTrendData.map(d => d.total),
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#0d6efd',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₱' + value.toFixed(0);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Payment Method Chart
+const paymentData = JSON.parse(document.getElementById('payment-data-json').textContent);
+if (paymentData.length > 0) {
+    const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+    new Chart(paymentCtx, {
+        type: 'doughnut',
+        data: {
+            labels: paymentData.map(p => p.method),
+            datasets: [{
+                data: paymentData.map(p => p.total),
+                backgroundColor: [
+                    '#0d6efd',
+                    '#198754',
+                    '#fd7e14',
+                    '#dc3545',
+                    '#6c757d'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return '₱' + context.parsed.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+
+</body>
+</html>

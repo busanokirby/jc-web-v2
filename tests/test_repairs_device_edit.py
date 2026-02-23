@@ -136,6 +136,8 @@ def test_pulled_out_marks_free_and_paid(app, logged_in_client):
         assert d2.total_cost == Decimal('0.00')
         assert d2.balance_due == Decimal('0.00')
         assert d2.payment_status == 'Paid'
+        # Pulled out repairs should be archived automatically
+        assert d2.is_archived is True
 
 
 def test_beyond_repair_behaves_like_pulled_out(app, logged_in_client):

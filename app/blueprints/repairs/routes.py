@@ -323,8 +323,9 @@ def update_status(device_id: int):
         device.parts_cost = Decimal('0.00')
         device.deposit_paid = Decimal('0.00')
 
-    # Automatically archive completed repairs; unarchive if status changes away from Completed
-    device.is_archived = (device.status == "Completed")
+    # Automatically archive Completed repairs and also archive when device is Pulled out;
+    # unarchive if status changes away from Completed or Pulled out
+    device.is_archived = (device.status in ("Completed", "Pulled out"))
     if device.status == "Completed":
         device.actual_completion = date.today()
 

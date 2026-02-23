@@ -140,7 +140,8 @@
       <div style="display:flex; justify-content:space-between; gap:12px; margin-top:14px; align-items:flex-end;">
         <!-- Released By (current logged-in user; editable on-screen) -->
         <div style="flex:1; text-align:center;">
-          <div id="released-by-display" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:-3px;"><strong>{{ current_user.full_name }}</strong></div>
+          
+          <p class="mb-0" style="text-align:left; font-size:15px; font-weight:bold; margin-bottom:-3px; margin-left:5px;">Released By:</p>
 
           <div class="no-print" style="margin-top:6px;">
             <input id="released-by-input" type="text" value="{{ current_user.full_name }}" style="display:none; width:220px; text-align:center; padding:4px;" />
@@ -148,8 +149,8 @@
             <button id="released-by-save-btn" class="btn btn-sm btn-success no-print" type="button" style="padding:4px 8px; font-size:12px; display:none;">Save</button>
             <button id="released-by-cancel-btn" class="btn btn-sm btn-secondary no-print" type="button" style="padding:4px 8px; font-size:12px; display:none;">Cancel</button>
           </div>
-
-          <div class="bottom-sig-line" style="border-top:1px solid #000; width:80%; margin:6px auto 0; font-size:8px; padding-top:4px;">RELEASED BY</div>
+          <div class="bottom-sig-line" style="border-top:1px solid #000; width:80%; margin:6px auto 0; font-size:8px; padding-top:4px;"></div>
+          <div id="released-by-display" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:-10px;"><strong>{{ current_user.full_name }}</strong></div>
         </div>
 
         <!-- Spacer to keep two-column layout centered -->
@@ -204,7 +205,6 @@
         <p class="mb-0">Your Computer Needs... Our Job.</p>
             <p class="mb-0">Thank you for your continued trust in our services. We look forward to serving you again.</p>
             <p class="mb-0">If you have any questions regarding this transaction, please contact us.</p>
-        <div class="small">{{ now.strftime('%Y-%m-%d %H:%M:%S') }}</div>
       </div>
 
     </div>

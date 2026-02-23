@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}JC Icons Management System{% endblock %}</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/jc-logo.png') }}">
+    <title>Daily Sales Report - JC Icons</title>
+    <link rel="icon" type="image/png" href="/static/images/jc-logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
@@ -69,15 +69,15 @@
             }
         }
     </style>
-    {% block extra_css %}{% endblock %}
+    
 </head>
 <body>
     <!-- Navigation -->
-    {% if current_user.is_authenticated %}
+    
     <nav class="navbar navbar-expand-lg navbar-dark jc-navbar">
         <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('core.dashboard') }}">
-                <img src="{{ url_for('static', filename='images/jc-logo.png') }}" 
+            <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+                <img src="/static/images/jc-logo.png" 
                      alt="JC Icons Logo" style="height: 50px; margin-right: 12px;">
                 <div>
                     <div class="fw-bold" style="line-height: 1.2; letter-spacing: -0.5px;">JC ICONS</div>
@@ -90,77 +90,77 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('core.dashboard') }}">
+                        <a class="nav-link" href="/dashboard">
                             <i class="bi bi-house"></i> Dashboard
                         </a>
                     </li>
                     
-                    {% if current_user.role in ['ADMIN', 'TECH'] %}
+                    
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('repairs.repairs') }}">
+                        <a class="nav-link" href="/repairs/">
                             <i class="bi bi-wrench"></i> Repairs
                         </a>
                     </li>
-                    {% endif %}
                     
-                    {% if current_user.role in ['ADMIN', 'SALES'] %}
+                    
+                    
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('customers.customers') }}">
+                        <a class="nav-link" href="/customers/">
                             <i class="bi bi-people"></i> Customers
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('inventory.products') }}">
+                        <a class="nav-link" href="/inventory/products">
                             <i class="bi bi-box-seam"></i> Inventory
-                            {% if inventory_low_count and inventory_low_count > 0 %}
-                                <span class="badge bg-danger ms-1">{{ inventory_low_count }}</span>
-                            {% endif %}
+                            
+                                <span class="badge bg-danger ms-1">22</span>
+                            
                         </a>
                     </li>
-                    {% endif %}
                     
-                    {% if current_user.role in ['ADMIN', 'SALES'] %}
+                    
+                    
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('sales.reports') }}">
+                        <a class="nav-link" href="/sales/reports">
                             <i class="bi bi-graph-up"></i> Reports
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('sales.daily_sales') }}">
+                        <a class="nav-link" href="/sales/daily-sales">
                             <i class="bi bi-calendar-day"></i> Daily Sales
                         </a>
                     </li>
-                    {% endif %}
                     
-                    {% if current_user.role in ['ADMIN'] %}
+                    
+                    
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('users.users') }}">
+                        <a class="nav-link" href="/users/">
                             <i class="bi bi-shield-lock"></i> Users
                         </a>
                     </li>
-                    {% endif %}
                     
-                    {% if current_user.role in ['ADMIN'] %}
+                    
+                    
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('core.settings') }}">
+                        <a class="nav-link" href="/settings">
                             <i class="bi bi-gear"></i> Settings
                         </a>
                     </li>
-                    {% endif %}
+                    
                 </ul>
                 
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
                            data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle"></i> {{ current_user.full_name }} ({{ current_user.role }})
+                            <i class="bi bi-person-circle"></i> Judith D. Balaba (ADMIN)
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('users.change_password') }}">
+                            <li><a class="dropdown-item" href="/users/change-password">
                                 <i class="bi bi-lock"></i> Change Password
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                            <li><a class="dropdown-item" href="/auth/logout">
                                 <i class="bi bi-box-arrow-right"></i> Logout
                             </a></li>
                         </ul>
@@ -169,25 +169,123 @@
             </div>
         </div>
     </nav>
-    {% endif %}
+    
 
     <!-- Flash Messages -->
     <div class="container mt-3">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+        
+            
+        
     </div>
 
     <!-- Main Content -->
     <main class="container my-4">
-        {% block content %}{% endblock %}
+        
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Daily Sales Report</h2>
+    <div></div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" id="daily-sales-filter" class="mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label" for="sales-date">Select Date</label>
+                    <input type="date" id="sales-date" name="date" class="form-control"
+                        value="2026-02-23" max="2026-02-23" onchange="this.form.submit()">
+                </div>
+            </div>
+        </form>
+
+        
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Customer Name</th>
+                        <th>Transaction Type</th>
+                        <th>Description</th>
+                        <th class="text-end">Amount Paid</th>
+                        <th>Date &amp; Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>Walk-in Customer</td>
+                        <td>Purchase</td>
+                        <td>1×Test Product</td>
+                        <td class="text-end">₱20.00</td>
+                        <td>2026-02-23 12:00 AM</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Walk-in Customer</td>
+                        <td>Purchase</td>
+                        <td>1×Test Product</td>
+                        <td class="text-end">₱20.00</td>
+                        <td>2026-02-23 12:00 AM</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Walk-in Customer</td>
+                        <td>Purchase</td>
+                        <td>1×Test Product</td>
+                        <td class="text-end">₱20.00</td>
+                        <td>2026-02-23 12:00 AM</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Walk-in Customer</td>
+                        <td>Purchase</td>
+                        <td>1×Test Product</td>
+                        <td class="text-end">₱20.00</td>
+                        <td>2026-02-23 12:00 AM</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Walk-in Customer</td>
+                        <td>Purchase</td>
+                        <td>1×Test Product</td>
+                        <td class="text-end">₱20.00</td>
+                        <td>2026-02-23 12:00 AM</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Walk-in Customer</td>
+                        <td>Purchase</td>
+                        <td>1×Test Product</td>
+                        <td class="text-end">₱15.00</td>
+                        <td>2026-02-23 12:00 AM</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Delma Enterprise</td>
+                        <td>Repair</td>
+                        <td>laptop</td>
+                        <td class="text-end">₱45.00</td>
+                        <td>2026-02-23 12:00 AM</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Test Customer</td>
+                        <td>Repair</td>
+                        <td>laptop</td>
+                        <td class="text-end">₱20.00</td>
+                        <td>2026-02-23 12:00 AM</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+        <div class="text-end mt-2">
+            <strong>Total Sales: ₱180.00</strong>
+        </div>
+        
+    </div>
+</div>
+
     </main>
 
     <!-- Footer -->
@@ -208,6 +306,6 @@
             return new bootstrap.Tooltip(tooltipTriggerEl)
         })
     </script>
-    {% block extra_js %}{% endblock %}
+    
 </body>
 </html>
