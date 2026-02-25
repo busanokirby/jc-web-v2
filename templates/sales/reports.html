@@ -89,6 +89,36 @@
             </div>
         </div>
     </div>
+    <!-- Partial Repairs Balance -->
+    <div class="col-md-3 mt-3">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <h6 class="card-title text-uppercase small text-warning">Partial Balance Due</h6>
+                <h4 class="mb-0 text-warning">₱{{ "%.2f"|format(partial_repairs_balance if partial_repairs_balance is defined else 0) }}</h4>
+                <small class="mt-2 d-block">Repairs with deposits</small>
+            </div>
+        </div>
+    </div>
+    <!-- Credit Released -->
+    <div class="col-md-3 mt-3">
+        <div class="card border-danger">
+            <div class="card-body text-center">
+                <h6 class="card-title text-uppercase small text-danger">Credit Released</h6>
+                <h4 class="mb-0 text-danger">₱{{ "%.2f"|format(credit_repairs_total if credit_repairs_total is defined else 0) }}</h4>
+                <small class="mt-2 d-block">Unpaid repairs</small>
+            </div>
+        </div>
+    </div>
+    <!-- Total Outstanding to Collect -->
+    <div class="col-md-3 mt-3">
+        <div class="card border-dark bg-light">
+            <div class="card-body text-center">
+                <h6 class="card-title text-uppercase small">Total Outstanding</h6>
+                <h4 class="mb-0 fw-bold text-dark">₱{{ "%.2f"|format((partial_repairs_balance if partial_repairs_balance is defined else 0) + (credit_repairs_total if credit_repairs_total is defined else 0)) }}</h4>
+                <small class="mt-2 d-block">To collect from repairs</small>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Daily Sales lives in its own section: /sales/daily-sales -->

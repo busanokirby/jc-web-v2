@@ -324,7 +324,7 @@
                 </div>
                 <div class="row mb-3">
                     <div class="col-6"><strong>Deposit Paid:</strong></div>
-                    <div class="col-6 text-end"><strong>{% if device.deposit_paid and device.deposit_paid > 0 %}{{ device.deposit_paid|currency }}{% else %}<em>None</em>{% endif %}</strong></div>
+                    <div class="col-6 text-end"><strong id="depositDisplay">{% if device.deposit_paid and device.deposit_paid > 0 %}{{ device.deposit_paid|currency }}{% else %}<em>None</em>{% endif %}</strong></div>
                 </div>
                 <hr>
                 <div class="row">
@@ -342,6 +342,27 @@
                 </div>
             </div>
         </div>
+
+        <!-- Add/Edit Deposit -->
+        {% if device.payment_status != 'Paid' and not device.is_archived %}
+        <div class="card mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-piggy-bank"></i> Add/Edit Deposit</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('repairs.update_deposit', device_id=device.id) }}" id="depositForm">
+                    <div class="mb-3">
+                        <label for="deposit_amount" class="form-label">Deposit Amount</label>
+                        <input type="number" class="form-control" id="deposit_amount" name="deposit_amount" step="0.01" min="0" value="{{ device.deposit_paid or '0.00' }}" required>
+                        <small class="form-text text-muted">Current total cost: ₱{{ "%.2f"|format(device.total_cost) }}</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-check-circle"></i> Save Deposit
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Record Payment -->
         {% if device.balance_due > 0 %}

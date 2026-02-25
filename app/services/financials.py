@@ -30,12 +30,17 @@ def recompute_repair_financials(device: Device) -> None:
         device.payment_status = "Paid"
         return
 
-    # If total cost is zero but not waived, keep the repair as Pending so
-    # it remains editable/visible (don't auto-mark as Paid).
+    # If total cost is zero but not waived, keep the repair as Pending BY DEFAULT
+    # BUT if there's a deposit, mark as Partial (received money, costs TBD)
     if device.total_cost == 0:
-        device.deposit_paid = Decimal("0.00")
         device.balance_due = Decimal("0.00")
-        device.payment_status = "Pending"
+        if deposit > 0:
+            # Received deposit but no costs yet → Partial (waiting to add costs)
+            device.payment_status = "Partial"
+        else:
+            # No costs, no deposit → Pending
+            device.payment_status = "Pending"
+        # Deposit is preserved even with zero costs
         return
 
     # Cap deposit to not exceed total cost
