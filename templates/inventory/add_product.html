@@ -200,23 +200,27 @@
     </div>
 </div>
 
-<style>
-    .form-label {
-        margin-bottom: 0.5rem;
-    }
-    .form-text {
-        display: block;
-        margin-top: 0.25rem;
-    }
-    @media print {
-        .btn, .card-header bg-light, #category-select {
-            display: none !important;
-        }
-    }
-</style>
-
 {% block extra_js %}
 <script>
+// shared JavaScript for product form
+(function(){
+    // price input formatting
+    const priceInput = document.querySelector('input[name="sell_price"]');
+    if (priceInput) {
+        priceInput.addEventListener('input', (e)=>{
+            let v = e.target.value;
+            // allow only numbers and dot
+            v = v.replace(/[^0-9.]/g,'');
+            // ensure only one dot
+            const parts=v.split('.');
+            if(parts.length>2) v=parts[0]+'.'+parts.slice(1).join('');
+            e.target.value=v;
+        });
+    }
+})();
+
+// category modal & form handling
+
 document.addEventListener('DOMContentLoaded', function(){
     const addBtn = document.getElementById('add-category-btn');
     const modalEl = document.getElementById('addCategoryModal');
@@ -311,6 +315,22 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 });
 </script>
+
+<style>
+    .form-label {
+        margin-bottom: 0.5rem;
+    }
+    .form-text {
+        display: block;
+        margin-top: 0.25rem;
+    }
+    @media print {
+        .btn, .card-header bg-light, #category-select {
+            display: none !important;
+        }
+    }
+</style>
+
 {% endblock %}
 
 {% endblock %}

@@ -32,8 +32,8 @@ def test_inventory_search_multi_field_and_pagination(app, logged_in_client):
     assert rv.status_code == 200
     assert b'Alpha Widget' in rv.data
 
-    # search by SKU (case-insensitive)
-    rv = client.get('/inventory/products?q=alpha-123')
+    # search by SKU (case-insensitive) - use the actual SKU we just generated
+    rv = client.get(f'/inventory/products?q={sku}')
     assert rv.status_code == 200
     assert b'Alpha Widget' in rv.data
 
@@ -50,3 +50,11 @@ def test_inventory_search_multi_field_and_pagination(app, logged_in_client):
     rv2 = client.get('/inventory/products?q=PaginatedX&page=2')
     assert rv2.status_code == 200
     assert b'PaginatedX' in rv2.data
+
+    # filtering by category should also work, even when a search filter is
+    # present; this is what exposed the sqlalchemy error in prod.
+    rv3 = client.get(f'/inventory/products?q=PaginatedX&category_id={cat.id}')
+    assert rv3.status_code == 200
+    assert b'PaginatedX' in rv3.data
+    # ensure the category filter doesn't blow up the pagination helper
+    assert b'Showing' in rv3.data

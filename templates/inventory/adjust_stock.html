@@ -18,6 +18,9 @@
 <div class="row">
     <div class="col-lg-8">
         <form method="POST" id="adjust-form">
+            <!-- CSRF Token -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
             <!-- Product Selection -->
             <div class="card mb-4">
                 <div class="card-header bg-light">
@@ -40,11 +43,13 @@
                         <i class="bi bi-info-circle"></i> Current stock and pricing shown in list
                     </small>
                     <!-- Hidden: Product data for JavaScript -->
+                    <script type="application/json" id="product-data-store">
                     {% set product_list = [] %}
                     {% for p in products %}
-                        {% set _ = product_list.append({"id": p.id, "name": p.name, "stock": p.stock_on_hand, "price": p.sell_price, "category": p.category.name if p.category else ""}) %}
+                        {% set _ = product_list.append({"id": p.id|string, "name": p.name, "stock": p.stock_on_hand, "price": p.sell_price, "category": p.category.name if p.category else ""}) %}
                     {% endfor %}
-                    <span id="product-data-store" data-products="{{ {"products": product_list} | tojson }}"></span>
+                    {{ {"products": product_list} | tojson }}
+                    </script>
                 </div>
             </div>
 
@@ -146,7 +151,7 @@
             </div>
             <div class="card-body">
                 <p class="small text-muted mb-3">
-                    Permanently delete this product. This action marks the product as inactive.
+                    Permanently delete this product. This action cannot be undone.
                 </p>
                 <button id="delete-product-btn" type="button" class="btn btn-danger w-100">
                     <i class="bi bi-trash"></i> Delete Product
@@ -172,7 +177,7 @@
                     Delete <strong id="delete-product-name"></strong>?
                 </p>
                 <p class="text-muted small mt-2 mb-0">
-                    This will mark the product as inactive and hide it from active product lists. The product data is preserved.
+                    This will permanently delete the product and its stock history. This action cannot be undone.
                 </p>
             </div>
             <div class="modal-footer border-top">
@@ -212,14 +217,14 @@ document.addEventListener('DOMContentLoaded', function(){
     const productInfo = document.getElementById('product-info');
     const productInfoEmpty = document.getElementById('product-info-empty');
     
-    // Product data for quick reference - loaded from hidden data attribute
+    // Product data for quick reference - loaded from hidden script tag
     let productData = {};
     const productDataStore = document.getElementById('product-data-store');
     if (productDataStore) {
         try {
-            const dataAttr = productDataStore.getAttribute('data-products');
-            if (dataAttr) {
-                const parsedData = JSON.parse(dataAttr);
+            const dataText = productDataStore.textContent.trim();
+            if (dataText) {
+                const parsedData = JSON.parse(dataText);
                 if (parsedData.products && Array.isArray(parsedData.products)) {
                     parsedData.products.forEach(function(p) {
                         productData[p.id] = {
@@ -229,10 +234,12 @@ document.addEventListener('DOMContentLoaded', function(){
                             "category": p.category
                         };
                     });
+                    console.log('Product data loaded successfully:', Object.keys(productData).length, 'products');
                 }
             }
         } catch(e) {
             console.error('Error parsing product data:', e);
+            console.error('Raw data:', productDataStore.textContent);
         }
     }
 
@@ -278,35 +285,150 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // Delete functionality
     if (deleteBtn) {
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteProductModal'));
-        deleteBtn.addEventListener('click', function(){
+        let deleteModal = null;
+        
+        // Initialize modal safely
+        try {
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                const modalElement = document.getElementById('deleteProductModal');
+                if (modalElement) {
+                    deleteModal = new bootstrap.Modal(modalElement);
+                } else {
+                    console.warn('Delete modal element not found');
+                }
+            } else {
+                console.warn('Bootstrap Modal not available');
+            }
+        } catch (e) {
+            console.error('Error initializing delete modal:', e);
+        }
+        
+        const confirmBtn = document.getElementById('confirm-delete-product-btn');
+        let isDeleting = false;
+        
+        deleteBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            console.log('Delete button clicked');
+            console.log('Selected product ID:', select.value);
+            console.log('Available product IDs:', Object.keys(productData));
+            
             const pid = select.value;
             if (!pid) {
                 alert('Please select a product first');
                 return;
             }
+            
             const data = productData[pid];
-            if (data) {
-                document.getElementById('delete-product-name').textContent = data.name;
+            if (!data) {
+                console.error('Product not found in productData:', pid, productData);
+                alert(`Product data not found. Available: ${Object.keys(productData).join(', ')}`);
+                return;
+            }
+            
+            console.log('Product found:', data);
+            document.getElementById('delete-product-name').textContent = data.name;
+            isDeleting = false;
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<i class="bi bi-trash"></i> Delete Product';
+            }
+            
+            if (deleteModal) {
                 deleteModal.show();
+            } else {
+                // Fallback: show simple confirmation without modal
+                if (confirm(`Delete "${data.name}"? This cannot be undone.`)) {
+                    performDelete(pid);
+                }
             }
         });
 
-        document.getElementById('confirm-delete-product-btn').addEventListener('click', async function(){
-            const pid = select.value;
-            if (!pid) return;
-            try {
-                const res = await fetch(`/inventory/products/${pid}/delete`, { method: 'POST' });
-                if (res.ok) {
-                    window.location.href = "{{ url_for('inventory.products') }}";
-                } else {
-                    alert('Failed to delete product');
-                }
-            } catch (err) {
-                console.error('Delete error:', err);
-                alert('Error deleting product');
+        // Delete confirmation handler
+        function performDelete(pid) {
+            isDeleting = true;
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
             }
-        });
+            
+            try {
+                // Get CSRF token from hidden form field
+                const csrfInput = document.querySelector('input[name="csrf_token"]');
+                const csrfToken = csrfInput ? csrfInput.value : null;
+                
+                if (!csrfToken) {
+                    throw new Error('CSRF token not found on page');
+                }
+                
+                console.log('Sending delete request for product:', pid);
+                
+                const res = fetch(`/inventory/products/${pid}/delete`, { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-Token': csrfToken
+                    }
+                });
+                
+                return res.then(response => {
+                    console.log('Delete response status:', response.status);
+                    
+                    if (!response.ok) {
+                        return response.json().then(errorData => {
+                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                        });
+                    }
+                    
+                    return response.json().then(responseData => {
+                        if (responseData.success) {
+                            console.log('Product deleted successfully');
+                            if (deleteModal) {
+                                deleteModal.hide();
+                            }
+                            window.location.href = "{{ url_for('inventory.products') }}";
+                        } else {
+                            throw new Error(responseData.message || 'Failed to delete product');
+                        }
+                    });
+                }).catch(err => {
+                    console.error('Delete error:', err);
+                    alert('Error deleting product:\n' + (err.message || err.toString()));
+                    isDeleting = false;
+                    if (confirmBtn) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerHTML = '<i class="bi bi-trash"></i> Delete Product';
+                    }
+                });
+            } catch (err) {
+                console.error('Delete setup error:', err);
+                alert('Error deleting product:\n' + (err.message || err.toString()));
+                isDeleting = false;
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = '<i class="bi bi-trash"></i> Delete Product';
+                }
+            }
+        }
+
+        // Confirm button handler (when using modal)
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', async function(e){
+                e.preventDefault();
+                
+                if (isDeleting) return;
+                
+                const pid = select.value;
+                if (!pid) {
+                    alert('Please select a product first');
+                    return;
+                }
+                
+                await performDelete(pid);
+            });
+        }
+    } else {
+        console.warn('Delete button not found on page');
     }
 
     // Initial state

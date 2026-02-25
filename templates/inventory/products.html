@@ -1,312 +1,535 @@
-{% extends 'layouts/base.html' %}
-
+﻿{% extends 'layouts/base.html' %}
 {% block title %}Products - Inventory{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="mb-2">
-            <i class="bi bi-box-seam"></i> Products
-        </h1>
-        <p class="text-muted mb-0">Manage and organize your product inventory</p>
-    </div>
-    {% if current_user.role in ['ADMIN', 'SALES'] %}
-    <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary" href="{{ url_for('inventory.adjust_stock_page') }}">
-            <i class="bi bi-sliders"></i> Adjust Stock & Price
-        </a>
-        <a class="btn btn-primary" href="{{ url_for('inventory.add_product') }}">
-            <i class="bi bi-plus-circle"></i> New Product
-        </a>
-    </div>
-    {% endif %}
-</div>
-
-<div class="row g-4">
-    <!-- Left Sidebar: Categories -->
-    <div class="col-lg-3">
-        <div class="card sticky-card" style="position: sticky; top: 1rem;">
-            <div class="card-header bg-light">
-                <h5 class="mb-0">
-                    <i class="bi bi-tag"></i> Categories
-                </h5>
-            </div>
-            <div class="card-body p-0">
-                <!-- Add Category Form -->
-                {% if current_user.role in ['ADMIN', 'SALES'] %}
-                <div class="p-3 border-bottom">
-                    <form method="POST" action="{{ url_for('inventory.categories') }}" class="d-flex flex-column gap-2">
-                        <input type="text" name="name" class="form-control form-control-sm" 
-                               placeholder="New category..." required>
-                        <button type="submit" class="btn btn-sm btn-outline-primary w-100">
-                            <i class="bi bi-plus"></i> Add
-                        </button>
-                    </form>
+<div class="container-fluid px-4 w-100">
+    <!-- category modal -->
+    <div class="modal fade" id="categoryModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Categories</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                {% endif %}
-
-                <!-- Category List -->
-                <div class="list-group list-group-flush">
-                    <a href="{{ url_for('inventory.products') }}" 
-                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {% if not selected_category %}active{% endif %}">
-                        <span>All Products</span>
-                        <span class="badge {% if selected_category %}bg-secondary{% else %}bg-primary{% endif %}">
-                            {{ products.total if products.items is defined else products|length }}
-                        </span>
-                    </a>
-                    {% for c in categories %}
-                    {% set cat_count = c.products|selectattr('is_active')|list|length %}
-                    <a href="{{ url_for('inventory.products', category_id=c.id) }}" 
-                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {% if selected_category and selected_category == c.id %}active{% endif %}"
-                       title="{{ cat_count }} product{{ 's' if cat_count != 1 else '' }}">
-                        <span>{{ c.name }}</span>
-                        <span class="badge {% if selected_category and selected_category == c.id %}bg-light text-dark{% else %}bg-secondary{% endif %}">
-                            {{ cat_count }}
-                        </span>
-                    </a>
-                    {% endfor %}
+                <div class="modal-body">
+                    <ul class="list-group">
+                        {% for c in categories %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ c.name }}
+                            <button class="btn btn-sm text-danger btn-delete-category" data-category-id="{{ c.id }}" data-category-name="{{ c.name }}"><i class="bi bi-trash"></i></button>
+                        </li>
+                        {% endfor %}
+                    </ul>
                 </div>
-
-                <!-- Manage Categories (ADMIN only) -->
-                {% if current_user.role == 'ADMIN' %}
-                <div class="p-3 border-top text-center">
-                    <a href="{{ url_for('inventory.categories') }}" class="btn btn-sm btn-outline-secondary w-100">
-                        <i class="bi bi-gear"></i> Manage Categories
-                    </a>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Main Content: Products -->
-    <div class="col-lg-9">
-        <!-- Search & Filters -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <form method="GET" class="d-flex gap-2">
-                    <div class="flex-grow-1">
-                        <input type="search" name="q" class="form-control" 
-                               placeholder="Search by name, SKU, category..." 
-                               value="{{ q or '' }}"
-                               title="Search products">
-                    </div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-2"><i class="bi bi-box-seam"></i> Products</h1>
+            <p class="text-muted mb-0">Manage and organize your product inventory</p>
+        </div>
+        {% if current_user.role in ['ADMIN', 'SALES'] %}
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="{{ url_for('inventory.adjust_stock_page') }}">
+                <i class="bi bi-sliders"></i> Adjust Stock & Price
+            </a>
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#categoryModal">
+                <i class="bi bi-tag"></i> Manage Categories
+            </button>
+            <a class="btn btn-primary" href="{{ url_for('inventory.add_product') }}">
+                <i class="bi bi-plus-circle"></i> New Product
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="position-relative" id="table-filter-form" action="{{ url_for('inventory.products') }}">
+                <div class="input-group mb-2">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="search" name="q" class="form-control border-start-0" 
+                           placeholder="Type product name or SKU to see suggestions..." 
+                           value="{{ q or '' }}" id="table-search" autocomplete="off">
                     {% if q %}
-                    <a href="{{ url_for('inventory.products', category_id=selected_category if selected_category else '') }}" 
-                       class="btn btn-outline-secondary">
-                        <i class="bi bi-x"></i> Clear
-                    </a>
-                    {% else %}
-                    <button type="submit" class="btn btn-outline-secondary">
-                        <i class="bi bi-search"></i> Search
-                    </button>
+                    <a href="{{ url_for('inventory.products') }}" class="btn btn-outline-secondary">Clear</a>
                     {% endif %}
-                </form>
-            </div>
-        </div>
+                    <button type="submit" class="btn btn-primary">Search</button>
+                </div>
 
-        <!-- Products Table -->
-        <div class="card">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover table-sm align-middle mb-0" id="products-table">
-                        <thead class="table-light sticky-top">
-                            <tr>
-                                <th style="width: 12%">SKU</th>
-                                <th style="width: 25%">Name</th>
-                                <th style="width: 15%">Category</th>
-                                <th class="text-center" style="width: 12%">Stock</th>
-                                <th style="width: 18%">Reorder</th>
-                                <th class="text-end" style="width: 18%">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {# Support both paginated and non-paginated `products` variable #}
-                            {% set products_iter = products.items if products.items is defined else products %}
-                            {% for p in products_iter %}
-                            <tr data-product-id="{{ p.id }}" class="{% if p.stock_on_hand < p.reorder_threshold %}table-warning table-warning-25{% endif %}">
-                                <td>
-                                    <code class="small">{{ p.sku or '—' }}</code>
-                                </td>
-                                <td>
-                                    <strong>{{ p.name }}</strong>
-                                </td>
-                                <td>
-                                    {% if p.category %}
-                                    <span class="badge bg-light text-dark">{{ p.category.name }}</span>
-                                    {% else %}
-                                    <span class="text-muted">—</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">
-                                    <div class="d-flex align-items-center justify-content-center gap-2">
-                                        <span class="stock-number fw-bold">{{ p.stock_on_hand }}</span>
-                                        {% if current_user.role in ['ADMIN', 'SALES'] %}
-                                        <div class="btn-group btn-group-sm" role="group" aria-label="Stock adjustment">
-                                            <button data-delta="1" data-id="{{ p.id }}" 
-                                                    class="btn btn-outline-success btn-adjust" 
-                                                    title="Add 1 unit"
-                                                    aria-label="Add 1 unit to {{ p.name }}">
-                                                <i class="bi bi-plus"></i>
-                                            </button>
-                                            <button data-delta="-1" data-id="{{ p.id }}" 
-                                                    class="btn btn-outline-danger btn-adjust" 
-                                                    title="Remove 1 unit"
-                                                    aria-label="Remove 1 unit from {{ p.name }}">
-                                                <i class="bi bi-dash"></i>
-                                            </button>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td>
-                                    <small>
-                                        <strong>T:</strong> {{ p.reorder_threshold }}<br>
-                                        <strong>To:</strong> {{ p.reorder_to }}
-                                    </small>
-                                </td>
-                                <td class="text-end">
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        {% if current_user.role in ['ADMIN', 'SALES'] %}
-                                        <a class="btn btn-outline-primary" 
-                                           href="{{ url_for('inventory.adjust_stock_page', product_id=p.id) }}"
-                                           title="Adjust this product's stock and price">
-                                            <i class="bi bi-pencil"></i> Adjust
-                                        </a>
-                                        <a class="btn btn-outline-secondary" 
-                                           href="{{ url_for('inventory.edit_product', product_id=p.id) }}"
-                                           title="Edit product details">
-                                            <i class="bi bi-gear"></i> Edit
-                                        </a>
-                                        {% endif %}
-                                        {% if current_user.role == 'ADMIN' %}
-                                        <button type="button" class="btn btn-outline-danger btn-delete-product" 
-                                                data-product-id="{{ p.id }}"
-                                                data-product-name="{{ p.name }}"
-                                                title="Delete this product"
-                                                aria-label="Delete {{ p.name }}">
-                                            <i class="bi bi-trash"></i> Delete
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-5">
-                                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                                    <p class="mt-2 mb-0">No products found</p>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="mb-2">
+                    <select name="category_id" class="form-select" onchange="this.form.submit()">
+                        <option value="" {% if not selected_category %}selected{% endif %}>All Categories</option>
+                        {% for c in categories %}
+                        <option value="{{ c.id }}" {% if selected_category and selected_category == c.id %}selected{% endif %}>
+                            {{ c.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="search-suggestions" class="list-group position-absolute w-100 shadow d-none" 
+                     style="z-index: 9999; top: 100%; max-height: 300px; overflow-y: auto;">
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <!-- Bulk Actions Bar -->
+            <div id="bulk-actions-bar" class="bg-light border-bottom p-3 d-none">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span id="selected-count">0</span> products selected
+                    </div>
+                    <div class="btn-group">
+                        <button id="clear-selection-btn" type="button" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-x-circle"></i> Clear
+                        </button>
+                        <button id="bulk-delete-btn" type="button" class="btn btn-danger btn-sm">
+                            <i class="bi bi-trash"></i> Delete Selected
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {# Pagination #}
-            {% if products.pages is defined %}
-                {% set pagination = products %}
-                {% include 'layouts/pagination.html' %}
-            {% endif %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle mb-0" id="products-table">
+                    <thead class="table-light sticky-top">
+                    <tr>
+                        <th style="width: 5%;">
+                            <input type="checkbox" id="select-all-checkbox" class="form-check-input" title="Select all products">
+                        </th>
+                        <th style="width: 10%;">SKU</th>
+                        <th style="width: 20%;">Name</th>
+                        <th style="width: 15%;">Category</th>
+                        <th class="text-center" style="width: 15%;">Stock</th> 
+                        <th style="width: 15%;">Reorder Status</th>
+                        <th class="text-end" style="width: 20%; padding-right: 1.5rem;">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% set products_iter = products.items if products.items is defined else products %}
+                    {% for p in products_iter %}
+                    <tr data-product-id="{{ p.id }}" class="{% if p.stock_on_hand < p.reorder_threshold %}table-warning{% endif %}">
+                        <td>
+                            <input type="checkbox" class="form-check-input product-checkbox" value="{{ p.id }}" title="Select this product">
+                        </td>
+                        <td><code class="text-primary">{{ p.sku or '—' }}</code></td>
+                        <td><strong>{{ p.name }}</strong></td>
+                        <td>
+                            <span class="badge bg-secondary-subtle text-dark border">
+                                {{ p.category.name if p.category else 'Uncategorized' }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                {% if current_user.role in ['ADMIN', 'SALES'] %}
+                                <button data-delta="-1" data-id="{{ p.id }}" class="btn btn-sm btn-outline-danger btn-adjust py-0 px-1">
+                                    <i class="bi bi-dash"></i>
+                                </button>
+                                {% endif %}
+                                
+                                <span class="fw-bold stock-number {{ 'text-danger' if p.stock_on_hand < p.reorder_threshold else 'text-dark' }}">
+                                    {{ p.stock_on_hand }}
+                                </span>
+
+                                {% if current_user.role in ['ADMIN', 'SALES'] %}
+                                <button data-delta="1" data-id="{{ p.id }}" class="btn btn-sm btn-outline-success btn-adjust py-0 px-1">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <small class="text-muted">Min: {{ p.reorder_threshold }} | Target: {{ p.reorder_to }}</small>
+                        </td>
+                        <td class="text-end" style="padding-right: 1rem;">
+                            <div class="btn-group btn-group-sm">
+                                <a class="btn btn-light border" href="{{ url_for('inventory.adjust_stock_page', product_id=p.id) }}" title="Detailed Adjustment">
+                                    <i class="bi bi-sliders"></i>
+                                </a>
+                                <a class="btn btn-light border" href="{{ url_for('inventory.edit_product', product_id=p.id) }}" title="Edit Product">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button class="btn btn-light border text-danger btn-delete-product" data-product-id="{{ p.id }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                </table>
+            </div>
         </div>
+
+        {# pagination summary/links #}
+        {% if products.pages is defined %}
+            {% set pagination = products %}
+            {% include 'layouts/pagination.html' %}
+        {% endif %}
     </div>
 </div>
-
-<!-- Delete Product Modal -->
-<div class="modal fade" id="deleteProductModal" tabindex="-1" aria-labelledby="deleteProductModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-danger">
-            <div class="modal-header bg-danger bg-opacity-10 border-danger">
-                <h5 class="modal-title" id="deleteProductModalLabel">
-                    <i class="bi bi-exclamation-triangle"></i> Delete Product?
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="mb-0">
-                    Delete <strong id="delete-product-name"></strong>?
-                </p>
-                <p class="text-muted small mt-2 mb-0">
-                    This will mark the product as inactive and hide it from lists. Product data is preserved.
-                </p>
-            </div>
-            <div class="modal-footer border-top">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x"></i> Cancel
-                </button>
-                <button type="button" class="btn btn-danger" id="confirm-delete-product-btn">
-                    <i class="bi bi-trash"></i> Delete Product
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    .sticky-top {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
-    .table-warning-25 {
-        background-color: rgba(255, 193, 7, 0.15) !important;
-    }
-    .btn-group-sm .btn {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-    }
-    @media print {
-        .btn, .form-control, .card-body > form, .card-header {
-            display: none !important;
-        }
-        .card {
-            box-shadow: none;
-            border: 1px solid #dee2e6;
-        }
-        table {
-            font-size: 0.85rem;
-        }
-    }
-</style>
 
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/inventory_controls.js') }}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-    const deleteModal = new bootstrap.Modal(document.getElementById('deleteProductModal'));
-    let productToDelete = null;
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('table-search');
+    const suggestionsBox = document.getElementById('search-suggestions');
+    const productsTable = document.getElementById('products-table');
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const bulkActionsBar = document.getElementById('bulk-actions-bar');
+    const selectedCountSpan = document.getElementById('selected-count');
+    const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+    const clearSelectionBtn = document.getElementById('clear-selection-btn');
 
-    document.querySelectorAll('.btn-delete-product').forEach(function(btn){
-        btn.addEventListener('click', function(e){
-            e.preventDefault();
-            productToDelete = {
-                id: btn.getAttribute('data-product-id'),
-                name: btn.getAttribute('data-product-name')
-            };
-            document.getElementById('delete-product-name').textContent = productToDelete.name;
-            deleteModal.show();
-        });
+    // Update bulk actions bar visibility and count
+    function updateBulkActionsBar() {
+        const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+        const count = selectedCheckboxes.length;
+        
+        if (count > 0) {
+            bulkActionsBar.classList.remove('d-none');
+            selectedCountSpan.textContent = count;
+        } else {
+            bulkActionsBar.classList.add('d-none');
+            selectAllCheckbox.checked = false;
+        }
+    }
+
+    // Handle "Select All" checkbox
+    selectAllCheckbox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.product-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateBulkActionsBar();
     });
 
-    document.getElementById('confirm-delete-product-btn').addEventListener('click', async function(){
-        if (!productToDelete) return;
+    // Handle individual product checkboxes
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('product-checkbox')) {
+            updateBulkActionsBar();
+            // Update select-all checkbox state
+            const allCheckboxes = document.querySelectorAll('.product-checkbox');
+            const checkedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+            selectAllCheckbox.checked = allCheckboxes.length === checkedCheckboxes.length;
+        }
+    });
+
+    // Clear selection button
+    clearSelectionBtn.addEventListener('click', function() {
+        document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = false);
+        selectAllCheckbox.checked = false;
+        updateBulkActionsBar();
+    });
+
+    // Bulk delete button
+    bulkDeleteBtn.addEventListener('click', async function() {
+        const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+        const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+        
+        if (selectedIds.length === 0) {
+            alert('Please select at least one product');
+            return;
+        }
+        
+        const message = `Delete ${selectedIds.length} product(s)? This cannot be undone.`;
+        if (!confirm(message)) return;
+        
+        bulkDeleteBtn.disabled = true;
+        bulkDeleteBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
+        
         try {
-            const res = await fetch(`/inventory/products/${productToDelete.id}/delete`, { method: 'POST' });
-            if (res.ok) {
-                window.location.href = "{{ url_for('inventory.products') }}";
+            // Get CSRF token from page context
+            const csrfToken = '{{ csrf_token }}';
+            
+            if (!csrfToken) {
+                throw new Error('CSRF token not available on page');
+            }
+            
+            const response = await fetch('/inventory/products/bulk-delete', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ 
+                    product_ids: selectedIds,
+                    csrf_token: csrfToken
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Remove rows for deleted products
+                selectedIds.forEach(id => {
+                    const row = document.querySelector(`tr[data-product-id="${id}"]`);
+                    if (row) {
+                        row.style.opacity = '0';
+                        row.style.transition = 'opacity 0.3s ease-out';
+                        setTimeout(() => row.remove(), 300);
+                    }
+                });
+                
+                // Clear selection and hide bulk actions
+                setTimeout(() => {
+                    document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = false);
+                    selectAllCheckbox.checked = false;
+                    updateBulkActionsBar();
+                    
+                    // Check if table is now empty
+                    const remainingRows = document.querySelectorAll('#products-table tbody tr').length;
+                    if (remainingRows === 0) {
+                        window.location.reload();
+                    }
+                }, 300);
             } else {
-                alert('Failed to delete product');
-                deleteModal.hide();
+                alert(data.message || 'Error deleting products');
+                bulkDeleteBtn.disabled = false;
+                bulkDeleteBtn.innerHTML = '<i class="bi bi-trash"></i> Delete Selected';
             }
         } catch (err) {
-            console.error('Delete error:', err);
-            alert('Error deleting product');
-            deleteModal.hide();
+            console.error("Bulk delete error:", err);
+            alert('Error deleting products:\n' + (err.message || err.toString()));
+            bulkDeleteBtn.disabled = false;
+            bulkDeleteBtn.innerHTML = '<i class="bi bi-trash"></i> Delete Selected';
+        }
+    });
+
+    // 1. Stock Adjustment Logic (+/- buttons) - Use event delegation
+    productsTable.addEventListener('click', async function(e) {
+        const btn = e.target.closest('.btn-adjust');
+        if (!btn) return;
+
+        const productId = btn.dataset.id;
+        const delta = btn.dataset.delta;
+        const row = btn.closest('tr');
+        const stockSpan = row.querySelector('.stock-number');
+
+        try {
+            const response = await fetch(`/inventory/products/${productId}/adjust`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ delta: delta })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                stockSpan.textContent = data.stock;
+                // Visual feedback: toggle warning color if low stock
+                const threshold = parseInt(row.querySelector('small').textContent.match(/Min: (\d+)/)[1]);
+                if (data.stock < threshold) {
+                    row.classList.add('table-warning');
+                    stockSpan.classList.replace('text-dark', 'text-danger');
+                } else {
+                    row.classList.remove('table-warning');
+                    stockSpan.classList.replace('text-danger', 'text-dark');
+                }
+            } else {
+                alert(data.message || 'Error updating stock');
+            }
+        } catch (err) {
+            console.error("Adjustment error:", err);
+        }
+    });
+
+    // 2. Delete Product Logic - Use event delegation
+    productsTable.addEventListener('click', async function(e) {
+        const btn = e.target.closest('.btn-delete-product');
+        if (!btn) return;
+
+        if (!confirm('Are you sure? This will permanently delete the product and its history.')) return;
+        
+        const productId = btn.dataset.productId;
+        const row = btn.closest('tr');
+        
+        // Disable button and show feedback during deletion
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+
+        try {
+            const csrfToken = '{{ csrf_token }}';
+            
+            if (!csrfToken) {
+                throw new Error('CSRF token not available on page');
+            }
+            
+            const response = await fetch(`/inventory/products/${productId}/delete`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+
+            if (data.success) {
+                // Animate and remove the row
+                row.style.opacity = '0';
+                row.style.transition = 'opacity 0.3s ease-out';
+                setTimeout(() => {
+                    row.remove();
+                    // Check if table is now empty and reload to show pagination update
+                    const remainingRows = document.querySelectorAll('#products-table tbody tr').length;
+                    if (remainingRows === 0) {
+                        // Reload to get fresh pagination
+                        window.location.reload();
+                    }
+                }, 300);
+            } else {
+                alert(data.message || 'Error deleting product');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-trash"></i>';
+            }
+        } catch (err) {
+            console.error("Delete error:", err);
+            alert('Error deleting product:\n' + (err.message || err.toString()));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-trash"></i>';
+        }
+    });
+    
+    // Autocomplete UI logic
+    if (searchInput && suggestionsBox) {
+        searchInput.addEventListener('input', async function() {
+            const val = this.value.trim();
+            if (val.length < 2) {
+                suggestionsBox.classList.add('d-none');
+                return;
+            }
+
+            try {
+                // use existing API endpoint for search suggestions
+                // include selected category if present
+            const categorySelect = document.querySelector('select[name=\"category_id\"]');
+            let url = `/inventory/api/search-suggestions?q=${encodeURIComponent(val)}`;
+            if (categorySelect && categorySelect.value) {
+                url += `&category_id=${encodeURIComponent(categorySelect.value)}`;
+            }
+            const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.length > 0) {
+                    suggestionsBox.innerHTML = data.map(item => `
+                        <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center suggestion-item">
+                            <span>${item.name}</span>
+                            <small class="text-muted">${item.sku || ''}</small>
+                        </button>
+                    `).join('');
+                    suggestionsBox.classList.remove('d-none');
+                } else {
+                    suggestionsBox.classList.add('d-none');
+                }
+            } catch (err) {
+                console.error("Suggestions error:", err);
+            }
+        });
+
+        // Selection logic
+        suggestionsBox.addEventListener('click', function(e) {
+            const btn = e.target.closest('.suggestion-item');
+            if (btn) {
+                searchInput.value = btn.querySelector('span').textContent;
+                suggestionsBox.classList.add('d-none');
+                searchInput.closest('form').submit();
+            }
+        });
+    }
+
+    // Hide dropdown on blur
+    document.addEventListener('click', (e) => {
+        if (searchInput && suggestionsBox && !searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+            suggestionsBox.classList.add('d-none');
+        }
+    });
+
+    // 3. Delete Category Logic - Use event delegation
+    document.addEventListener('click', async function(e) {
+        const btn = e.target.closest('.btn-delete-category');
+        if (!btn) return;
+
+        const categoryId = btn.dataset.categoryId;
+        const categoryName = btn.dataset.categoryName;
+        
+        const message = `Delete "${categoryName}" and ALL products in this category? This cannot be undone.`;
+        if (!confirm(message)) return;
+        
+        // Disable button and show feedback during deletion
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+
+        try {
+            const csrfToken = '{{ csrf_token }}';
+            
+            if (!csrfToken) {
+                throw new Error('CSRF token not available on page');
+            }
+            
+            const response = await fetch(`/inventory/categories/${categoryId}/delete`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+
+            if (data.success) {
+                // Find and remove the list item
+                const listItem = btn.closest('li');
+                listItem.style.opacity = '0';
+                listItem.style.transition = 'opacity 0.3s ease-out';
+                setTimeout(() => {
+                    listItem.remove();
+                    // Show success message
+                    const productsDeleted = data.products_deleted || 0;
+                    let msg = `Category deleted successfully.`;
+                    if (productsDeleted > 0) {
+                        msg += ` ${productsDeleted} product(s) were also removed.`;
+                    }
+                    // Reload products table to reflect changes
+                    window.location.reload();
+                }, 300);
+            } else {
+                alert(data.message || 'Error deleting category');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-trash"></i>';
+            }
+        } catch (err) {
+            console.error("Delete category error:", err);
+            alert('Error deleting category:\n' + (err.message || err.toString()));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-trash"></i>';
         }
     });
 });
 </script>
 {% endblock %}
+

@@ -60,10 +60,9 @@
         <!-- Invoice Header -->
         <div class="row mb-3">
             <div class="col-md-6">
-                <h6 class="text-muted mb-1">Invoice Number: <strong>{{ sale.invoice_no }}</strong></h6>
+                <h6 class="text-muted mb-1">Invoice Number: <strong style="font-size:13.5px;">{{ sale.invoice_no }}</strong></h6>
             </div>
             <div class="col-md-6 text-end">
-                <h6 class="text-muted mb-1">Date</h6>
                 <p class="mb-0 small">{{ sale.created_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
             </div>
         </div>
@@ -71,29 +70,37 @@
         <!-- Customer Info -->
         <div class="row mb-3">
             <div class="col-md-6">
-                <h6 class="text-muted mb-1">Bill To</h6>
-                {% if sale.customer %}
-                <strong class="small">{{ sale.customer.display_name if sale.customer else 'Walk-in Customer' }}</strong>
-                {% if sale.customer.phone %}<br><small><i class="bi bi-telephone"></i> {{ sale.customer.phone }}</small>{% endif %}
-                {% if sale.customer.address %}<br><small><i class="bi bi-geo-alt"></i> {{ sale.customer.address }}</small>{% endif %}
-                {% else %}
-                <small><em>Walk-in Customer</em></small>
+            {% if sale.customer %}
+                <h6 class="text-muted mb-1">
+                    Bill To: <strong>{{ sale.customer.display_name }}</strong>
+                    {% if sale.customer.business_name %}
+                    <span class="badge bg-light text-dark ms-2"><i class="bi bi-briefcase"></i> {{ sale.customer.business_name }}</span>
+                    {% endif %}
+                </h6>
+                {% if sale.customer.phone %}
+                <small><i class="bi bi-telephone"></i> {{ sale.customer.phone }}</small><br>
                 {% endif %}
-            </div>
+                {% if sale.customer.address %}
+                <small><i class="bi bi-geo-alt"></i> {{ sale.customer.address }}</small><br>
+                {% endif %}
+            {% else %}
+                <small><em>Walk-in Customer</em></small>
+            {% endif %}
+        </div>
             <div class="col-md-6 text-end">
-                <h6 class="text-muted mb-1">Payment Info</h6>
-                <p class="mb-1 small">
+                <h6 class="text-muted mb-1">Payment Info: 
                     <strong>Status:</strong>
                     <span class="badge {% if sale.status == 'PAID' %}bg-success{% elif sale.status == 'PARTIAL' %}bg-warning{% else %}bg-secondary{% endif %}">
                         {{ sale.status }}
                     </span>
-                </p>
+                </h6>
+                
                 {% if sale.payments %}
                 <p class="mb-0 small">
-                    <strong>Payment Method:</strong><br>
-                    {% for payment in sale.payments %}
+                    <strong>Payment Method: {% for payment in sale.payments %}
                     <small>{{ payment.method }}: ₱{{ "%.2f"|format(payment.amount) }}</small><br>
                     {% endfor %}
+                </strong><br>                  
                 </p>
                 {% endif %}
             </div>
@@ -171,7 +178,6 @@
                 </div>
                 <div class="bottom-sig-line" style="border-top:1px solid #000; width:80%; margin:6px auto 0; font-size:8px; padding-top:4px;"></div>
                 <div id="released-by-display" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:-10px;" data-fallback-name="{{ current_user.full_name }}" data-company="{{ current_user.company }}"><strong>{{ current_user.full_name }}</strong></div>
-                <div style="text-align:center; font-size:11px; color:#666; margin-top:2px;">{{ current_user.company }}</div>
             </div>
 
             <div style="flex:1; text-align:center;">

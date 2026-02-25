@@ -67,8 +67,12 @@
       <!-- Two-column compact info -->
       <div class="row g-2 mt-2">
         <div class="col-6">
-          <div class="section-title">Customer: {{ device.owner.display_name if device.owner else '' }}</div>
-          <div class="small text-muted">
+          <div class="section-title">Customer: {{ device.owner.display_name if device.owner else 'N/A' }}
+            {% if device.owner and device.owner.business_name %}
+              <span class="badge bg-light text-dark ms-2"><i class="bi bi-briefcase"></i> {{ device.owner.business_name }}</span>
+            {% endif %}<br>
+          </div>
+          <div class="small text-muted">           
             {% if device.owner.phone %}<div><i class="bi bi-telephone"></i> {{ device.owner.phone }}</div>{% endif %}
             {% if device.owner.address %}<div><i class="bi bi-geo-alt"></i> {{ device.owner.address }}</div>{% endif %}
           </div>
@@ -151,7 +155,6 @@
           </div>
           <div class="bottom-sig-line" style="border-top:1px solid #000; width:80%; margin:6px auto 0; font-size:8px; padding-top:4px;"></div>
           <div id="released-by-display" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:-10px;" data-fallback-name="{{ current_user.full_name }}" data-company="{{ current_user.company }}"><strong>{{ current_user.full_name }}</strong></div>
-          <div style="text-align:center; font-size:11px; color:#666; margin-top:2px;">{{ current_user.company }}</div>
         </div>
 
         <!-- Spacer to keep two-column layout centered -->

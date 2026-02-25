@@ -5,6 +5,62 @@ document.addEventListener('DOMContentLoaded', function () {
     const qaStock = document.getElementById('qa-stock');
     const qaForm = document.getElementById('quick-add-form');
 
+    // Product form validation
+    const productForm = document.getElementById('product-form');
+    if (productForm) {
+        productForm.addEventListener('submit', function(e) {
+            if (!productForm.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            productForm.classList.add('was-validated');
+        });
+    }
+
+    // Category modal (when adding/editing product)
+    const addCatBtn = document.getElementById('add-category-btn');
+    if (addCatBtn) {
+        const catModal = new bootstrap.Modal(document.getElementById('addCategoryModal'));
+        addCatBtn.addEventListener('click', () => catModal.show());
+        const saveCatBtn = document.getElementById('save-category-btn');
+        const newCatName = document.getElementById('new-category-name');
+        const addCatAlert = document.getElementById('add-cat-alert');
+        saveCatBtn.addEventListener('click', async () => {
+            const name = newCatName.value.trim();
+            if (!name) {
+                addCatAlert.textContent = 'Name is required';
+                addCatAlert.style.display = 'block';
+                return;
+            }
+            try {
+                const res = await fetch('/inventory/categories/add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name})
+                });
+                const json = await res.json();
+                if (!json.success) {
+                    addCatAlert.textContent = json.message || 'Error saving category';
+                    addCatAlert.style.display = 'block';
+                    return;
+                }
+                // append new option and select it
+                const select = document.getElementById('category-select');
+                const opt = document.createElement('option');
+                opt.value = json.id;
+                opt.textContent = json.name;
+                opt.selected = true;
+                select.appendChild(opt);
+                catModal.hide();
+                newCatName.value = '';
+                addCatAlert.style.display = 'none';
+            } catch (err) {
+                addCatAlert.textContent = 'Network error';
+                addCatAlert.style.display = 'block';
+            }
+        });
+    }
+
     if (qaInc) {
         qaInc.addEventListener('click', () => {
             qaStock.value = Math.max(0, parseInt(qaStock.value || '0') + 1);
@@ -74,6 +130,39 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             } catch (err) {
                 alert('Error adjusting stock');
+            }
+        });
+    });
+
+    // Delete product buttons (on listing page)
+    document.querySelectorAll('.btn-delete-product').forEach(btn => {
+        btn.addEventListener('click', async e => {
+            e.preventDefault();
+            if (!confirm('Delete this product permanently?')) return;
+            const productId = btn.dataset.productId;
+            try {
+                const res = await fetch(`/inventory/products/${productId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({})
+                });
+                const json = await res.json();
+                if (!json.success) {
+                    alert(json.message || 'Error deleting product');
+                    return;
+                }
+                // remove row or reload
+                const row = document.querySelector(`tr[data-product-id='${productId}']`);
+                if (row) {
+                    row.remove();
+                } else {
+                    window.location.reload();
+                }
+            } catch (err) {
+                alert('Network error');
             }
         });
     });

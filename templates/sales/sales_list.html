@@ -73,10 +73,24 @@
   {% endif %}
 
   <div class="card">
+    <div id="bulk-actions-bar-sales" class="p-2 border-bottom d-none" style="display:none;">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <strong id="bulk-selected-count">0</strong> selected
+        </div>
+        <div>
+          <button id="bulk-delete-sales-btn" class="btn btn-danger btn-sm">Delete Selected</button>
+          <button id="bulk-clear-sales-btn" class="btn btn-outline-secondary btn-sm ms-2">Clear</button>
+        </div>
+      </div>
+    </div>
     <div class="table-responsive">
       <table class="table table-hover mb-0">
         <thead class="table-light">
           <tr>
+            <th style="width:40px;">
+              <input id="select-all-sales" class="form-check-input" type="checkbox" aria-label="Select all">
+            </th>
             <th>Invoice / Ticket</th>
             <th>Customer</th>
             <th>Date</th>
@@ -91,6 +105,9 @@
         <tbody>
           {% for entry in history.items %}
           <tr>
+            <td>
+              <input type="checkbox" class="form-check-input sale-checkbox" value="{{ entry.id }}" aria-label="Select sale {{ entry.invoice }}">
+            </td>
             <td>
               <strong>{{ entry.invoice }}</strong>
               <br><small class="text-muted">{{ entry.type|capitalize }}</small>
@@ -374,5 +391,91 @@
       }
     });
   });
+
+  // Bulk delete UI + actions
+  document.addEventListener('DOMContentLoaded', function () {
+  const selectAll = document.getElementById('select-all-sales');
+  const checkboxes = () => Array.from(document.querySelectorAll('.sale-checkbox'));
+  const bar = document.getElementById('bulk-actions-bar-sales');
+  const countEl = document.getElementById('bulk-selected-count');
+  const deleteBtn = document.getElementById('bulk-delete-sales-btn');
+  const clearBtn = document.getElementById('bulk-clear-sales-btn');
+  const CSRF = '{{ csrf_token }}';
+
+  function refresh() {
+    const selected = checkboxes().filter(cb => cb.checked).map(cb => cb.value);
+    const n = selected.length;
+
+    if (bar) {
+      bar.style.display = n > 0 ? '' : 'none';
+      bar.classList.toggle('d-none', n === 0);
+    }
+
+    if (countEl) countEl.textContent = n;
+
+    return selected;
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function () {
+      checkboxes().forEach(cb => cb.checked = selectAll.checked);
+      refresh();
+    });
+  }
+
+  document.addEventListener('change', function (e) {
+    if (e.target?.classList?.contains('sale-checkbox')) {
+      const all = checkboxes();
+      const allChecked = all.length > 0 && all.every(cb => cb.checked);
+      if (selectAll) selectAll.checked = allChecked;
+      refresh();
+    }
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      checkboxes().forEach(cb => cb.checked = false);
+      if (selectAll) selectAll.checked = false;
+      refresh();
+    });
+  }
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async function () {
+      const selected = refresh();
+      if (!selected.length) return;
+
+      if (!confirm(`Delete ${selected.length} selected sale(s)? This will restore stock.`)) return;
+
+      try {
+        const resp = await fetch('{{ url_for("sales.bulk_delete_sales") }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': CSRF
+          },
+          body: JSON.stringify({ sale_ids: selected })
+        });
+
+        let data = {};
+        try {
+          data = await resp.json();
+        } catch {
+          throw new Error("Invalid JSON response");
+        }
+
+        if (resp.ok && data.success) {
+          location.reload();
+        } else {
+          alert(data.message || 'Failed to delete selected sales.');
+        }
+
+      } catch (err) {
+        console.error(err);
+        alert('Error performing bulk delete.');
+      }
+    });
+  }
+});
 </script>
 {% endblock %}

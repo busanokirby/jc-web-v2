@@ -11,8 +11,6 @@ from app.models.user import User
 
 def setup_logging(app):
     """Configure logging for the application"""
-    import logging
-    
     if not app.debug and not app.testing:
         # Production logging
         if not os.path.exists('logs'):
@@ -144,10 +142,10 @@ def create_app(config=None):
         csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
-            "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net https://fonts.googleapis.com; "
             "img-src 'self' data:; "
-            "font-src 'self' cdn.jsdelivr.net; "
-            "connect-src 'self'; "
+            "font-src 'self' cdn.jsdelivr.net https://fonts.gstatic.com; "
+            "connect-src 'self' cdn.jsdelivr.net; "
             "frame-ancestors 'none'"
         )
         response.headers['Content-Security-Policy'] = csp
@@ -209,6 +207,20 @@ def create_app(config=None):
     from app.services.security import inject_security_context as _inject_security_context
     app.context_processor(_inject_security_context)
     
+    # Backwards-compatible fallback route
+    @app.route('/sales/bulk-delete', methods=['POST'])
+    def _sales_bulk_delete_fallback():
+        from flask import request, abort
+        try:
+            # Import the handler from the sales blueprint if available
+            from app.blueprints.sales.routes import bulk_delete_sales
+        except Exception as e:
+            app.logger.error('Fallback bulk-delete: sales handler not available: %s', e)
+            abort(404)
+
+        # Call the blueprint handler directly
+        return bulk_delete_sales()
+    
     # Register error handlers
     @app.errorhandler(403)
     def forbidden_error(error):
@@ -249,14 +261,81 @@ def initialize_database():
     
     if not Setting.query.filter_by(key='SALES_CAN_EDIT_INVENTORY').first():
         db.session.add(Setting(key='SALES_CAN_EDIT_INVENTORY', value='true', 
-                              description='Allow SALES role to edit inventory'))
+                               description='Allow SALES role to edit inventory'))
     
     if not Setting.query.filter_by(key='TECH_CAN_VIEW_DETAILS').first():
         db.session.add(Setting(key='TECH_CAN_VIEW_DETAILS', value='true', 
-                              description='Allow TECH role to view repair and customer details'))
+                               description='Allow TECH role to view repair and customer details'))
     
+    # Ensure the users table has the `company` column before querying it.
+    try:
+        from sqlalchemy import text
+        with db.engine.begin() as conn:
+            cols = [row[1] for row in conn.execute(text("PRAGMA table_info('users')")).fetchall()]
+            if 'company' not in cols:
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN company VARCHAR(100) "
+                    "DEFAULT 'JC Icons' NOT NULL"
+                ))
+                print("added missing 'company' column to users table")
+    except Exception:
+        pass
+
+    # Ensure device table has deposit_paid_at column (used for table queries)
+    try:
+        from sqlalchemy import text
+        with db.engine.begin() as conn:
+            device_cols = [row[1] for row in conn.execute(text("PRAGMA table_info('device')")).fetchall()]
+            if 'deposit_paid_at' not in device_cols:
+                conn.execute(text(
+                    "ALTER TABLE device ADD COLUMN deposit_paid_at DATETIME"
+                ))
+                print("added missing 'deposit_paid_at' column to device table")
+    except Exception as e:
+        print(f"warning: failed to ensure deposit_paid_at column: {e}")
+
+    try:
+        # perform a lightweight query to exercise the column
+        db.session.execute(text("SELECT deposit_paid_at FROM device LIMIT 1"))
+    except Exception as e:
+        from sqlalchemy.exc import OperationalError
+        if isinstance(e, OperationalError) and 'deposit_paid_at' in str(e):
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE device ADD COLUMN deposit_paid_at DATETIME"))
+                    print("added missing 'deposit_paid_at' column to device table (fallback)")
+            except Exception as e2:
+                print(f"failed fallback add deposit_paid_at: {e2}")
+        else:
+            raise
+
     # Create default admin user if no users exist
-    if User.query.count() == 0:
+    try:
+        user_count = User.query.count()
+    except Exception as e:  
+        from sqlalchemy.exc import OperationalError
+        if isinstance(e, OperationalError) and 'users.company' in str(e):
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE users ADD COLUMN company VARCHAR(100) "
+                        "DEFAULT 'JC Icons' NOT NULL"
+                    ))
+                    print("migrated missing company column during admin check")
+            except Exception as e2:
+                print(f"fallback migration error: {e2}")
+
+            try:
+                db.session.rollback()
+                db.session.close()
+            except Exception:
+                pass
+
+            user_count = User.query.count()
+        else:
+            raise
+
+    if user_count == 0:
         admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
         admin_user = User(
             username='admin',
@@ -269,7 +348,7 @@ def initialize_database():
     
     db.session.commit()
 
-    # Ensure inventory schema (add reorder fields for products if missing) - safe for dev
+    # Ensure inventory schema (add reorder fields for products if missing)
     try:
         from sqlalchemy import text
         with db.engine.begin() as conn:
@@ -279,10 +358,8 @@ def initialize_database():
             if 'reorder_to' not in cols:
                 conn.execute(text("ALTER TABLE product ADD COLUMN reorder_to INTEGER NOT NULL DEFAULT 20"))
 
-            # Ensure `is_archived` exists on `device` table for backward compatibility
             device_cols = [row[1] for row in conn.execute(text("PRAGMA table_info('device')")).fetchall()]
             if 'is_archived' not in device_cols:
                 conn.execute(text("ALTER TABLE device ADD COLUMN is_archived BOOLEAN DEFAULT 0 NOT NULL"))
     except Exception:
-        # If running migrations or DB locked, skip; DB should be migrated by user in production
         pass

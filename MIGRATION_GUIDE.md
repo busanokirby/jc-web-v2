@@ -107,6 +107,18 @@ $env:SECRET_KEY='040d2ab9d20105f4d5d72709a8cd398a43672712fc5aa1c8816508fa0dabe96
 ```
 
 **Run individual migration scripts (existing method):**
+
+> ⚠️ **Important:**
+> 
+> * version 2.1.0 introduced a new `company` column on the `users` table.  If
+>   you are upgrading from a release earlier than 2.1.0 you either need to run
+>   the script below or simply start the application with the updated code;
+>   the startup routine now applies this change automatically.
+> * version 2.2.0 added a `deposit_paid_at` timestamp to `device`.  the same
+>   auto‑migration runs on startup; for manual migration use
+>   `python ./scripts/apply_deposit_paid_at.py`.
+
+
 ```powershell
 python ./scripts/migrate_add_created_by_user_id.py
 python ./scripts/migrate_add_technician_tracking.py
@@ -114,9 +126,13 @@ python ./scripts/migrate_add_is_archived_to_device.py
 python ./scripts/migrate_add_claim_to_sale.py
 python ./scripts/migrate_add_claim_and_waived_to_device.py
 python ./scripts/migrate_add_technician_tracking.py
+# NEW: add `company` field to users
+python ./scripts/migrate_add_company_to_user.py- python ./scripts/apply_deposit_paid_at.py   # add deposit_paid_at column to device
 ```
 
 **Or — run *all* migration scripts with the new runner (recommended):**
+
+The automatic runner also includes the new `company` column migration.
 ```powershell
 # List what will run without applying
 python ./scripts/run_migrations.py --dry-run

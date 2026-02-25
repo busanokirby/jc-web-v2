@@ -39,7 +39,7 @@
         <a href="{{ url_for('repairs.print_ticket', device_id=device.id) }}" class="btn btn-outline-primary">
             <i class="bi bi-printer"></i> Print Ticket
         </a>
-        <a href="{{ url_for('repairs.print_receipt', device_id=device.id) }}" class="btn btn-outline-success" target="_blank">
+        <a href="{{ url_for('repairs.print_receipt', device_id=device.id) }}" class="btn btn-outline-success">
             <i class="bi bi-receipt"></i> Print Receipt
         </a>
         {% if device.status == 'Completed' and not device.is_archived and (current_user.role == 'ADMIN' or current_user.role == 'TECH') %}

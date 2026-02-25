@@ -7,14 +7,31 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/jc-logo.png') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Google Fonts pairing: Inter for headings, DM Sans for body text -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
+            /* brand colors */
             --jc-green: #1e7f43;
             --jc-green-dark: #145c32;
             --jc-green-light: #a8e6b0;
+            /* spacing scale (mobile‑first) */
+            --jc-spacing-xs: 0.25rem;
+            --jc-spacing-sm: 0.5rem;
+            --jc-spacing-md: 1rem;
+            --jc-spacing-lg: 1.5rem;
+            --jc-spacing-xl: 2rem;
+            /* shadows */
             --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
             --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
             --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+        /* base typography */
+        body {
+            font-family: 'DM Sans', sans-serif;
+        }
+        h1,h2,h3,h4,h5,h6 {
+            font-family: 'Inter', sans-serif;
         }
         
         html, body {
@@ -125,6 +142,17 @@
             outline: 2px solid var(--jc-green-light);
             outline-offset: 2px;
         }
+        /* brand image sizing and spacing helpers */
+        .jc-logo-brand {
+            height: 48px;
+            width: 48px;
+        }
+        .text-light-opacity-75 {
+            color: rgba(255,255,255,0.75) !important;
+        }
+        .nav-text {
+            margin-left: var(--jc-spacing-xs);
+        }
         
         /* Badge animation */
         .jc-navbar .badge {
@@ -166,14 +194,17 @@
         .jc-navbar .nav-link {
             transition: all 0.2s ease;
             color: rgba(255, 255, 255, 0.9) !important;
-            margin: 0 4px;
+            margin: 0 2px; /* tighter spacing */
             border-radius: 4px;
-            padding: 8px 12px !important;
+            padding: 0.4rem 0.75rem !important; /* slim vertically */
+            font-size: 0.95rem; /* slightly smaller text */
+            white-space: nowrap; /* prevent items from wrapping */
         }
         
         .jc-navbar .nav-link:hover {
             color: #a8e6b0 !important;
             background-color: rgba(255, 255, 255, 0.1);
+            transform: none; /* remove upward shift for stability */
         }
         
         .jc-navbar .nav-link.active {
@@ -389,87 +420,119 @@
 <body>
     <!-- Navigation -->
     {% if current_user.is_authenticated %}
-    <nav class="navbar navbar-expand-lg navbar-dark jc-navbar">
+    <nav class="navbar navbar-expand-lg navbar-dark jc-navbar" role="navigation" aria-label="Primary">
         <div class="container-fluid">
+            <!-- brand area: logo + text -->
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('core.dashboard') }}">
                 <img src="{{ url_for('static', filename='images/jc-logo.png') }}" 
-                     alt="JC Icons Logo" style="height: 50px; margin-right: 12px;">
-                <div>
-                    <div class="fw-bold" style="line-height: 1.2; letter-spacing: -0.5px;">JC ICONS</div>
-                    <small style="line-height: 1.2; opacity: 0.9;">Management System</small>
+                     alt="JC Icons logo" class="jc-logo-brand" width="48" height="48">
+                <div class="ms-2 text-white">
+                    <span class="fw-bold lh-1">JC ICONS</span>
+                    <small class="d-block text-light-opacity-75">Management System</small>
                 </div>
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+
+            <!-- hamburger toggle (mobile) -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain"
+                    aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle main menu">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link{% if request.endpoint == 'core.dashboard' %} active{% endif %}" href="{{ url_for('core.dashboard') }}" aria-label="Dashboard" aria-current="{% if request.endpoint == 'core.dashboard' %}page{% else %}false{% endif %}">
-                            <i class="bi bi-house" aria-hidden="true"></i> Dashboard
+
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0" role="menubar">
+                    <li class="nav-item" role="none">
+                        <a class="nav-link{% if request.endpoint == 'core.dashboard' %} active{% endif %}"
+                           href="{{ url_for('core.dashboard') }}" role="menuitem"
+                           aria-current="{% if request.endpoint == 'core.dashboard' %}page{% else %}false{% endif %}">
+                            <i class="bi bi-house" aria-hidden="true"></i>
+                            <span class="nav-text">Dashboard</span>
                         </a>
                     </li>
-                    
+
                     {% if current_user.role in ['ADMIN', 'TECH'] %}
-                    <li class="nav-item">
-                        <a class="nav-link{% if request.endpoint in ['repairs.repairs', 'repairs.add_repair', 'repairs.repair_detail'] %} active{% endif %}" href="{{ url_for('repairs.repairs') }}" aria-label="Repairs and Maintenance" aria-current="{% if request.endpoint in ['repairs.repairs', 'repairs.add_repair', 'repairs.repair_detail'] %}page{% else %}false{% endif %}">
-                            <i class="bi bi-wrench" aria-hidden="true"></i> Repairs
+                    <li class="nav-item" role="none">
+                        <a class="nav-link{% if request.endpoint in ['repairs.repairs', 'repairs.add_repair', 'repairs.repair_detail'] %} active{% endif %}"
+                           href="{{ url_for('repairs.repairs') }}" role="menuitem"
+                           aria-current="{% if request.endpoint in ['repairs.repairs', 'repairs.add_repair', 'repairs.repair_detail'] %}page{% else %}false{% endif %}">
+                            <i class="bi bi-wrench" aria-hidden="true"></i>
+                            <span class="nav-text">Repairs</span>
                         </a>
                     </li>
                     {% endif %}
-                    
+
                     {% if current_user.role in ['ADMIN', 'SALES'] %}
-                    <li class="nav-item">
-                        <a class="nav-link{% if request.endpoint in ['customers.customers', 'customers.add_customer'] %} active{% endif %}" href="{{ url_for('customers.customers') }}" aria-label="Customers" aria-current="{% if request.endpoint in ['customers.customers', 'customers.add_customer'] %}page{% else %}false{% endif %}">
-                            <i class="bi bi-people" aria-hidden="true"></i> Customers
+                    <li class="nav-item" role="none">
+                        <a class="nav-link{% if request.endpoint in ['customers.customers', 'customers.add_customer'] %} active{% endif %}"
+                           href="{{ url_for('customers.customers') }}" role="menuitem"
+                           aria-current="{% if request.endpoint in ['customers.customers', 'customers.add_customer'] %}page{% else %}false{% endif %}">
+                            <i class="bi bi-people" aria-hidden="true"></i>
+                            <span class="nav-text">Customers</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link{% if request.endpoint in ['inventory.products', 'inventory.add_product'] %} active{% endif %}" href="{{ url_for('inventory.products') }}" aria-label="Inventory and Products{% if inventory_low_count %} - {{ inventory_low_count }} low stock items{% endif %}" aria-current="{% if request.endpoint in ['inventory.products', 'inventory.add_product'] %}page{% else %}false{% endif %}">
-                            <i class="bi bi-box-seam" aria-hidden="true"></i> Inventory
+                    <li class="nav-item" role="none">
+                        <a class="nav-link{% if request.endpoint in ['inventory.products', 'inventory.add_product'] %} active{% endif %}"
+                           href="{{ url_for('inventory.products') }}" role="menuitem"
+                           aria-current="{% if request.endpoint in ['inventory.products', 'inventory.add_product'] %}page{% else %}false{% endif %}"
+                           aria-label="Inventory and Products{% if inventory_low_count %} - {{ inventory_low_count }} low stock items{% endif %}">
+                            <i class="bi bi-box-seam" aria-hidden="true"></i>
+                            <span class="nav-text">Inventory</span>
                             {% if inventory_low_count and inventory_low_count > 0 %}
-                                <span class="badge bg-danger ms-1" aria-label="{{ inventory_low_count }} products with low stock">{{ inventory_low_count }}</span>
+                                <span class="badge bg-danger ms-1" aria-label="{{ inventory_low_count }} products with low stock">
+                                    {{ inventory_low_count }}
+                                </span>
                             {% endif %}
                         </a>
                     </li>
                     {% endif %}
-                    
+
                     {% if current_user.role in ['ADMIN', 'SALES'] %}
-                    <li class="nav-item">
-                        <a class="nav-link{% if request.endpoint in ['sales.reports', 'sales.sales_list'] %} active{% endif %}" href="{{ url_for('sales.reports') }}" aria-label="Sales Reports and Analytics" aria-current="{% if request.endpoint in ['sales.reports', 'sales.sales_list'] %}page{% else %}false{% endif %}">
-                            <i class="bi bi-graph-up" aria-hidden="true"></i> Reports
+                    <li class="nav-item" role="none">
+                        <a class="nav-link{% if request.endpoint in ['sales.reports', 'sales.sales_list'] %} active{% endif %}"
+                           href="{{ url_for('sales.reports') }}" role="menuitem"
+                           aria-current="{% if request.endpoint in ['sales.reports', 'sales.sales_list'] %}page{% else %}false{% endif %}">
+                            <i class="bi bi-graph-up" aria-hidden="true"></i>
+                            <span class="nav-text">Reports</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link{% if request.endpoint == 'sales.daily_sales' or request.endpoint == 'sales.pos' %} active{% endif %}" href="{{ url_for('sales.daily_sales') }}" aria-label="Daily Sales Report" aria-current="{% if request.endpoint == 'sales.daily_sales' %}page{% else %}false{% endif %}">
-                            <i class="bi bi-calendar-day" aria-hidden="true"></i> Daily Sales
+                    <li class="nav-item" role="none">
+                        <a class="nav-link{% if request.endpoint == 'sales.daily_sales' or request.endpoint == 'sales.pos' %} active{% endif %}"
+                           href="{{ url_for('sales.daily_sales') }}" role="menuitem"
+                           aria-current="{% if request.endpoint == 'sales.daily_sales' %}page{% else %}false{% endif %}">
+                            <i class="bi bi-calendar-day" aria-hidden="true"></i>
+                            <span class="nav-text">Daily Sales</span>
                         </a>
                     </li>
                     {% endif %}
-                    
+
                     {% if current_user.role in ['ADMIN'] %}
-                    <li class="nav-item">
-                        <a class="nav-link{% if request.endpoint in ['users.users', 'users.add_user'] %} active{% endif %}" href="{{ url_for('users.users') }}" aria-label="User Management" aria-current="{% if request.endpoint in ['users.users', 'users.add_user'] %}page{% else %}false{% endif %}">
-                            <i class="bi bi-shield-lock" aria-hidden="true"></i> Users
+                    <li class="nav-item" role="none">
+                        <a class="nav-link{% if request.endpoint in ['users.users', 'users.add_user'] %} active{% endif %}"
+                           href="{{ url_for('users.users') }}" role="menuitem"
+                           aria-current="{% if request.endpoint in ['users.users', 'users.add_user'] %}page{% else %}false{% endif %}">
+                            <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                            <span class="nav-text">Users</span>
                         </a>
                     </li>
                     {% endif %}
-                    
+
                     {% if current_user.role in ['ADMIN'] %}
-                    <li class="nav-item">
-                        <a class="nav-link{% if request.endpoint == 'core.settings' %} active{% endif %}" href="{{ url_for('core.settings') }}" aria-label="System Settings" aria-current="{% if request.endpoint == 'core.settings' %}page{% else %}false{% endif %}">
-                            <i class="bi bi-gear" aria-hidden="true"></i> Settings
+                    <li class="nav-item" role="none">
+                        <a class="nav-link{% if request.endpoint == 'core.settings' %} active{% endif %}"
+                           href="{{ url_for('core.settings') }}" role="menuitem"
+                           aria-current="{% if request.endpoint == 'core.settings' %}page{% else %}false{% endif %}">
+                            <i class="bi bi-gear" aria-hidden="true"></i>
+                            <span class="nav-text">Settings</span>
                         </a>
                     </li>
                     {% endif %}
                 </ul>
-                
+
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
                            data-bs-toggle="dropdown" aria-expanded="false" aria-label="User account menu for {{ current_user.full_name }}">
-                            <i class="bi bi-person-circle" aria-hidden="true"></i> 
-                            <span class="d-none d-lg-inline">{{ current_user.full_name }}</span> 
+                            <i class="bi bi-person-circle" aria-hidden="true"></i>
+                            <span class="d-none d-lg-inline">{{ current_user.full_name }}</span>
                             <span class="badge bg-secondary d-lg-inline ms-1">{{ current_user.role }}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">

@@ -26,8 +26,8 @@ def products():
 
     query = Product.query.filter_by(is_active=True)
 
+    # apply search filter if provided
     if q:
-        # Multi-field case-insensitive partial search: name, sku, specs_json (free text), category name
         pattern = f"%{q}%"
         app.logger.debug("Inventory search q=%s page=%s per_page=%s", q, page, per_page)
         query = (
@@ -44,17 +44,57 @@ def products():
             .distinct()
         )
     else:
-        # eager-load category to avoid N+1 in template
         query = query.options(joinedload(Product.category))
 
     if category_id:
-        query = query.filter_by(category_id=category_id)
+        # ``filter_by`` misbehaves after an outerjoin because it resolves
+        # the attribute against the most recent entity.  in the search case
+        # we've joined the ``Category`` table, so SQLAlchemy was looking for
+        # ``Category.category_id`` which doesn't exist.  use a concrete
+        # comparison against the Product column to avoid the confusion.
+        query = query.filter(Product.category_id == category_id)
 
-    # Paginate at DB level to avoid loading entire table
     products_pagination = query.order_by(Product.name).paginate(page=page, per_page=per_page, error_out=False)
-
     categories = Category.query.order_by(Category.name).all()
     return render_template("inventory/products.html", products=products_pagination, categories=categories, q=q, selected_category=category_id)
+
+
+@inventory_bp.route("/api/search-suggestions")
+@login_required
+@roles_required("ADMIN", "SALES")
+def search_suggestions():
+    """Return up to 10 active products matching ``q`` in name or SKU.
+
+    The endpoint is used by the autocomplete widget on the products page.
+    """
+    q = request.args.get("q", "").strip()
+    category_id = request.args.get("category_id", type=int)
+    if not q:
+        return jsonify([])
+
+    pattern = f"%{q}%"
+    query = Product.query.filter(Product.is_active == True)
+    if category_id:
+        query = query.filter_by(category_id=category_id)
+
+    matches = (
+        query
+        .filter(
+            or_(
+                Product.name.ilike(pattern),
+                Product.sku.ilike(pattern),
+            )
+        )
+        .order_by(Product.name)
+        .limit(10)
+        .all()
+    )
+
+    return jsonify([
+        {"id": p.id, "name": p.name, "sku": p.sku}
+        for p in matches
+    ])
+
 
 
 @inventory_bp.route('/products/<int:product_id>/adjust', methods=['POST'])
@@ -135,11 +175,12 @@ def add_product_quick():
 @roles_required("ADMIN")
 @require_inventory_edit_enabled
 def delete_category(category_id: int):
-    """Delete a category only if no active products are assigned.
+    """Delete a category and cascade-delete all associated products.
 
     - Enforces CSRF when app config enables it
     - Returns JSON for AJAX requests and redirects for normal form posts
     - Restricted to ADMIN role for safety
+    - Will delete all products in the category as well
     """
     from flask import current_app, session, request, abort
 
@@ -151,16 +192,14 @@ def delete_category(category_id: int):
 
     cat = Category.query.get_or_404(category_id)
 
-    # Block delete if any active products exist (user must reassign/disable first)
-    active_count = Product.query.filter_by(category_id=cat.id, is_active=True).count()
-    if active_count > 0:
-        msg = "Category has products. Reassign or disable products before deleting."
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': False, 'message': msg}), 400
-        flash(msg, 'warning')
-        return redirect(url_for('inventory.categories'))
-
     try:
+        # Count products being deleted for feedback
+        product_count = Product.query.filter_by(category_id=cat.id).count()
+        
+        # Delete all products in this category
+        Product.query.filter_by(category_id=cat.id).delete()
+        
+        # Delete the category itself
         db.session.delete(cat)
         db.session.commit()
     except Exception as e:
@@ -173,9 +212,14 @@ def delete_category(category_id: int):
 
     # Success — support AJAX and normal form post
     if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({'success': True, 'id': cat.id}), 200
+        return jsonify({
+            'success': True, 
+            'id': cat.id,
+            'products_deleted': product_count
+        }), 200
 
-    flash('Category deleted.', 'success')
+    msg = f"Category deleted along with {product_count} product(s)."
+    flash(msg, 'success')
     return redirect(url_for('inventory.categories'))
 
 
@@ -206,22 +250,97 @@ def add_category_quick():
 @require_inventory_edit_enabled
 def delete_product(product_id: int):
     from app.models.inventory import StockMovement
+    from flask import current_app, session, abort
+
+    # CSRF Check: Crucial for security
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        token = (request.form.get('csrf_token') or request.headers.get('X-CSRF-Token'))
+        if not token or token != session.get('_csrf_token'):
+            abort(403)
     
     p = Product.query.get_or_404(product_id)
     
     try:
-        # Delete all stock movements for this product first (cascade cleanup)
+        # PERMANENT DESTRUCTION: Purge history first
         StockMovement.query.filter_by(product_id=product_id).delete()
         
-        # Hard delete the product completely
+        # Now delete the product record
         db.session.delete(p)
         db.session.commit()
-        flash('Product deleted permanently.', 'success')
+        
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': True, 'message': 'Product and history permanently deleted.'}), 200
+        
+        flash('Product and history destroyed.', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'Error deleting product: {str(e)}', 'danger')
+        msg = f'Error deleting product: {str(e)}'
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': msg}), 500
+        flash(msg, 'danger')
     
     return redirect(url_for('inventory.products'))
+
+
+@inventory_bp.route('/products/bulk-delete', methods=['POST'])
+@login_required
+@roles_required('ADMIN')
+@require_inventory_edit_enabled
+def bulk_delete_products():
+    """Delete multiple products at once.
+    
+    Expects JSON payload with 'product_ids' list and optional 'csrf_token'.
+    Enforces CSRF protection when enabled.
+    """
+    from app.models.inventory import StockMovement
+    from flask import current_app, session, abort
+
+    # Extract data first
+    data = request.get_json() or {}
+    
+    # Optional CSRF enforcement - check multiple sources
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        # Try to get token from header first, then JSON body
+        token = request.headers.get('X-CSRF-Token') or data.get('csrf_token')
+        session_token = session.get('_csrf_token')
+        
+        if not token or not session_token or token != session_token:
+            app.logger.warning(
+                f'CSRF validation failed: token={bool(token)}, '
+                f'session_token={bool(session_token)}, match={token == session_token if token and session_token else None}'
+            )
+            abort(403)
+    
+    product_ids = data.get('product_ids', [])
+
+    if not product_ids or not isinstance(product_ids, list):
+        return jsonify({'success': False, 'message': 'Invalid product_ids'}), 400
+
+    # Convert to integers and validate
+    try:
+        product_ids = [int(pid) for pid in product_ids]
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'message': 'Invalid product IDs'}), 400
+
+    try:
+        # Delete stock movements for all products first
+        StockMovement.query.filter(StockMovement.product_id.in_(product_ids)).delete(synchronize_session=False)
+        
+        # Delete all specified products
+        deleted_count = Product.query.filter(Product.id.in_(product_ids)).delete(synchronize_session=False)
+        db.session.commit()
+
+        return jsonify({
+            'success': True, 
+            'message': f'Successfully deleted {deleted_count} product(s).',
+            'deleted_count': deleted_count
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        msg = f'Error deleting products: {str(e)}'
+        app.logger.error(f'Bulk delete error: {msg}')
+        return jsonify({'success': False, 'message': msg}), 500
 
 
 
@@ -284,7 +403,6 @@ def add_product():
 @roles_required('ADMIN', 'SALES')
 @require_inventory_edit_enabled
 def edit_product(product_id: int):
-    """Edit product details (name edit supported)."""
     p = Product.query.get_or_404(product_id)
     categories = Category.query.filter_by(is_active=True).order_by(Category.name).all()
 
@@ -294,17 +412,32 @@ def edit_product(product_id: int):
             flash('Product name is required.', 'danger')
             return redirect(url_for('inventory.edit_product', product_id=product_id))
 
-        # Only update fields we intend to support now (name). Keep other fields unchanged.
+        # Update all fields
         p.name = name
+        p.sku = (request.form.get('sku') or '').strip() or None
+        p.is_service = request.form.get('is_service') == 'on'
+        
+        cat_val = request.form.get('category_id') or ''
+        p.category_id = int(cat_val) if cat_val.isdigit() else None
+        
+        # Financials and thresholds
+        p.cost_price = safe_decimal(request.form.get('cost_price'), "0.00")
+        p.sell_price = safe_decimal(request.form.get('sell_price'), "0.00")
+        p.reorder_threshold = int(request.form.get('reorder_threshold') or 5)
+        p.reorder_to = int(request.form.get('reorder_to') or 20)
+
         try:
             db.session.commit()
             flash('Product updated successfully!', 'success')
+            return redirect(url_for('inventory.products'))
         except Exception as e:
             db.session.rollback()
             flash(f'Error updating product: {str(e)}', 'danger')
-        return redirect(url_for('inventory.products'))
-
+    
     return render_template('inventory/add_product.html', categories=categories, product=p)
+
+# Note: ajax_adjust_product is already mostly correct, 
+# ensure it returns 'stock' so the JS can update the UI.
 
 
 @inventory_bp.route("/stock-in", methods=["GET", "POST"])
