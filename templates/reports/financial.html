@@ -3,114 +3,136 @@
 {% block title %}Financial Report - JC Icons{% endblock %}
 
 {% block content %}
+<!-- Page Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-cash-stack"></i> Financial Summary</h1>
     <div class="d-flex gap-2">
-        <a href="{{ url_for('reports.financial_report', date_from=date_from, date_to=date_to, format='csv') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('sales.reports') }}" class="btn btn-outline-secondary" title="Back to Sales Analytics">
+            <i class="bi bi-arrow-left"></i> Sales Analytics
+        </a>
+        <a href="{{ url_for('reports.financial_report', date_from=date_from, date_to=date_to, format='csv') }}" 
+           class="btn btn-outline-secondary" title="Download report as CSV">
             <i class="bi bi-download"></i> Export CSV
         </a>
     </div>
 </div>
 
+<!-- Date Range Filter -->
 <form method="GET" class="row g-2 mb-3">
     <div class="col-md-3">
-        <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}" placeholder="From">
+        <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}" 
+               placeholder="From" aria-label="Start date filter">
     </div>
     <div class="col-md-3">
-        <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}" placeholder="To">
+        <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}" 
+               placeholder="To" aria-label="End date filter">
     </div>
     <div class="col-md-2 d-grid">
-        <button class="btn btn-primary" type="submit">
+        <button type="submit" class="btn btn-primary">
             <i class="bi bi-filter"></i> Apply
         </button>
     </div>
 </form>
 
-<div class="row">
+<!-- Revenue KPIs -->
+<div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="card mb-3">
+        <div class="card bg-success text-white">
             <div class="card-body text-center">
-                <h6 class="text-muted">Sales (sales only)</h6>
-                <h3>{{ sales_total|currency }}</h3>
+                <h6 class="card-title text-uppercase small">Sales Only</h6>
+                <h3 class="mb-0">{{ sales_total|currency }}</h3>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card mb-3">
+        <div class="card bg-info text-white">
             <div class="card-body text-center">
-                <h6 class="text-muted">Repairs Total</h6>
-                <h3>{{ repairs_total|currency }}</h3>
+                <h6 class="card-title text-uppercase small">Repairs Total</h6>
+                <h3 class="mb-0">{{ repairs_total|currency }}</h3>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card mb-3">
+        <div class="card bg-primary text-white">
             <div class="card-body text-center">
-                <h6 class="text-muted">Total Revenue</h6>
-                <h3>{{ combined_sales_total|currency }}</h3>
+                <h6 class="card-title text-uppercase small">Total Revenue</h6>
+                <h3 class="mb-0">{{ combined_sales_total|currency }}</h3>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card mb-3">
+        <div class="card bg-success text-white">
             <div class="card-body text-center">
-                <h6 class="text-muted">Payments</h6>
-                <h3>{{ payments_total|currency }}</h3>
+                <h6 class="card-title text-uppercase small">Payments</h6>
+                <h3 class="mb-0">{{ payments_total|currency }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-md-12 mt-2">
-        <div class="card mb-3">
-            <div class="card-header bg-light">
-                <h6 class="mb-0">Payment Breakdown</h6>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <strong>From Sales:</strong>
-                        <h5>{{ sales_payments_total|currency }}</h5>
-                    </div>
-                    <div class="col-md-6">
-                        <strong>From Repairs (Deposits):</strong>
-                        <h5>{{ repair_payments_total|currency }}</h5>
-                    </div>
+</div>
+
+<!-- Payment Breakdown Card -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-cash-coin"></i> Payment Breakdown</h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div>
+                    <strong>From Sales:</strong>
+                    <h5 class="text-success">{{ sales_payments_total|currency }}</h5>
                 </div>
             </div>
-        </div>
-    </div>
-    <div class="col-md-12 mt-2">
-        <div class="card mb-3">
-            <div class="card-header bg-light">
-                <h6 class="mb-0">Outstanding Amounts to Collect</h6>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <strong>Pending Payments:</strong>
-                        <h5 class="text-warning">{{ outstanding|currency }}</h5>
-                        <small class="text-muted">Fully outstanding (no deposit yet)</small>
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Partial Payments (Balance Due):</strong>
-                        <h5 class="text-danger">{{ partial_repairs_total|currency }}</h5>
-                        <small class="text-muted">Repairs with deposits but balance remaining</small>
-                    </div>
-                </div>
-                <hr>
-                <div class="row">
-                    <div class="col-md-6">
-                        <strong>Credit Released:</strong>
-                        <h5 class="text-danger">{{ credit_repairs_total|currency }}</h5>
-                        <small class="text-muted">Repairs released on credit (unpaid)</small>
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Total to Collect:</strong>
-                        <h4 class="text-danger fw-bold">{{ (outstanding + partial_repairs_total + credit_repairs_total)|currency }}</h4>
-                    </div>
+            <div class="col-md-6">
+                <div>
+                    <strong>From Repairs (Deposits):</strong>
+                    <h5 class="text-info">{{ repair_payments_total|currency }}</h5>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Outstanding Amounts Card -->
+<div class="card">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-exclamation-circle"></i> Outstanding Amounts to Collect</h6>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="p-3 bg-light rounded">
+                    <strong>Pending Payments:</strong>
+                    <h5 class="text-warning fw-bold">{{ outstanding|currency }}</h5>
+                    <small class="text-muted d-block">Fully outstanding (no deposit yet)</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-3 bg-light rounded">
+                    <strong>Partial Payments (Balance Due):</strong>
+                    <h5 class="text-danger fw-bold">{{ partial_repairs_total|currency }}</h5>
+                    <small class="text-muted d-block">Repairs with deposits but balance remaining</small>
+                </div>
+            </div>
+        </div>
+        
+        <hr>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="p-3 bg-light rounded">
+                    <strong>Credit Released:</strong>
+                    <h5 class="text-danger fw-bold">{{ credit_repairs_total|currency }}</h5>
+                    <small class="text-muted d-block">Repairs released on credit (unpaid)</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-3 bg-danger bg-opacity-10 rounded border border-danger">
+                    <strong>Total Outstanding:</strong>
+                    <h4 class="text-danger fw-bold mb-0">{{ (outstanding + partial_repairs_total + credit_repairs_total)|currency }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

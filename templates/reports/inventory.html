@@ -3,59 +3,117 @@
 {% block title %}Inventory Report - JC Icons{% endblock %}
 
 {% block content %}
+<!-- Page Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-box-seam"></i> Inventory Report</h1>
     <div class="d-flex gap-2">
-        <a href="{{ url_for('reports.inventory_report', format='csv') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('sales.reports') }}" class="btn btn-outline-secondary" title="Back to Sales Analytics">
+            <i class="bi bi-arrow-left"></i> Sales Analytics
+        </a>
+        <a href="{{ url_for('reports.inventory_report', format='csv') }}" class="btn btn-outline-secondary" 
+           title="Download report as CSV">
             <i class="bi bi-download"></i> Export CSV
         </a>
     </div>
 </div>
 
+<!-- Low Stock Threshold Filter -->
 <form method="GET" class="row g-2 mb-3">
     <div class="col-md-3">
-        <input type="number" name="low" class="form-control" value="{{ low_threshold }}" min="0">
+        <label for="lowStockInput" class="form-label">Low Stock Threshold</label>
+        <input type="number" id="lowStockInput" name="low" class="form-control" value="{{ low_threshold }}" 
+               min="0" aria-label="Low stock threshold">
     </div>
-    <div class="col-md-2 d-grid">
-        <button class="btn btn-primary" type="submit">
+    <div class="col-md-2 d-grid align-self-end">
+        <button type="submit" class="btn btn-primary">
             <i class="bi bi-filter"></i> Apply
         </button>
     </div>
 </form>
 
-<div class="card">
+<!-- Inventory Summary Card -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-pie-chart"></i> Inventory Summary</h6>
+    </div>
     <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-4">
+                <div>
+                    <h6 class="text-muted">Total Products</h6>
+                    <h3 class="text-primary">{{ rows|length }}</h3>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div>
+                    <h6 class="text-muted">Total Inventory Value</h6>
+                    <h3 class="text-success">{{ total_value|currency }}</h3>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div>
+                    <h6 class="text-muted">Low Stock Items</h6>
+                    <h3 class="text-warning">{{ rows|selectattr('low')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Inventory Table -->
+<div class="card">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-table"></i> Product Inventory</h6>
+    </div>
+    <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
                         <th>SKU</th>
-                        <th>Name</th>
+                        <th>Product Name</th>
                         <th>Category</th>
                         <th class="text-end">Stock</th>
-                        <th class="text-end">Cost</th>
-                        <th class="text-end">Value</th>
+                        <th class="text-end">Unit Cost</th>
+                        <th class="text-end">Total Value</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for r in rows %}
-                    <tr class="{% if r.low %}table-warning{% endif %}">
-                        <td>{{ r.sku or '' }}</td>
-                        <td>{{ r.name }}</td>
-                        <td>{{ r.category or '' }}</td>
-                        <td class="text-end">{{ r.stock }}</td>
-                        <td class="text-end">{{ r.cost|currency }}</td>
-                        <td class="text-end">{{ r.value|currency }}</td>
-                    </tr>
+                    {% if rows %}
+                        {% for r in rows %}
+                        <tr {% if r.low %}class="table-warning"{% endif %}>
+                            <td>
+                                <code>{{ r.sku or '—' }}</code>
+                            </td>
+                            <td>
+                                {% if r.low %}
+                                    <i class="bi bi-exclamation-triangle-fill text-warning" title="Low stock"></i>
+                                {% endif %}
+                                {{ r.name }}
+                            </td>
+                            <td>{{ r.category or '—' }}</td>
+                            <td class="text-end">
+                                <strong>{{ r.stock }}</strong>
+                                {% if r.low %}
+                                    <span class="badge bg-warning text-dark ms-2">Low</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">{{ r.cost|currency }}</td>
+                            <td class="text-end">{{ r.value|currency }}</td>
+                        </tr>
+                        {% endfor %}
+                        <!-- Total Row -->
+                        <tr class="table-light fw-bold">
+                            <td colspan="5" class="text-end">Total Inventory Value</td>
+                            <td class="text-end">{{ total_value|currency }}</td>
+                        </tr>
                     {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">No products found</td>
-                    </tr>
-                    {% endfor %}
-                    <tr class="table-light">
-                        <td colspan="5" class="text-end"><strong>Total Inventory Value</strong></td>
-                        <td class="text-end"><strong>{{ total_value|currency }}</strong></td>
-                    </tr>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox"></i> No products found
+                            </td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>

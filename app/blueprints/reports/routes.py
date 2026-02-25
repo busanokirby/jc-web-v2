@@ -16,6 +16,15 @@ from app.services.authz import roles_required
 from . import reports_bp
 
 
+@reports_bp.route("")
+@reports_bp.route("/")
+@login_required
+@roles_required("ADMIN")
+def reports_hub():
+    """Reports hub - organized access to all available report templates"""
+    return render_template("reports/hub.html")
+
+
 @reports_bp.route("/repairs")
 @login_required
 @roles_required("ADMIN")

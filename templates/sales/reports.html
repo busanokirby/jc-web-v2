@@ -15,6 +15,32 @@
         <button id="refreshReportsBtn" type="button" class="btn btn-outline-info" title="Reload latest sales data">
             <i class="bi bi-arrow-clockwise"></i> Refresh
         </button>
+        
+        <!-- Reports Dropdown -->
+        {% if current_user.role in ['ADMIN'] %}
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" 
+                    aria-expanded="false" title="View additional reports">
+                <i class="bi bi-file-earmark-bar-graph"></i> More Reports
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ url_for('reports.reports_hub') }}">
+                    <i class="bi bi-collection"></i> Reports Hub
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{{ url_for('reports.financial_report') }}">
+                    <i class="bi bi-cash-stack"></i> Financial Summary
+                </a></li>
+                <li><a class="dropdown-item" href="{{ url_for('reports.repairs_report') }}">
+                    <i class="bi bi-wrench"></i> Repairs by Status
+                </a></li>
+                <li><a class="dropdown-item" href="{{ url_for('reports.inventory_report') }}">
+                    <i class="bi bi-box-seam"></i> Inventory Report
+                </a></li>
+            </ul>
+        </div>
+        {% endif %}
+        
         {% if current_user.role == 'ADMIN' %}
         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#resetModal">
             <i class="bi bi-trash"></i> Reset Sales

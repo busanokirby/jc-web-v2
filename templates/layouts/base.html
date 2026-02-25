@@ -113,13 +113,14 @@
         .jc-navbar .dropdown-item {
             color: #212529;
             transition: all 0.2s ease;
-            padding: 0.75rem 1.5rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
         }
         
         .jc-navbar .dropdown-item:hover {
             background-color: rgba(30, 127, 67, 0.1);
             color: var(--jc-green);
-            padding-left: 1.75rem;
+            padding-left: 1.25rem;
         }
         
         .jc-navbar .dropdown-item:focus-visible {
@@ -147,11 +148,22 @@
             height: 48px;
             width: 48px;
         }
+        .jc-navbar .navbar-brand {
+            padding: 0.35rem 0 !important;
+            margin-right: 1rem !important;
+        }
+        .jc-navbar .navbar-brand .fw-bold {
+            font-size: 0.95rem !important;
+            line-height: 1.1;
+        }
+        .jc-navbar .navbar-brand small {
+            font-size: 0.65rem !important;
+        }
         .text-light-opacity-75 {
             color: rgba(255,255,255,0.75) !important;
         }
         .nav-text {
-            margin-left: var(--jc-spacing-xs);
+            margin-left: 0.25rem;
         }
         
         /* Badge animation */
@@ -169,15 +181,16 @@
             .jc-navbar .navbar-collapse {
                 background-color: rgba(0, 0, 0, 0.2);
                 border-radius: 8px;
-                margin-top: 10px;
-                padding: 15px;
+                margin-top: 8px;
+                padding: 10px;
                 backdrop-filter: blur(10px);
             }
             
             .jc-navbar .nav-link {
-                padding: 0.75rem 0 !important;
-                border-radius: 6px;
-                margin: 0.25rem 0;
+                padding: 0.4rem 0.5rem !important;
+                border-radius: 4px;
+                margin: 0.15rem 0;
+                font-size: 0.9rem;
             }
             
             .jc-navbar .nav-link.active::after {
@@ -187,24 +200,27 @@
             .jc-navbar .nav-link.active {
                 background-color: rgba(255, 255, 255, 0.2);
                 border-left: 3px solid var(--jc-green-light);
-                padding-left: 12px !important;
+                padding-left: 10px !important;
             }
         }
         
         .jc-navbar .nav-link {
             transition: all 0.2s ease;
             color: rgba(255, 255, 255, 0.9) !important;
-            margin: 0 2px; /* tighter spacing */
-            border-radius: 4px;
-            padding: 0.4rem 0.75rem !important; /* slim vertically */
-            font-size: 0.95rem; /* slightly smaller text */
-            white-space: nowrap; /* prevent items from wrapping */
+            margin: 0 1px;
+            border-radius: 3px;
+            padding: 0.3rem 0.6rem !important;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            height: 32px;
+            white-space: nowrap;
         }
         
         .jc-navbar .nav-link:hover {
             color: #a8e6b0 !important;
             background-color: rgba(255, 255, 255, 0.1);
-            transform: none; /* remove upward shift for stability */
+            transform: none;
         }
         
         .jc-navbar .nav-link.active {
@@ -426,7 +442,7 @@
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('core.dashboard') }}">
                 <img src="{{ url_for('static', filename='images/jc-logo.png') }}" 
                      alt="JC Icons logo" class="jc-logo-brand" width="48" height="48">
-                <div class="ms-2 text-white">
+                <div class="ms-1 text-white">
                     <span class="fw-bold lh-1">JC ICONS</span>
                     <small class="d-block text-light-opacity-75">Management System</small>
                 </div>
