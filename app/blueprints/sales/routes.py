@@ -1,10 +1,21 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from flask import render_template, request, redirect, url_for, flash, jsonify, current_app as app
+from flask import (
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash,
+    jsonify,
+    current_app as app,
+    Response,
+)
 from flask_login import login_required
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date, time
 import json
+from io import StringIO
+import csv
 
 from app.extensions import db
 from app.models.customer import Customer
@@ -18,7 +29,7 @@ from app.services.codes import generate_invoice_no
 from app.services.stock import stock_out, stock_in, StockError
 from app.services.financials import safe_decimal
 from app.services.pagination import get_page_args, paginate_sequence
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 
 from . import sales_bp
 
@@ -625,7 +636,7 @@ def credit_claim(sale_id: int):
 @login_required
 @roles_required("ADMIN", "SALES")
 def daily_sales():
-    """Dedicated daily sales report combining product purchases and repair fees."""
+    """Daily Sales Report = payments received on the selected date (sales + repairs)."""
 
     # parse and validate date parameter
     date_str = request.args.get('date', '')
@@ -639,65 +650,176 @@ def daily_sales():
         selected_date = today_date
 
     if selected_date > today_date:
-        # never allow future dates
         return redirect(url_for('sales.daily_sales', date=today_date.isoformat()))
 
-    # prepare bounds for datetime comparisons
+    # bounds for datetime comparisons
     start_dt = datetime.combine(selected_date, datetime.min.time())
     end_dt = datetime.combine(selected_date, datetime.max.time())
 
-    # sales records for the date
-    sale_query = (
-        Sale.query
-        .options(joinedload(Sale.customer), joinedload(Sale.items).joinedload(SaleItem.product))
-        .filter(Sale.created_at >= start_dt, Sale.created_at <= end_dt)
-    )
-    sales = sale_query.all()
+    records = []
+    total_payments = Decimal("0.00")
+    partial_payment_count = 0
+    partial_payment_total = Decimal("0.00")
 
-    # repairs completed on the date
+    # =========================================================
+    # SALES: use SalePayment.paid_at (THIS is the key fix)
+    # =========================================================
+    sale_payments = (
+        SalePayment.query
+        .join(Sale, SalePayment.sale_id == Sale.id)
+        .options(
+            joinedload(SalePayment.sale).joinedload(Sale.customer),
+            joinedload(SalePayment.sale).joinedload(Sale.items).joinedload(SaleItem.product),
+            joinedload(SalePayment.sale).joinedload(Sale.payments),
+        )
+        .filter(
+            or_(
+                func.date(SalePayment.paid_at) == selected_date,
+                and_(SalePayment.paid_at == None, func.date(Sale.created_at) == selected_date),
+            )
+        )
+        .order_by(SalePayment.paid_at.desc(), SalePayment.id.desc())
+        .all()
+    )
+
+    for pay in sale_payments:
+        sale = pay.sale
+        if not sale:
+            continue
+
+        # Ignore cancelled/drafts if you use them
+        if (sale.status or "").upper() in ["VOID", "DRAFT"]:
+            continue
+
+        amount = Decimal(pay.amount or 0)
+        if amount <= 0:
+            continue  # template is "received payments only"
+
+        cust = sale.customer.display_name if sale.customer else "Walk-in Customer"
+        desc = ""
+        if sale.items:
+            desc = ", ".join(
+                f"{it.qty}×{it.product.name if it.product else 'Unknown'}"
+                for it in sale.items
+            )
+
+        # Determine if sale is still partial AFTER payments (overall state)
+        sale_total = Decimal(sale.total or 0)
+
+        def _payment_within_report(p):
+            paid_at = getattr(p, "paid_at", None)
+            sale_created_at = getattr(p.sale, "created_at", None) if getattr(p, 'sale', None) else None
+            if paid_at:
+                return paid_at <= end_dt
+            if sale_created_at:
+                return sale_created_at <= end_dt
+            return False
+
+        total_paid_upto = Decimal(sum((p.amount or 0) for p in (sale.payments or []) if _payment_within_report(p)))
+        is_partial = total_paid_upto < sale_total
+
+        if is_partial:
+            partial_payment_count += 1
+            partial_payment_total += amount
+
+        total_payments += amount
+
+        records.append({
+            "datetime": pay.paid_at or getattr(pay.sale, 'created_at', None),  # payment time (fallback to sale.created_at)
+            "customer": cust,
+            "type": "Purchase",
+            "description": desc,
+            "amount": float(amount),  # amount received (deposit/partial/full)
+            "payment_status": "PARTIAL" if is_partial else "PAID",
+            "is_partial": is_partial,
+            "receipt_id": sale.id,
+            "receipt_type": "sale",
+        })
+
+    # =========================================================
+    # REPAIRS: keep your existing logic unless you also have a RepairPayment table.
+    # (Without a repair payment timestamp, repairs can't be truly payment-date accurate.)
+    # =========================================================
     repair_query = (
         Device.query
         .options(joinedload(Device.owner))
-        .filter(Device.actual_completion == selected_date)
+        .filter(
+            or_(
+                Device.actual_completion == selected_date,
+                and_(func.date(Device.deposit_paid_at) == selected_date),
+                and_(
+                    Device.deposit_paid > 0,
+                    func.date(Device.created_at) == selected_date,
+                ),
+            )
+        )
     )
     repairs = repair_query.all()
 
-    records = []
-    for s in sales:
-        cust = s.customer.display_name if s.customer else 'Walk-in Customer'
-        desc = ''
-        if s.items:
-            desc = ', '.join(f"{it.qty}×{it.product.name if it.product else 'Unknown'}" for it in s.items)
-        records.append({
-            'datetime': s.created_at,
-            'customer': cust,
-            'type': 'Purchase',
-            'description': desc,
-            'amount': float(s.total or 0)
-        })
-
     for d in repairs:
-        cust = d.owner.display_name if hasattr(d, 'owner') and d.owner else 'Walk-in Customer'
-        # use actual_completion for date/time; fallback to created_at
-        dt = datetime.combine(d.actual_completion, datetime.min.time()) if isinstance(d.actual_completion, (datetime,)) else datetime.combine(d.actual_completion, datetime.min.time())
+        # include repairs where either fully paid, partial, or have a deposit recorded
+        if getattr(d, "charge_waived", False):
+            continue
+
+        has_deposit = (d.deposit_paid or 0) > 0
+        status_upper = (d.payment_status or "").capitalize()
+        if (status_upper not in ['Partial', 'Paid']) and not has_deposit:
+            continue
+
+        cust = d.owner.display_name if getattr(d, 'owner', None) and d.owner else 'Walk-in Customer'
+        dt = datetime.combine(d.actual_completion, datetime.min.time()) if isinstance(d.actual_completion, date) else datetime.combine(datetime.now().date(), datetime.min.time())
         desc = d.device_type or 'Repair'
+
+        # If fully paid, count full total. Otherwise count deposit as amount received (partial)
+        if status_upper == 'Paid':
+            amount = Decimal(d.total_cost or 0)
+            is_partial = False
+        else:
+            amount = Decimal(d.deposit_paid or 0)
+            is_partial = True if amount > 0 else False
+
+        if is_partial:
+            partial_payment_count += 1
+            partial_payment_total += amount
+
+        total_payments += amount
+
         records.append({
             'datetime': dt,
             'customer': cust,
             'type': 'Repair',
             'description': desc,
-            'amount': float(d.total_cost or 0)
+            'amount': float(amount),
+            'payment_status': d.payment_status,
+            'is_partial': is_partial,
+            'receipt_id': d.id,
+            'receipt_type': 'repair'
         })
 
     # sort newest first
     records.sort(key=lambda r: r['datetime'], reverse=True)
-    total_sales = sum(r['amount'] for r in records)
+
+    # CSV export
+    fmt = request.args.get('format', 'html')
+    if fmt == 'csv':
+        si = StringIO()
+        cw = csv.writer(si)
+        cw.writerow(["Date/Time", "Customer", "Type", "Description", "Amount", "Payment Status"])
+        for r in records:
+            dt = r['datetime']
+            dt_str = dt.strftime('%Y-%m-%d %H:%M:%S') if hasattr(dt, 'strftime') else str(dt)
+            cw.writerow([dt_str, r.get('customer',''), r.get('type',''), r.get('description',''), r.get('amount',0), r.get('payment_status','')])
+        output = si.getvalue()
+        return Response(output, mimetype='text/csv', headers={
+            'Content-Disposition': f'attachment; filename="daily_sales_{selected_date.isoformat()}.csv"'
+        })
 
     return render_template(
         'sales/daily_sales.html',
         sales_records=records,
-        total_sales=total_sales,
-        selected_date=selected_date.isoformat(),
+        total_sales=float(total_payments),
+        total_partial_count=partial_payment_count,
+        total_partial_amount=float(partial_payment_total),
         report_date=selected_date,
         today=today_date.isoformat(),
         now=datetime.now()
