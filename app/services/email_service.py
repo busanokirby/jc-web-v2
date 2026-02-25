@@ -389,12 +389,14 @@ class EmailService:
         if not smtp_config or not smtp_config.is_enabled:
             return False
         
-        # Check if current time matches scheduled time (use UTC to avoid server timezone drift)
-        now_utc = datetime.utcnow()
+        # Check if current time matches scheduled time
+        # Note: auto_send_time is stored as local time from the admin UI
+        # Compare against local time, not UTC, to match user expectations
+        now_local = datetime.now()
         configured_hour = smtp_config.auto_send_time.hour
         configured_minute = smtp_config.auto_send_time.minute
         # scheduler runs every minute so a strict hour/minute comparison is sufficient
-        if now_utc.hour != configured_hour or now_utc.minute != configured_minute:
+        if now_local.hour != configured_hour or now_local.minute != configured_minute:
             return False
         
         # Check if enough time has passed based on frequency
