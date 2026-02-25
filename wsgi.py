@@ -1,8 +1,9 @@
 """
-WSGI entry point for production servers (Gunicorn, uWSGI, etc.)
+WSGI entry point for production servers (Waitress, Gunicorn, uWSGI, etc.)
 Use this file to run the app in production environments
 
-Example:
+Examples:
+    waitress-serve wsgi:app
     gunicorn wsgi:app
 """
 import os

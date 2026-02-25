@@ -38,6 +38,11 @@
                 <div class="card-body p-4">
                     <form method="POST" novalidate>
                         <input type="hidden" name="action" value="save">
+                        {% if config and config.is_enabled and not config.get_recipients() %}
+                            <div class="alert alert-warning">
+                                SMTP is enabled but no recipient email address has been set. Reports will not be delivered until this field is populated.
+                            </div>
+                        {% endif %}
                         
                         <!-- Row 1: Server & Port -->
                         <div class="row">
@@ -114,6 +119,16 @@
                                 <small class="form-text text-muted">What time to send daily/scheduled reports</small>
                             </div>
                         </div>
+                        <!-- Row 5: Recipients -->
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="recipient_emails" class="form-label fw-500">Recipient Email(s)</label>
+                                <input type="text" class="form-control" id="recipient_emails" name="recipient_emails"
+                                       value="{% if config %}{{ config.get_recipients() | join(', ') }}{% endif %}"
+                                       placeholder="Comma-separated addresses">
+                                <small class="form-text text-muted">Where the report will be sent. You may add multiple addresses separated by commas.</small>
+                            </div>
+                        </div>
 
                         <!-- Buttons -->
                         <div class="d-flex gap-2 mt-4">
@@ -121,7 +136,7 @@
                                 <i class="bi bi-check-circle"></i> Save Settings
                             </button>
                             <button type="button" class="btn btn-info" id="testEmailBtn" 
-                                    {% if not config or not config.smtp_server or not config.email_address %}disabled{% endif %}>
+                                    {% if not config or not config.smtp_server or not config.email_address or not config.get_recipients() %}disabled{% endif %}>
                                 <i class="bi bi-send"></i> Send Test Email
                             </button>
                         </div>
@@ -236,7 +251,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Send a test email to <strong>{{ config.email_address if config else 'your address' }}</strong>?</p>
+                <p>Send a test email to <strong>{{ config.get_recipients() | join(', ') if config else 'your address(es)' }}</strong>?</p>
                 <p class="text-muted small">This will generate today's report and send it immediately.</p>
             </div>
             <div class="modal-footer">

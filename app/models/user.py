@@ -2,12 +2,13 @@
 User model for authentication and authorization
 """
 from app.extensions import db
+from app.models.base import BaseModel
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
 
-class User(UserMixin, db.Model):
+class User(UserMixin, BaseModel, db.Model):
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -29,7 +30,16 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
     
     def has_role(self, *roles):
-        """Check if user has any of the specified roles"""
+        """Check if user has any of the specified roles.
+
+        The SALES and TECH roles are considered interchangeable; a technician
+        is allowed to perform sales functions and vice‑versa.  This simplifies
+        permission lists throughout the codebase.
+        """
+        if self.role == 'SALES' and 'TECH' in roles:
+            return True
+        if self.role == 'TECH' and 'SALES' in roles:
+            return True
         return self.role in roles
     
     def __repr__(self):

@@ -192,6 +192,7 @@ class SMTPSettings(db.Model):
     smtp_port            # Usually 587 or 465
     email_address        # From: address
     email_password_encrypted  # Fernet-encrypted
+    recipient_emails_encrypted  # Fernet-encrypted comma-separated recipient list
     use_tls              # Boolean: use TLS
     is_enabled           # Boolean: active/inactive
     auto_send_time       # Time field: HH:MM
@@ -211,7 +212,7 @@ class SMTPSettings(db.Model):
 class EmailReport(db.Model):
     smtp_settings_id     # FK to SMTPSettings
     report_type          # String: daily_sales, etc
-    recipient_email      # String: to address
+    recipient_email      # String: comma-separated to address(es)
     subject              # String: email subject
     total_revenue        # Decimal: sum of payments
     total_transactions   # Integer: count
@@ -319,15 +320,16 @@ class EmailReport(db.Model):
 **Key Functions**:
 - `init_scheduler(app)` - Initializes scheduler at app startup
   - Creates BackgroundScheduler
-  - Adds job: check_and_send_email() every minute at :00 second
+  - Adds job: `check_and_send_email(app)` every minute at :00 second; the
+    application instance is passed to ensure the job can open an app context.
   - Starts scheduler
   - Handles errors gracefully
 
-- `check_and_send_email()` - Job function executed every minute
-  - Gets Flask app context
-  - Calls EmailService.send_automated_report()
-  - Logs to logger if success
-  - Catches exceptions
+- `check_and_send_email(app)` - Job function executed every minute
+  - Accepts the Flask `app` instance (provided by `init_scheduler`)
+  - Enters application context using `with app.app_context()`
+  - Calls `EmailService.send_automated_report()`
+  - Logs success and catches exceptions
 
 - `stop_scheduler()` - Graceful shutdown
   - Called on app shutdown

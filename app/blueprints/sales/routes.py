@@ -16,6 +16,9 @@ from datetime import datetime, timedelta, date, time
 import json
 from io import StringIO
 import csv
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.extensions import db
 from app.models.customer import Customer
@@ -29,6 +32,7 @@ from app.services.codes import generate_invoice_no
 from app.services.stock import stock_out, stock_in, StockError
 from app.services.financials import safe_decimal
 from app.services.pagination import get_page_args, paginate_sequence
+from app.services.report_service import ReportService
 from sqlalchemy import func, or_, and_
 
 from . import sales_bp
@@ -77,7 +81,7 @@ def pos():
             for item in items:
                 product_id = int(item.get("product_id"))
                 qty = int(item.get("qty"))
-                item_price = safe_decimal(item.get("price"), None)  # Allow price override
+                item_price = safe_decimal(item.get("price"), "0.00")  # Allow price override
                 
                 if qty <= 0:
                     flash("Invalid quantity. Please enter a quantity greater than 0.", "danger")
@@ -206,9 +210,9 @@ def sales_list():
         # Sales queries (use joinedload to avoid N+1 when building history)
         try:
             sales_base = Sale.query.options(
-                joinedload(Sale.items).joinedload(SaleItem.product),
-                joinedload(Sale.customer),
-                joinedload(Sale.payments)
+                joinedload(Sale.items).joinedload(SaleItem.product),  # type: ignore[arg-type]
+                joinedload(Sale.customer),  # type: ignore[arg-type]
+                joinedload(Sale.payments)  # type: ignore[arg-type]
             )
             if status:
                 sales_base = sales_base.filter(Sale.status.ilike(status.upper()))
@@ -266,8 +270,8 @@ def sales_list():
         # Devices / Repairs queries (eager-load parts + owner)
         try:
             devices_base = Device.query.options(
-                joinedload(Device.parts_used_rows).joinedload(RepairPartUsed.product),
-                joinedload(Device.owner)
+                joinedload(Device.parts_used_rows).joinedload(RepairPartUsed.product),  # type: ignore[arg-type]
+                joinedload(Device.owner),  # type: ignore[arg-type]
             )
             if status:
                 # Device.payment_status is Title-cased (e.g. 'Paid')
@@ -317,9 +321,9 @@ def sales_list():
         # Regular recent sales (eager load items and product to avoid N+1)
         try:
             sales = Sale.query.options(
-                joinedload(Sale.items).joinedload(SaleItem.product),
-                joinedload(Sale.customer),
-                joinedload(Sale.payments)
+                joinedload(Sale.items).joinedload(SaleItem.product),  # type: ignore[arg-type]
+                joinedload(Sale.customer),  # type: ignore[arg-type]
+                joinedload(Sale.payments)  # type: ignore[arg-type]
             ).order_by(Sale.created_at.desc()).limit(200).all()
         except Exception as e:
             app.logger.error(f"Sales fetch error: {str(e)}")
@@ -328,8 +332,8 @@ def sales_list():
         # Devices that have monetary transactions (parts, repair cost) or released on credit
         try:
             devices = Device.query.options(
-                joinedload(Device.parts_used_rows).joinedload(RepairPartUsed.product),
-                joinedload(Device.owner)
+                joinedload(Device.parts_used_rows).joinedload(RepairPartUsed.product),  # type: ignore[arg-type]
+                joinedload(Device.owner),  # type: ignore[arg-type]
             ).filter(
                 or_(
                     Device.parts_used_rows.any(),
@@ -467,7 +471,13 @@ def sales_list():
 def credits():
     """List devices released on credit (outstanding claims)."""
     devices = Device.query.filter(Device.claimed_on_credit == True).order_by(Device.created_at.desc()).all()
-    sales_on_credit = Sale.query.options(joinedload(Sale.payments), joinedload(Sale.customer)).filter(Sale.claimed_on_credit == True).order_by(Sale.created_at.desc()).all()
+    sales_on_credit = (
+        Sale.query
+        .options(joinedload(Sale.payments), joinedload(Sale.customer))  # type: ignore[arg-type]
+        .filter(Sale.claimed_on_credit == True)
+        .order_by(Sale.created_at.desc())
+        .all()
+    )
 
     history = []
 
@@ -662,21 +672,23 @@ def daily_sales():
     partial_payment_total = Decimal("0.00")
 
     # =========================================================
-    # SALES: use SalePayment.paid_at (THIS is the key fix)
+    # SALES: use SalePayment.paid_at (with strict date filtering)
     # =========================================================
+    # CRITICAL FIX: Removed fallback to Sale.created_at in filter
+    # This prevents double-counting of transactions
+    # Now only includes payments with actual paid_at timestamps
     sale_payments = (
         SalePayment.query
         .join(Sale, SalePayment.sale_id == Sale.id)
         .options(
-            joinedload(SalePayment.sale).joinedload(Sale.customer),
-            joinedload(SalePayment.sale).joinedload(Sale.items).joinedload(SaleItem.product),
-            joinedload(SalePayment.sale).joinedload(Sale.payments),
+            joinedload(SalePayment.sale).joinedload(Sale.customer),  # type: ignore[arg-type]
+            joinedload(SalePayment.sale).joinedload(Sale.items).joinedload(SaleItem.product),  # type: ignore[arg-type]
+            joinedload(SalePayment.sale).joinedload(Sale.payments),  # type: ignore[arg-type]
         )
         .filter(
-            or_(
-                func.date(SalePayment.paid_at) == selected_date,
-                and_(SalePayment.paid_at == None, func.date(Sale.created_at) == selected_date),
-            )
+            SalePayment.paid_at.isnot(None),  # Strict: paid_at must be set
+            func.date(SalePayment.paid_at) == selected_date,
+            Sale.status.in_(['PAID', 'PARTIAL']),
         )
         .order_by(SalePayment.paid_at.desc(), SalePayment.id.desc())
         .all()
@@ -687,15 +699,24 @@ def daily_sales():
         if not sale:
             continue
 
+        cust_obj = sale.customer
+        # ensure we have a simple string so template prints nicely
+        if cust_obj:
+            cust_name = cust_obj.display_name
+        else:
+            cust_name = 'Walk-in Customer'
+
         # Ignore cancelled/drafts if you use them
         if (sale.status or "").upper() in ["VOID", "DRAFT"]:
             continue
 
         amount = Decimal(pay.amount or 0)
         if amount <= 0:
-            continue  # template is "received payments only"
-
-        cust = sale.customer.display_name if sale.customer else "Walk-in Customer"
+                # Validation: skip negative/zero amounts
+                logger.warning(
+                    f"Skipping invalid payment {pay.id}: amount={amount}, sale={pay.sale_id}"
+                )
+                continue  # Only include received payments (positive amounts)
         desc = ""
         if sale.items:
             desc = ", ".join(
@@ -726,7 +747,7 @@ def daily_sales():
 
         records.append({
             "datetime": pay.paid_at or getattr(pay.sale, 'created_at', None),  # payment time (fallback to sale.created_at)
-            "customer": cust,
+            "customer": cust_name,
             "type": "Purchase",
             "description": desc,
             "amount": float(amount),  # amount received (deposit/partial/full)
@@ -742,7 +763,7 @@ def daily_sales():
     # =========================================================
     repair_query = (
         Device.query
-        .options(joinedload(Device.owner))
+        .options(joinedload(Device.owner))  # type: ignore[arg-type]
         .filter(
             or_(
                 Device.actual_completion == selected_date,
@@ -841,7 +862,7 @@ def reports():
     # Query sales within date range (used by KPI calculations and trends)
     # eager load related items to prevent N+1 issues when iterating
     sales_period = (
-        Sale.query.options(joinedload(Sale.items).joinedload(SaleItem.product))
+        Sale.query.options(joinedload(Sale.items).joinedload(SaleItem.product))  # type: ignore[arg-type]
         .filter(Sale.created_at >= start_date)
         .all()
     )
@@ -990,7 +1011,7 @@ def daily_sales_cashflow():
     # query payments and eager-load related sale + customer to avoid N+1
     payments_q = (
         SalePayment.query
-        .options(joinedload(SalePayment.sale).joinedload(Sale.customer))
+        .options(joinedload(SalePayment.sale).joinedload(Sale.customer))  # type: ignore[arg-type]
         .filter(func.date(SalePayment.paid_at) == selected)
         .order_by(SalePayment.paid_at.desc())
     )

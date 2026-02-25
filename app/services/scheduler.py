@@ -21,13 +21,19 @@ def init_scheduler(app):
     Initialize and start the scheduler.
     
     Should be called in app initialization (create_app or main).
+
+    The job function needs access to the Flask application context.  APScheduler
+    runs jobs in a background thread where ``current_app`` is not available,
+    therefore we capture the app instance here and pass it as an argument.
     """
     if scheduler.running:
         return
-    
-    # Add job to check and send emails every minute
+
+    # Add job to check and send emails every minute, providing ``app`` as an
+    # argument so the job can establish an application context safely.
     scheduler.add_job(
         func=check_and_send_email,
+        args=[app],
         trigger=CronTrigger(second=0),  # Run every minute
         id='email_report_check',
         name='Check and send email reports',
@@ -36,7 +42,7 @@ def init_scheduler(app):
         coalesce=True,
         misfire_grace_time=60
     )
-    
+
     try:
         scheduler.start()
         logger.info("Email scheduler started successfully")
@@ -44,15 +50,18 @@ def init_scheduler(app):
         logger.error(f"Failed to start scheduler: {e}")
 
 
-def check_and_send_email():
+def check_and_send_email(app):
     """
-    Executed every minute to check if email should be sent.
-    This is the scheduled task function.
+    Executed every minute by the scheduler to check and send the automated
+    report.
+
+    ``app`` is passed by ``init_scheduler`` so that the function can enter a
+    proper Flask application context.  Attempting to read ``current_app``
+    directly in a scheduler thread raises ``RuntimeError`` (see error logs),
+    hence the explicit argument.
     """
     try:
-        # Get Flask application context
-        from flask import current_app
-        with current_app.app_context():
+        with app.app_context():
             success = EmailService.send_automated_report()
             if success:
                 logger.info(f"Automated email report sent at {datetime.now()}")

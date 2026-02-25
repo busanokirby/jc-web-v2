@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional, List
 from app.extensions import db
+from app.models.base import BaseModel
 
 
-class Category(db.Model):
+class Category(BaseModel, db.Model):
     __tablename__ = "category"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -13,13 +15,14 @@ class Category(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    products = db.relationship("Product", backref="category", lazy=True)
+    products: List["Product"]  # type: ignore[assignment]
+    products = db.relationship("Product", back_populates="category", lazy=True)  # type: ignore[assignment]
 
     def __repr__(self) -> str:
         return f"<Category {self.name}>"
 
 
-class Product(db.Model):
+class Product(BaseModel, db.Model):
     __tablename__ = "product"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -43,18 +46,25 @@ class Product(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationship to stock movements with cascade delete
+    # relationship hints
+    category: Optional["Category"]  # type: ignore[assignment]
+    stock_movements: List["StockMovement"]  # type: ignore[assignment]
+
+    # explicit relationship to link back to category
+    category = db.relationship("Category", back_populates="products")  # type: ignore[assignment]
+
     stock_movements = db.relationship(
         "StockMovement",
         backref="product",
         cascade="all, delete-orphan",
         lazy=True
-    )
+    )  # type: ignore[assignment]
 
     def __repr__(self) -> str:
         return f"<Product {self.name} (stock={self.stock_on_hand})>"
 
 
-class StockMovement(db.Model):
+class StockMovement(BaseModel, db.Model):
     __tablename__ = "stock_movement"
 
     id = db.Column(db.Integer, primary_key=True)

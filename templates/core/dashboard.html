@@ -333,12 +333,31 @@
                 </div>
             </div>
         </div>
+        <!-- Email Settings Card -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card dashboard-card card-secondary h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('admin.email_settings') }}" class="text-decoration-none d-block" aria-label="SMTP Email Configuration">
+                        <div class="icon-circle bg-secondary bg-opacity-10">
+                            <i class="bi bi-envelope" style="color: #6c757d;"></i>
+                        </div>
+                        <h5 class="card-title">Email</h5>
+                        <p class="card-text">SMTP settings</p>
+                    </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('admin.email_settings') }}" class="btn btn-secondary btn-sm w-100">
+                            <i class="bi bi-envelope" aria-hidden="true"></i> Configure
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- SALES DASHBOARD -->
-{% elif current_user.role == 'SALES' %}
-<div role="region" aria-label="Sales Dashboard Controls">
+{% elif current_user.role in ['SALES', 'TECH'] %}
+<div role="region" aria-label="Sales/Tech Dashboard Controls">
     <div class="row mt-3 g-2">
         <!-- POS Card (Primary) -->
         <div class="col-lg-6 col-md-6">
@@ -426,51 +445,6 @@
     </div>
 </div>
 
-<!-- TECH DASHBOARD -->
-{% elif current_user.role == 'TECH' %}
-<div role="region" aria-label="Technician Dashboard Controls">
-    <div class="row mt-3 g-2">
-        <!-- Repairs Card (Primary) -->
-        <div class="col-lg-8 col-md-12">
-            <div class="card dashboard-card card-primary h-100" role="link" tabindex="0">
-                <div class="card-body text-center">
-                    <a href="{{ url_for('repairs.repairs') }}" class="text-decoration-none d-block" aria-label="Repair Ticket Management">
-                        <div class="icon-circle bg-primary bg-opacity-10">
-                            <i class="bi bi-wrench-adjustable" style="color: #0d6efd;"></i>
-                        </div>
-                        <h5 class="card-title">Repairs</h5>
-                        <p class="card-text">Service tickets</p>
-                    </a>
-                    <div class="mt-2">
-                        <a href="{{ url_for('repairs.repairs') }}" class="btn btn-primary btn-sm w-100">
-                            <i class="bi bi-list" aria-hidden="true"></i> Manage
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Customers Card -->
-        <div class="col-lg-4 col-md-12">
-            <div class="card dashboard-card card-danger h-100" role="link" tabindex="0">
-                <div class="card-body text-center">
-                    <a href="{{ url_for('customers.customers') }}" class="text-decoration-none d-block" aria-label="Customer Contact Information">
-                        <div class="icon-circle bg-danger bg-opacity-10">
-                            <i class="bi bi-person-vcard" style="color: #dc3545;"></i>
-                        </div>
-                        <h5 class="card-title">Customers</h5>
-                        <p class="card-text">Customer info</p>
-                    </a>
-                    <div class="mt-2">
-                        <a href="{{ url_for('customers.customers') }}" class="btn btn-danger btn-sm w-100">
-                            <i class="bi bi-list" aria-hidden="true"></i> View
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 {% else %}
 <div role="alert" class="alert alert-danger alert-dismissible fade show" style="margin-top: 2rem;">

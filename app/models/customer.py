@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import List
 from app.extensions import db
+from app.models.base import BaseModel
 
 
-class Customer(db.Model):
+class Customer(BaseModel, db.Model):
     __tablename__ = "customer"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -19,8 +21,13 @@ class Customer(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     loyalty_points = db.Column(db.Integer, default=0)
 
+    # type hints for relationships so the static analyser can see them
+    devices: List["Device"]
+    sales: List["Sale"]
+    created_by_user: "User"
+
     devices = db.relationship("Device", backref="owner", lazy=True, cascade="all, delete-orphan")
-    sales = db.relationship("Sale", backref="customer", lazy=True, cascade="all, delete-orphan")
+    sales = db.relationship("Sale", back_populates="customer", lazy=True, cascade="all, delete-orphan")
     created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
 
     @property

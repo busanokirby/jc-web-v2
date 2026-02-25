@@ -1,6 +1,9 @@
 """
 Database models package
 """
+# Base model used to give all declarative models a permissive constructor
+from app.models.base import BaseModel
+
 from app.models.user import User
 from app.models.settings import Setting
 from app.models.customer import Customer

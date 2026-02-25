@@ -32,7 +32,7 @@ def products():
         app.logger.debug("Inventory search q=%s page=%s per_page=%s", q, page, per_page)
         query = (
             query.outerjoin(Category)
-            .options(joinedload(Product.category))
+            .options(joinedload(Product.category))  # type: ignore[arg-type]
             .filter(
                 or_(
                     Product.name.ilike(pattern),
@@ -44,7 +44,7 @@ def products():
             .distinct()
         )
     else:
-        query = query.options(joinedload(Product.category))
+        query = query.options(joinedload(Product.category))  # type: ignore[arg-type]
 
     if category_id:
         # ``filter_by`` misbehaves after an outerjoin because it resolves
@@ -122,7 +122,7 @@ def ajax_adjust_product(product_id):
     sell_price_raw = data.get('sell_price')
     if sell_price_raw is not None and str(sell_price_raw).strip() != '':
         try:
-            p.sell_price = safe_decimal(sell_price_raw, None)
+            p.sell_price = safe_decimal(sell_price_raw, "0.00")
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -514,7 +514,7 @@ def adjust_stock_page():
         new_price = (request.form.get("sell_price") or "").strip()
         if new_price:
             try:
-                product.sell_price = safe_decimal(new_price, None)
+                product.sell_price = safe_decimal(new_price, "0.00")
             except Exception:
                 db.session.rollback()
                 flash("Invalid price format.", "danger")

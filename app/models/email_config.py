@@ -3,7 +3,9 @@ Email Configuration and Reporting Models
 """
 from __future__ import annotations
 from datetime import datetime, time
+from typing import List
 from app.extensions import db
+from app.models.base import BaseModel
 import os
 import base64
 import logging
@@ -11,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class SMTPSettings(db.Model):
+class SMTPSettings(BaseModel, db.Model):
     """SMTP Configuration for automated email reporting"""
     __tablename__ = 'smtp_settings'
     
@@ -31,13 +33,17 @@ class SMTPSettings(db.Model):
     # Frequency: 'daily', 'every_3_days', 'weekly'
     frequency = db.Column(db.String(20), default='daily')
     
+    # Recipient emails (comma-separated, encrypted)
+    recipient_emails_encrypted = db.Column(db.LargeBinary, nullable=True)
+    
     # Tracking
     last_sent_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    email_logs = db.relationship('EmailReport', backref='smtp_config', cascade='all, delete-orphan')
+    email_logs: List["EmailReport"]  # type: ignore[assignment]
+    email_logs = db.relationship('EmailReport', backref='smtp_config', cascade='all, delete-orphan')  # type: ignore[assignment]
     
     @staticmethod
     def get_cipher():
@@ -74,7 +80,11 @@ class SMTPSettings(db.Model):
                 except:
                     # If not valid base64, create new key
                     import hashlib
-                    hashed = hashlib.sha256(key if isinstance(key, bytes) else key.encode()).digest()
+                    if isinstance(key, str):
+                        key_bytes = key.encode()
+                    else:
+                        key_bytes = key
+                    hashed = hashlib.sha256(key_bytes).digest()
                     key = base64.urlsafe_b64encode(hashed)
             
             return Fernet(key)
@@ -121,11 +131,54 @@ class SMTPSettings(db.Model):
         """Get the active SMTP configuration (assumes single config)"""
         return cls.query.first()
     
+    # --- recipient helpers ------------------------------------------------
+    def set_recipients(self, emails: List[str]):
+        """Encrypt and store comma-separated recipient emails."""
+        clean = [e.strip() for e in emails if e and e.strip()]
+        raw = ",".join(clean)
+        try:
+            cipher = self.get_cipher()
+            if cipher:
+                self.recipient_emails_encrypted = cipher.encrypt(raw.encode())
+            else:
+                self.recipient_emails_encrypted = raw.encode()
+        except Exception as e:
+            logger.error(f"Failed to encrypt recipients: {e}")
+            self.recipient_emails_encrypted = raw.encode()
+
+    def get_recipients(self) -> List[str]:
+        """Return recipients as a list of strings."""
+        if not self.recipient_emails_encrypted:
+            return []
+        try:
+            cipher = self.get_cipher()
+            if cipher:
+                decrypted = cipher.decrypt(self.recipient_emails_encrypted).decode()
+            else:
+                decrypted = self.recipient_emails_encrypted.decode()
+        except Exception:
+            try:
+                decrypted = self.recipient_emails_encrypted.decode()
+            except Exception:
+                return []
+        if not decrypted:
+            return []
+        return [e.strip() for e in decrypted.split(',') if e.strip()]
+
+    @staticmethod
+    def validate_recipients(emails: List[str]) -> bool:
+        """Simple validation for email format; returns False if any email is invalid."""
+        import re
+        pattern = re.compile(r"[^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+")
+        return all(pattern.fullmatch(e) for e in emails)
+
     def __repr__(self) -> str:
-        return f"<SMTPSettings {self.email_address} enabled={self.is_enabled} frequency={self.frequency}>"
+        recips = self.get_recipients()
+        recips_display = ",".join(recips[:3]) + ("..." if len(recips) > 3 else "")
+        return f"<SMTPSettings {self.email_address} enabled={self.is_enabled} freq={self.frequency} recips=[{recips_display}]>"
 
 
-class EmailReport(db.Model):
+class EmailReport(BaseModel, db.Model):
     """Log of automated email reports sent"""
     __tablename__ = 'email_report'
     

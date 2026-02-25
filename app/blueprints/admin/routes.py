@@ -37,6 +37,14 @@ def email_settings():
             config.use_tls = request.form.get('use_tls') == 'on'
             config.frequency = request.form.get('frequency', 'daily')
             
+            # Recipient emails
+            raw_recipients = request.form.get('recipient_emails', '').strip()
+            recipients = [r.strip() for r in raw_recipients.split(',') if r.strip()]
+            if recipients and not SMTPSettings.validate_recipients(recipients):
+                flash('One or more recipient emails have an invalid format', 'danger')
+                return redirect(url_for('admin.email_settings'))
+            config.set_recipients(recipients)
+            
             # Parse time
             time_str = request.form.get('auto_send_time', '09:00')
             try:
@@ -52,7 +60,11 @@ def email_settings():
                 config.set_password(password)
             
             db.session.commit()
-            flash('Email settings updated successfully', 'success')
+            # warn if enabled but no recipients
+            if config.is_enabled and not config.get_recipients():
+                flash('Warning: SMTP is enabled but no recipient emails are configured', 'warning')
+            else:
+                flash('Email settings updated successfully', 'success')
             return redirect(url_for('admin.email_settings'))
         
         elif action == 'toggle':
@@ -64,29 +76,36 @@ def email_settings():
             return redirect(url_for('admin.email_settings'))
         
         elif action == 'test':
-            if config and config.smtp_server and config.email_address:
+            # ensure we have recipients
+            recips = config.get_recipients() if config else []
+            if config and config.smtp_server and recips:
                 # Generate test report
                 from datetime import date
                 start_date = date.today()
                 end_date = date.today()
                 
                 report_data = ReportService.generate_report_data(start_date, end_date, 'daily')
-                excel_bytes = ExcelReportService.create_report(report_data)
-                excel_filename = ExcelReportService.generate_filename(start_date, end_date)
+                report_data['start_date'] = start_date
+                report_data['end_date'] = end_date
+                # match EmailService behaviour: no attachment for daily reports
+                excel_bytes = None
+                excel_filename = ''
                 
                 # Send test email
                 success, message = EmailService.send_report(
                     config,
-                    config.email_address,
+                    recips,
                     report_data,
                     excel_bytes,
                     excel_filename
                 )
                 
                 if success:
-                    flash('Test email sent successfully to ' + config.email_address, 'success')
+                    flash('Test email sent successfully to ' + ", ".join(recips), 'success')
                 else:
                     flash(f'Failed to send test email: {message}', 'danger')
+            elif config and not recips:
+                flash('No recipient emails configured', 'warning')
             else:
                 flash('Please configure SMTP settings first', 'warning')
             

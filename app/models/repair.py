@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, date
 from decimal import Decimal
+from typing import Optional, List, Any
 from app.extensions import db
+from app.models.base import BaseModel
 
 
-class Device(db.Model):
+class Device(BaseModel, db.Model):
     __tablename__ = "device"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -77,12 +79,18 @@ class Device(db.Model):
     technician_name_override = db.Column(db.String(100), nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # hints for static analysis
+    owner: "Customer"    # populated via backref from Customer.devices
+    created_by_user: "User"
+    # parts_used_rows is an InstrumentedList with query helpers like .any()
+    parts_used_rows: Any  # type: ignore
+
     created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
     # Parts used with cascade delete to orphaned repair parts
     parts_used_rows = db.relationship("RepairPartUsed", cascade="all, delete-orphan", lazy=True)
 
 
-class Technician(db.Model):
+class Technician(BaseModel, db.Model):
     __tablename__ = "technician"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -93,7 +101,7 @@ class Technician(db.Model):
     assigned_devices = db.relationship("DeviceAssignment", backref="technician", lazy=True)
 
 
-class DeviceAssignment(db.Model):
+class DeviceAssignment(BaseModel, db.Model):
     __tablename__ = "device_assignment"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -105,7 +113,7 @@ class DeviceAssignment(db.Model):
     device = db.relationship("Device", backref="assignments")
 
 
-class RepairPartUsed(db.Model):
+class RepairPartUsed(BaseModel, db.Model):
     __tablename__ = "repair_part_used"
 
     id = db.Column(db.Integer, primary_key=True)

@@ -42,7 +42,7 @@
         <a href="{{ url_for('repairs.print_receipt', device_id=device.id) }}" class="btn btn-outline-success">
             <i class="bi bi-receipt"></i> Print Receipt
         </a>
-        {% if device.status == 'Completed' and not device.is_archived and (current_user.role == 'ADMIN' or current_user.role == 'TECH') %}
+        {% if device.status == 'Completed' and not device.is_archived and (current_user.role == 'ADMIN' or current_user.role in ['SALES','TECH']) %}
         <form method="POST" action="{{ url_for('repairs.archive_repair', device_id=device.id) }}" style="display:inline; margin-left:6px;">
             <button type="submit" class="btn btn-outline-secondary" onclick="return confirm('Archive this completed repair? This will hide it from the active list.');">
                 <i class="bi bi-archive"></i> Archive

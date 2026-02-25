@@ -80,8 +80,8 @@ def create_app(config=None):
     app.config.from_object(config)
     
     # Set database URI
-    if hasattr(config, 'init_db_uri'):
-        app.config['SQLALCHEMY_DATABASE_URI'] = config.init_db_uri()
+    if hasattr(config, 'init_db_uri'):  # type: ignore
+        app.config['SQLALCHEMY_DATABASE_URI'] = config.init_db_uri()  # type: ignore
     else:
         # Fallback to development SQLite
         instance_path = os.path.join(project_root, 'instance')
@@ -92,7 +92,7 @@ def create_app(config=None):
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
+    login_manager.login_view = 'auth.login'  # type: ignore
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'warning'
     
@@ -197,7 +197,10 @@ def create_app(config=None):
             args['page'] = page
             # preserve view args (e.g. blueprint route params)
             try:
-                return url_for(request.endpoint, **request.view_args, **args)
+                view_args = request.view_args or {}
+                endpoint = request.endpoint
+                if endpoint:
+                    return url_for(endpoint, _external=False, **view_args, **args)
             except Exception:
                 # Fallback to path + querystring
                 from urllib.parse import urlencode
@@ -266,14 +269,14 @@ def initialize_database():
     
     # Create default settings if they don't exist
     if not Setting.query.filter_by(key='POS_ENABLED').first():
-        db.session.add(Setting(key='POS_ENABLED', value='true', description='Enable Point of Sale module'))
+        db.session.add(Setting(key='POS_ENABLED', value='true', description='Enable Point of Sale module'))  # type: ignore
     
     if not Setting.query.filter_by(key='SALES_CAN_EDIT_INVENTORY').first():
-        db.session.add(Setting(key='SALES_CAN_EDIT_INVENTORY', value='true', 
+        db.session.add(Setting(key='SALES_CAN_EDIT_INVENTORY', value='true',   # type: ignore
                                description='Allow SALES role to edit inventory'))
     
     if not Setting.query.filter_by(key='TECH_CAN_VIEW_DETAILS').first():
-        db.session.add(Setting(key='TECH_CAN_VIEW_DETAILS', value='true', 
+        db.session.add(Setting(key='TECH_CAN_VIEW_DETAILS', value='true',   # type: ignore
                                description='Allow TECH role to view repair and customer details'))
     
     # Ensure the users table has the `company` column before querying it.
@@ -346,7 +349,7 @@ def initialize_database():
 
     if user_count == 0:
         admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
-        admin_user = User(
+        admin_user = User(  # type: ignore
             username='admin',
             password_hash=generate_password_hash(admin_password),
             full_name='System Administrator',

@@ -5,7 +5,10 @@ Ensures revenue = money received (using payment_date and actual amounts paid)
 from __future__ import annotations
 from datetime import datetime, date, timedelta
 from decimal import Decimal
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
+
+from sqlalchemy import func, or_, and_
+from sqlalchemy.orm import joinedload
 
 from app.extensions import db
 from app.models.sales import Sale, SaleItem, SalePayment
@@ -29,7 +32,8 @@ class ReportService:
         Only includes:
             - Status: Paid or Partially Paid
             - payment_date within period
-            - actual amount_paid  
+            - actual amount_paid
+            - amount > 0 (no negative/refund payments)
         """
         transactions = []
         total_revenue = Decimal("0.00")
@@ -43,7 +47,8 @@ class ReportService:
                 SalePayment.paid_at.isnot(None),
                 db.func.date(SalePayment.paid_at) >= start_date,
                 db.func.date(SalePayment.paid_at) <= end_date,
-                Sale.status.in_(['PAID', 'PARTIAL']),
+                SalePayment.amount > 0,  # VALIDATION: Only positive payments
+                Sale.status.in_(['PAID', 'PARTIAL']),  # Exclude drafts/void
                 ~Sale.claimed_on_credit  # Exclude credits
             )
             .all()
@@ -54,6 +59,7 @@ class ReportService:
             customer = sale.customer if sale.customer else None
             
             amount = Decimal(payment.amount or 0)
+            # Double-check: amount must be positive (defensive programming)
             if amount <= 0:
                 continue
             
@@ -196,6 +202,174 @@ class ReportService:
             breakdown[method]['total'] += float(total)
         
         return breakdown
+
+    @staticmethod
+    def build_daily_sales_context(selected_date: Optional[date]) -> Dict:
+        """Return context data identical to what `/sales/daily-sales` expects.
+
+        The selected_date can be None in some callers; we normalize to today.
+
+        This consolidates the query logic so other consumers (email, tests)
+        can reuse the same dataset without duplication.  The returned dict
+        contains keys:
+            sales_records, total_sales, total_partial_count,
+            total_partial_amount, report_date, today, now
+        """
+        from datetime import datetime, date as _date
+        # normalize selected_date; allow None
+        today_date = datetime.now().date()
+        if selected_date is None:
+            selected_date = today_date
+        elif not isinstance(selected_date, _date):
+            try:
+                selected_date = datetime.fromisoformat(str(selected_date)).date()
+            except Exception:
+                selected_date = today_date
+
+        # Prevent future dates
+        if selected_date > today_date:
+            selected_date = today_date
+
+        start_dt = datetime.combine(selected_date, datetime.min.time())
+        end_dt = datetime.combine(selected_date, datetime.max.time())
+
+        records: list[dict] = []
+        total_payments = Decimal("0.00")
+        partial_count = 0
+        partial_total = Decimal("0.00")
+
+        # Sales logic (mirrors daily_sales route)
+        sale_payments = (
+            SalePayment.query
+            .join(Sale, SalePayment.sale_id == Sale.id)
+            .options(
+                joinedload(SalePayment.sale).joinedload(Sale.customer),  # type: ignore[arg-type]
+                joinedload(SalePayment.sale).joinedload(Sale.items).joinedload(SaleItem.product),  # type: ignore[arg-type]
+                joinedload(SalePayment.sale).joinedload(Sale.payments),  # type: ignore[arg-type]
+            )
+            .filter(
+                SalePayment.paid_at.isnot(None),
+                func.date(SalePayment.paid_at) == selected_date,
+                Sale.status.in_(['PAID', 'PARTIAL']),
+            )
+            .order_by(SalePayment.paid_at.desc(), SalePayment.id.desc())
+            .all()
+        )
+
+        for pay in sale_payments:
+            sale = pay.sale
+            if not sale:
+                continue
+            cust_obj = sale.customer
+            # convert to displayable string early to avoid <Model ...> repr issues
+            if cust_obj:
+                cust_name = cust_obj.display_name
+            else:
+                cust_name = 'Walk-in Customer'
+
+            if (sale.status or "").upper() in ["VOID", "DRAFT"]:
+                continue
+            amount = Decimal(pay.amount or 0)
+            if amount <= 0:
+                continue
+            desc = ""
+            if sale.items:
+                desc = ", ".join(
+                    f"{it.qty}×{it.product.name if it.product else 'Unknown'}"
+                    for it in sale.items
+                )
+
+            # Determine partial status using payments within report window
+            sale_total = Decimal(sale.total or 0)
+            def _payment_within_report(p):
+                paid_at = getattr(p, "paid_at", None)
+                sale_created_at = getattr(p.sale, "created_at", None) if getattr(p, 'sale', None) else None
+                if paid_at:
+                    return paid_at <= end_dt
+                if sale_created_at:
+                    return sale_created_at <= end_dt
+                return False
+
+            total_paid_upto = Decimal(sum((p.amount or 0) for p in (sale.payments or []) if _payment_within_report(p)))
+            is_partial = total_paid_upto < sale_total
+            if is_partial:
+                partial_count += 1
+                partial_total += amount
+
+            total_payments += amount
+            records.append({
+                "datetime": pay.paid_at or getattr(pay.sale, 'created_at', None),
+                "customer": cust_name,
+                "type": "Purchase",
+                "description": desc,
+                "amount": float(amount),
+                "payment_status": "PARTIAL" if is_partial else "PAID",
+                "is_partial": is_partial,
+                "receipt_id": sale.id,
+                "receipt_type": "sale",
+            })
+
+        # Repairs logic
+        repair_query = (
+            Device.query
+            .options(joinedload(Device.owner))  # type: ignore[arg-type]
+            .filter(
+                or_(
+                    Device.actual_completion == selected_date,
+                    and_(func.date(Device.deposit_paid_at) == selected_date),
+                    and_(
+                        Device.deposit_paid > 0,
+                        func.date(Device.created_at) == selected_date,
+                    ),
+                )
+            )
+        )
+        repairs = repair_query.all()
+
+        for d in repairs:
+            if getattr(d, "charge_waived", False):
+                continue
+            has_deposit = (d.deposit_paid or 0) > 0
+            status_upper = (d.payment_status or "").capitalize()
+            if (status_upper not in ['Partial', 'Paid']) and not has_deposit:
+                continue
+            cust = d.owner.display_name if getattr(d, 'owner', None) and d.owner else 'Walk-in Customer'
+            dt = datetime.combine(d.actual_completion, datetime.min.time()) if isinstance(d.actual_completion, _date) else datetime.combine(datetime.now().date(), datetime.min.time())
+            desc = d.device_type or 'Repair'
+            if status_upper == 'Paid':
+                amount = Decimal(d.total_cost or 0)
+                is_partial = False
+            else:
+                amount = Decimal(d.deposit_paid or 0)
+                is_partial = True if amount > 0 else False
+            if is_partial:
+                partial_count += 1
+                partial_total += amount
+            total_payments += amount
+            records.append({
+                'datetime': dt,
+                'customer': cust,
+                'type': 'Repair',
+                'description': desc,
+                'amount': float(amount),
+                'payment_status': d.payment_status,
+                'is_partial': is_partial,
+                'receipt_id': d.id,
+                'receipt_type': 'repair'
+            })
+
+        # sort newest first
+        records.sort(key=lambda r: r['datetime'], reverse=True)
+
+        return {
+            'sales_records': records,
+            'total_sales': float(total_payments),
+            'total_partial_count': partial_count,
+            'total_partial_amount': float(partial_total),
+            'report_date': selected_date,
+            'today': today_date.isoformat(),
+            'now': datetime.now()
+        }
     
     @staticmethod
     def generate_report_data(start_date: date, end_date: date, frequency: str = 'daily') -> Dict:
@@ -235,6 +409,8 @@ class ReportService:
         return {
             'date_range': date_range,
             'frequency': frequency,
+            'start_date': start_date,
+            'end_date': end_date,
             'total_revenue': float(total_revenue),
             'total_transactions': total_transactions,
             'total_sales_payments': float(sales_revenue),
@@ -249,7 +425,7 @@ class ReportService:
         }
     
     @staticmethod
-    def get_report_period(frequency: str, reference_date: date = None) -> Tuple[date, date]:
+    def get_report_period(frequency: str, reference_date: Optional[date] = None) -> Tuple[date, date]:
         """
         Calculate report period based on frequency.
         

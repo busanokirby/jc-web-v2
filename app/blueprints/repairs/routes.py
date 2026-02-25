@@ -76,8 +76,8 @@ def repairs():
         # Eager load relationships to prevent N+1 queries
         from sqlalchemy.orm import joinedload
         query = query.options(
-            joinedload(Device.owner),
-            joinedload(Device.parts_used_rows).joinedload(RepairPartUsed.product)
+            joinedload(Device.owner),  # type: ignore[arg-type]
+            joinedload(Device.parts_used_rows).joinedload(RepairPartUsed.product)  # type: ignore[arg-type]
         )
 
         # Paginate results
@@ -436,7 +436,11 @@ def add_part_used(device_id: int):
         flash('Cannot add parts to a processed/paid repair. Revert the repair to allow edits.', 'danger')
         return redirect(url_for('repairs.repair_detail', device_id=device.id))
 
-    product_id = int(request.form.get("product_id"))
+    product_id_str = request.form.get("product_id")
+    if not product_id_str:
+        flash("Product ID is required.", "danger")
+        return redirect(url_for("repairs.repair_detail", device_id=device.id))
+    product_id = int(product_id_str)
     qty = int(request.form.get("qty") or 0)
     if qty <= 0:
         flash("Quantity must be greater than 0.", "danger")

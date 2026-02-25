@@ -31,8 +31,8 @@ def require_inventory_edit_enabled(f):
         if current_user.role == 'ADMIN':
             return f(*args, **kwargs)
         
-        # For SALES, check if inventory edit is enabled
-        if not is_sales_can_edit_inventory():
+        # For SALES or TECH, check if inventory edit is enabled
+        if current_user.role in ('SALES', 'TECH') and not is_sales_can_edit_inventory():
             return render_template('inventory/edit_disabled.html'), 403
         
         return f(*args, **kwargs)
@@ -50,8 +50,8 @@ def require_tech_can_view_details(f):
         if current_user.role == 'ADMIN':
             return f(*args, **kwargs)
         
-        # For TECH, check if viewing details is enabled
-        if current_user.role == 'TECH' and not is_tech_can_view_details():
+        # For SALES or TECH, check if viewing details is enabled
+        if current_user.role in ('SALES', 'TECH') and not is_tech_can_view_details():
             return render_template('errors/403.html'), 403
         
         return f(*args, **kwargs)

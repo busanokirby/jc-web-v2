@@ -2,10 +2,11 @@
 Settings model for feature flags and system configuration
 """
 from app.extensions import db
+from app.models.base import BaseModel
 from datetime import datetime
 
 
-class Setting(db.Model):
+class Setting(BaseModel, db.Model):
     __tablename__ = 'settings'
     
     id = db.Column(db.Integer, primary_key=True)
