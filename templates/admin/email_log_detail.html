@@ -1,0 +1,202 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Email Log Details - Admin{% endblock %}
+
+{% block content %}
+<div class="container-lg py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">
+                <i class="bi bi-envelope-open"></i> Email Report Details
+            </h1>
+            <p class="text-muted mb-0">Log ID: #{{ log.id }}</p>
+        </div>
+        <a href="{{ url_for('admin.email_logs') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Logs
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Main Details -->
+        <div class="col-lg-8">
+            <!-- Status Card -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header {% if log.status == 'sent' %}bg-success{% elif log.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %} text-white">
+                    <i class="bi bi-{% if log.status == 'sent' %}check-circle{% elif log.status == 'failed' %}x-circle{% else %}clock{% endif %}"></i>
+                    Report Status: 
+                    {% if log.status == 'sent' %}
+                        <strong>Successfully Sent</strong>
+                    {% elif log.status == 'failed' %}
+                        <strong>Failed</strong>
+                    {% else %}
+                        <strong>Pending</strong>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Report Type:</strong></p>
+                            <p class="text-muted"><code>{{ log.report_type }}</code></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Report Period:</strong></p>
+                            <p class="text-muted">
+                                {{ log.report_date_start.strftime('%B %d, %Y') if log.report_date_start else 'N/A' }}
+                                {% if log.report_date_end and log.report_date_end != log.report_date_start %}
+                                    to {{ log.report_date_end.strftime('%B %d, %Y') }}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Attempted At:</strong></p>
+                            <p class="text-muted">{{ log.attempted_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Sent At:</strong></p>
+                            <p class="text-muted">
+                                {% if log.sent_at %}
+                                    {{ log.sent_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                {% else %}
+                                    <span class="text-muted">Not sent yet</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    {% if log.error_message %}
+                        <div class="alert alert-danger mt-3">
+                            <strong><i class="bi bi-exclamation-triangle"></i> Error:</strong><br>
+                            <pre class="mb-0">{{ log.error_message }}</pre>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Report Summary -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-bar-chart"></i> Report Summary
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-3">
+                            <h3 class="text-primary mb-1">₱{{ '%.2f' | format(log.total_revenue) }}</h3>
+                            <p class="text-muted mb-0">Total Revenue</p>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <h3 class="text-info mb-1">{{ log.total_transactions }}</h3>
+                            <p class="text-muted mb-0">Transactions</p>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <h3 class="text-success mb-1">₱{{ '%.2f' | format(log.total_sales_payments) }}</h3>
+                            <p class="text-muted mb-0">Sales Revenue</p>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <h3 class="text-warning mb-1">₱{{ '%.2f' | format(log.total_repair_payments) }}</h3>
+                            <p class="text-muted mb-0">Repair Revenue</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recipient & Attachment -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-file-earmark"></i> Delivery Details
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Recipient:</strong></p>
+                            <p class="text-muted">{{ log.recipient_email }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Subject:</strong></p>
+                            <p class="text-muted">{{ log.subject }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if log.attachment_filename %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-paperclip"></i> <strong>Attachment:</strong><br>
+                            <code>{{ log.attachment_filename }}</code>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Info -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light">
+                    <i class="bi bi-info-circle"></i> Quick Info
+                </div>
+                <div class="card-body small">
+                    <p class="mb-2">
+                        <strong>Log Created:</strong><br>
+                        <span class="text-muted">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    </p>
+                    <p class="mb-2">
+                        <strong>SMTP Config:</strong><br>
+                        <span class="text-muted">ID #{{ log.smtp_settings_id }}</span>
+                    </p>
+                    <p class="mb-0">
+                        <strong>Status Badge:</strong><br>
+                        {% if log.status == 'sent' %}
+                            <span class="badge bg-success">Sent</span>
+                        {% elif log.status == 'failed' %}
+                            <span class="badge bg-danger">Failed</span>
+                        {% else %}
+                            <span class="badge bg-warning">Pending</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light">
+                    <i class="bi bi-lightning"></i> Actions
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">Available actions for this report:</p>
+                    <div class="d-grid gap-2">
+                        {% if log.status == 'failed' %}
+                            <button class="btn btn-sm btn-outline-primary" disabled>
+                                <i class="bi bi-arrow-repeat"></i> Retry
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Legend -->
+            <div class="card shadow-sm border-0 bg-light">
+                <div class="card-header bg-light border-bottom">
+                    <small class="fw-bold"><i class="bi bi-legend"></i> Status Legend</small>
+                </div>
+                <div class="card-body small">
+                    <div class="mb-2">
+                        <span class="badge bg-success">Sent</span>
+                        <small class="text-muted">Email delivered successfully</small>
+                    </div>
+                    <div class="mb-2">
+                        <span class="badge bg-danger">Failed</span>
+                        <small class="text-muted">Error occurred during sending</small>
+                    </div>
+                    <div>
+                        <span class="badge bg-warning">Pending</span>
+                        <small class="text-muted">Scheduled but not yet sent</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

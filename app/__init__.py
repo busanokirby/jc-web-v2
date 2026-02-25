@@ -108,6 +108,7 @@ def create_app(config=None):
     from app.blueprints.customers.routes import customers_bp
     from app.blueprints.users.routes import users_bp
     from app.blueprints.reports.routes import reports_bp
+    from app.blueprints.admin.routes import admin_bp
     # Ensure inventory blueprint extra routes are imported so new endpoints are registered
     from app.blueprints.inventory import extra_routes  # noqa
     from app.blueprints.inventory.routes import inventory_bp
@@ -121,6 +122,7 @@ def create_app(config=None):
     app.register_blueprint(reports_bp, url_prefix='/reports')
     app.register_blueprint(inventory_bp, url_prefix='/inventory')
     app.register_blueprint(sales_bp, url_prefix='/sales')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
     
     # Setup logging
     setup_logging(app)
@@ -243,6 +245,13 @@ def create_app(config=None):
     with app.app_context():
         db.create_all()
         initialize_database()
+    
+    # Initialize background scheduler for automated email reports
+    try:
+        from app.services.scheduler import init_scheduler
+        init_scheduler(app)
+    except Exception as e:
+        app.logger.warning(f"Failed to initialize email scheduler: {e}")
     
     return app
 

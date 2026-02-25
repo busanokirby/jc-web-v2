@@ -1,0 +1,261 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Email Settings - Admin{% endblock %}
+
+{% block content %}
+<div class="container-lg py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">
+                <i class="bi bi-envelope-at"></i> Email Settings
+            </h1>
+            <p class="text-muted mb-0">Configure automated email reporting system</p>
+        </div>
+        <a href="{{ url_for('core.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Main Settings Form -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="bi bi-gear"></i> SMTP Configuration
+                    </span>
+                    {% if config and config.is_enabled %}
+                        <span class="badge bg-success">
+                            <i class="bi bi-dot"></i> Active
+                        </span>
+                    {% else %}
+                        <span class="badge bg-danger">
+                            <i class="bi bi-dot"></i> Inactive
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" novalidate>
+                        <input type="hidden" name="action" value="save">
+                        
+                        <!-- Row 1: Server & Port -->
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label for="smtp_server" class="form-label fw-500">SMTP Server *</label>
+                                <input type="text" class="form-control" id="smtp_server" name="smtp_server" 
+                                       value="{{ config.smtp_server if config else '' }}" required
+                                       placeholder="e.g., smtp.gmail.com">
+                                <small class="form-text text-muted">Your email provider's SMTP server address</small>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="smtp_port" class="form-label fw-500">Port *</label>
+                                <input type="number" class="form-control" id="smtp_port" name="smtp_port" 
+                                       value="{{ config.smtp_port if config else '587' }}" required min="1" max="65535">
+                                <small class="form-text text-muted">Usually 587 or 465</small>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Email & Password -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email_address" class="form-label fw-500">Email Address *</label>
+                                <input type="email" class="form-control" id="email_address" name="email_address" 
+                                       value="{{ config.email_address if config else '' }}" required
+                                       placeholder="your-email@example.com">
+                                <small class="form-text text-muted">Email address for sending reports</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="email_password" class="form-label fw-500">Email Password / App Password</label>
+                                <input type="password" class="form-control" id="email_password" name="email_password" 
+                                       placeholder="Leave blank to keep existing password">
+                                <small class="form-text text-muted">For Gmail, use App Password (not regular password)</small>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: TLS & Encryption -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="use_tls" name="use_tls" 
+                                           {% if config and config.use_tls %}checked{% endif %}>
+                                    <label class="form-check-label fw-500" for="use_tls">
+                                        Use TLS Encryption
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted d-block mt-2">
+                                    Recommended for secure connections
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Row 4: Frequency -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="frequency" class="form-label fw-500">Report Frequency *</label>
+                                <select class="form-select" id="frequency" name="frequency" required>
+                                    <option value="daily" {% if config and config.frequency == 'daily' %}selected{% endif %}>
+                                        Daily
+                                    </option>
+                                    <option value="every_3_days" {% if config and config.frequency == 'every_3_days' %}selected{% endif %}>
+                                        Every 3 Days
+                                    </option>
+                                    <option value="weekly" {% if config and config.frequency == 'weekly' %}selected{% endif %}>
+                                        Weekly
+                                    </option>
+                                </select>
+                                <small class="form-text text-muted">How often to send reports</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="auto_send_time" class="form-label fw-500">Send Time (24-hour) *</label>
+                                <input type="time" class="form-control" id="auto_send_time" name="auto_send_time" 
+                                       value="{% if config %}{{ '%02d:%02d' | format(config.auto_send_time.hour, config.auto_send_time.minute) }}{% else %}09:00{% endif %}" 
+                                       required>
+                                <small class="form-text text-muted">What time to send daily/scheduled reports</small>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Save Settings
+                            </button>
+                            <button type="button" class="btn btn-info" id="testEmailBtn" 
+                                    {% if not config or not config.smtp_server or not config.email_address %}disabled{% endif %}>
+                                <i class="bi bi-send"></i> Send Test Email
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Sidebar -->
+        <div class="col-lg-4">
+            <!-- Enable/Disable Status -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-toggles"></i> Status Control
+                </div>
+                <div class="card-body text-center py-4">
+                    <h5 class="mb-3">Email Reporting</h5>
+                    {% if config %}
+                        <div class="mb-3">
+                            <span class="display-5 {% if config.is_enabled %}text-success{% else %}text-danger{% endif %}">
+                                <i class="bi {% if config.is_enabled %}bi-check-circle-fill{% else %}bi-x-circle-fill{% endif %}"></i>
+                            </span>
+                            <p class="mt-2 mb-0 fs-6">
+                                {% if config.is_enabled %}
+                                    <strong>Currently ENABLED</strong><br>
+                                    <small class="text-muted">Reports will be sent automatically</small>
+                                {% else %}
+                                    <strong>Currently DISABLED</strong><br>
+                                    <small class="text-muted">Reports will not be sent</small>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <form method="POST" style="display: inline;">
+                            <input type="hidden" name="action" value="toggle">
+                            <button type="submit" class="btn {% if config.is_enabled %}btn-danger{% else %}btn-success{% endif %} btn-sm">
+                                {% if config.is_enabled %}
+                                    <i class="bi bi-toggle-off"></i> Disable
+                                {% else %}
+                                    <i class="bi bi-toggle-on"></i> Enable
+                                {% endif %}
+                            </button>
+                        </form>
+                    {% else %}
+                        <p class="text-muted mb-0">Setup SMTP configuration first</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Schedule Info -->
+            {% if config and config.is_enabled and next_send_time %}
+                <div class="card shadow-sm border-0 border-left-info mb-4">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-clock"></i> Next Scheduled Send
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">
+                            <strong>{{ next_send_time.strftime('%A, %B %d, %Y') }}</strong><br>
+                            <span class="fs-5 text-primary">{{ next_send_time.strftime('%I:%M %p') }}</span>
+                        </p>
+                        <small class="text-muted">
+                            Frequency: <strong>{{ config.frequency.replace('_', ' ').title() }}</strong>
+                        </small>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Last Sent Info -->
+            {% if config and config.last_sent_at %}
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-success text-white">
+                        <i class="bi bi-check-circle"></i> Last Sent
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">
+                            <strong>{{ config.last_sent_at.strftime('%B %d, %Y') }}</strong><br>
+                            <span class="text-muted">{{ config.last_sent_at.strftime('%I:%M %p') }}</span>
+                        </p>
+                        <a href="{{ url_for('admin.email_logs') }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-journal-text"></i> View Logs
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Help -->
+            <div class="card shadow-sm border-0 bg-light">
+                <div class="card-header bg-warning">
+                    <i class="bi bi-info-circle"></i> Setup Guide
+                </div>
+                <div class="card-body small">
+                    <h6 class="fw-bold mb-2">Gmail Setup:</h6>
+                    <ol class="ps-3 mb-3">
+                        <li>Use <code>smtp.gmail.com</code></li>
+                        <li>Port: <code>587</code></li>
+                        <li>Generate App Password from Google Account</li>
+                        <li>Use App Password (not Gmail password)</li>
+                    </ol>
+                    <h6 class="fw-bold mb-2">Other Providers:</h6>
+                    <p class="mb-0">Contact your email provider for SMTP settings.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Email Modal -->
+<div class="modal fade" id="testEmailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-send"></i> Send Test Email</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Send a test email to <strong>{{ config.email_address if config else 'your address' }}</strong>?</p>
+                <p class="text-muted small">This will generate today's report and send it immediately.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" style="display: inline;">
+                    <input type="hidden" name="action" value="test">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-send"></i> Send Test Email
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('testEmailBtn').addEventListener('click', function() {
+        const modal = new bootstrap.Modal(document.getElementById('testEmailModal'));
+        modal.show();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Email Logs - Admin{% endblock %}
+
+{% block content %}
+<div class="container-lg py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">
+                <i class="bi bi-journal-text"></i> Email Report Logs
+            </h1>
+            <p class="text-muted mb-0">History of automated email reports sent</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.email_settings') }}" class="btn btn-primary">
+                <i class="bi bi-gear"></i> Settings
+            </a>
+            <a href="{{ url_for('core.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            {% if logs.items %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light border-bottom">
+                            <tr>
+                                <th>Date Sent</th>
+                                <th>Report Type</th>
+                                <th>Status</th>
+                                <th>Revenue</th>
+                                <th>Transactions</th>
+                                <th>Recipient</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs.items %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ log.sent_at.strftime('%Y-%m-%d %H:%M') if log.sent_at else log.attempted_at.strftime('%Y-%m-%d %H:%M') }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <code>{{ log.report_type }}</code>
+                                    </td>
+                                    <td>
+                                        {% if log.status == 'sent' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> Sent
+                                            </span>
+                                        {% elif log.status == 'failed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="bi bi-x-circle"></i> Failed
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning">
+                                                <i class="bi bi-clock"></i> Pending
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>₱{{ '%.2f' | format(log.total_revenue) }}</strong>
+                                    </td>
+                                    <td>
+                                        {{ log.total_transactions }}
+                                    </td>
+                                    <td>
+                                        <small>{{ log.recipient_email }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('admin.email_log_detail', log_id=log.id) }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i> Details
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if logs.pages > 1 %}
+                    <nav class="d-flex justify-content-center py-3 border-top">
+                        <ul class="pagination mb-0">
+                            {% if logs.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.email_logs', page=logs.prev_num) }}">Previous</a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page_num in logs.iter_pages() %}
+                                {% if page_num %}
+                                    {% if page_num == logs.page %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('admin.email_logs', page=page_num) }}">{{ page_num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if logs.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.email_logs', page=logs.next_num) }}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="text-muted mt-3 mb-0">No email logs yet</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
