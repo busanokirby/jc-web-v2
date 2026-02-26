@@ -69,12 +69,13 @@
                         {% endfor %}
                     </select>
                 </div>
-
-                <div id="search-suggestions" class="list-group position-absolute w-100 shadow d-none" 
-                     style="z-index: 9999; top: 100%; max-height: 300px; overflow-y: auto;">
-                </div>
             </form>
         </div>
+    </div>
+
+    {# Search suggestions dropdown - positioned above products table #}
+    <div id="search-suggestions" class="list-group shadow d-none" 
+         style="position: fixed; z-index: 1050; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #dee2e6; border-radius: 0.375rem; min-width: 300px;">
     </div>
 
     <div class="card shadow-sm">
@@ -411,6 +412,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Autocomplete UI logic
     if (searchInput && suggestionsBox) {
+        // Function to position the suggestions dropdown
+        function positionSuggestions() {
+            const rect = searchInput.getBoundingClientRect();
+            suggestionsBox.style.left = rect.left + 'px';
+            suggestionsBox.style.top = (rect.bottom + 5) + 'px';
+            suggestionsBox.style.width = rect.width + 'px';
+        }
+
         searchInput.addEventListener('input', async function() {
             const val = this.value.trim();
             if (val.length < 2) {
@@ -437,11 +446,25 @@ document.addEventListener('DOMContentLoaded', function() {
                         </button>
                     `).join('');
                     suggestionsBox.classList.remove('d-none');
+                    positionSuggestions();
                 } else {
                     suggestionsBox.classList.add('d-none');
                 }
             } catch (err) {
                 console.error("Suggestions error:", err);
+            }
+        });
+
+        // Reposition on window scroll/resize
+        window.addEventListener('scroll', () => {
+            if (!suggestionsBox.classList.contains('d-none')) {
+                positionSuggestions();
+            }
+        });
+        
+        window.addEventListener('resize', () => {
+            if (!suggestionsBox.classList.contains('d-none')) {
+                positionSuggestions();
             }
         });
 

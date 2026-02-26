@@ -592,6 +592,7 @@ def add_payment(device_id: int):
         # Mark as paid without changing deposit_paid
         device.balance_due = Decimal('0.00')
         device.payment_status = 'Paid'
+        device.full_payment_at = datetime.utcnow()  # Track when full payment received
 
         # Clear claimed_on_credit when the outstanding credit is settled
         if device.claimed_on_credit:

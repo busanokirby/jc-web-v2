@@ -45,6 +45,7 @@ class Device(BaseModel, db.Model):
     deposit_paid_at = db.Column(db.DateTime, nullable=True)
     balance_due = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     payment_status = db.Column(db.String(20), default="Pending")  # Pending/Partial/Paid
+    full_payment_at = db.Column(db.DateTime, nullable=True)  # When final payment received
 
     technician_notes = db.Column(db.Text)
     solution_applied = db.Column(db.Text)

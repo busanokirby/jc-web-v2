@@ -799,6 +799,10 @@ def daily_sales():
                     Device.deposit_paid_at.isnot(None),
                     func.date(Device.deposit_paid_at) == selected_date,
                 ),
+                and_(
+                    Device.full_payment_at.isnot(None),
+                    func.date(Device.full_payment_at) == selected_date,
+                ),
             )
         )
     )
@@ -815,34 +819,91 @@ def daily_sales():
             continue
 
         cust = d.owner.display_name if getattr(d, 'owner', None) and d.owner else 'Walk-in Customer'
-        dt = datetime.combine(d.actual_completion, datetime.min.time()) if isinstance(d.actual_completion, date) else datetime.combine(datetime.now().date(), datetime.min.time())
         desc = d.device_type or 'Repair'
 
-        # If fully paid, count full total. Otherwise count deposit as amount received (partial)
-        if status_upper == 'Paid':
-            amount = Decimal(d.total_cost or 0)
-            is_partial = False
-        else:
+        # SEPARATE TRANSACTION LOGIC: Show deposits and full payments on their respective dates
+        
+        # Check if deposit is on selected date
+        deposit_on_selected = False
+        if d.deposit_paid_at and d.deposit_paid and d.deposit_paid > 0:
+            if d.deposit_paid_at.date() == selected_date:
+                deposit_on_selected = True
+        
+        # Check if full payment is on selected date
+        full_payment_on_selected = False
+        full_payment_amount = Decimal(0)
+        if d.full_payment_at and d.payment_status == 'Paid':
+            if d.full_payment_at.date() == selected_date:
+                full_payment_on_selected = True
+                # Full payment amount = total_cost - deposit_paid
+                full_payment_amount = Decimal(d.total_cost or 0) - Decimal(d.deposit_paid or 0)
+        
+        # Show deposit if on selected date (as separate transaction)
+        if deposit_on_selected:
             amount = Decimal(d.deposit_paid or 0)
-            is_partial = True if amount > 0 else False
-
-        if is_partial:
+            is_partial = True  # Has outstanding balance if not fully paid
             partial_payment_count += 1
             partial_payment_total += amount
-
-        total_payments += amount
-
-        records.append({
-            'datetime': dt,
-            'customer': cust,
-            'type': 'Repair',
-            'description': desc,
-            'amount': float(amount),
-            'payment_status': d.payment_status,
-            'is_partial': is_partial,
-            'receipt_id': d.id,
-            'receipt_type': 'repair'
-        })
+            total_payments += amount
+            
+            records.append({
+                'datetime': d.deposit_paid_at,
+                'customer': cust,
+                'type': 'Repair',
+                'description': f"{desc} (Deposit)",
+                'amount': float(amount),
+                'payment_status': 'Partial',
+                'is_partial': is_partial,
+                'receipt_id': d.id,
+                'receipt_type': 'repair'
+            })
+        
+        # Show full payment if on selected date (as separate transaction)
+        if full_payment_on_selected:
+            amount = full_payment_amount
+            is_partial = False
+            total_payments += amount
+            
+            records.append({
+                'datetime': d.full_payment_at,
+                'customer': cust,
+                'type': 'Repair',
+                'description': f"{desc} (Full Payment)",
+                'amount': float(amount),
+                'payment_status': 'Paid',
+                'is_partial': is_partial,
+                'receipt_id': d.id,
+                'receipt_type': 'repair'
+            })
+        
+        # Legacy path: If repair completed on selected date but no deposits/payments on this date, show based on status
+        if not deposit_on_selected and not full_payment_on_selected and d.actual_completion == selected_date:
+            # Show the repair on its completion date with appropriate status
+            if status_upper == 'Paid':
+                amount = Decimal(d.total_cost or 0)
+                is_partial = False
+            else:
+                amount = Decimal(d.deposit_paid or 0) if d.deposit_paid and d.deposit_paid > 0 else Decimal(0)
+                is_partial = True if amount > 0 else False
+            
+            if is_partial or status_upper == 'Paid':
+                if is_partial:
+                    partial_payment_count += 1
+                    partial_payment_total += amount
+                
+                total_payments += amount
+                
+                records.append({
+                    'datetime': datetime.combine(d.actual_completion, datetime.min.time()),
+                    'customer': cust,
+                    'type': 'Repair',
+                    'description': desc,
+                    'amount': float(amount),
+                    'payment_status': d.payment_status,
+                    'is_partial': is_partial,
+                    'receipt_id': d.id,
+                    'receipt_type': 'repair'
+                })
 
     # sort newest first
     records.sort(key=lambda r: r['datetime'], reverse=True)
