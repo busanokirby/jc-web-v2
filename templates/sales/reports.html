@@ -115,23 +115,23 @@
             </div>
         </div>
     </div>
-    <!-- Partial Repairs Balance -->
+    <!-- Sales Balance Due (consolidated partial + credit) -->
     <div class="col-md-3 mt-3">
         <div class="card border-warning">
             <div class="card-body text-center">
-                <h6 class="card-title text-uppercase small text-warning">Partial Balance Due</h6>
-                <h4 class="mb-0 text-warning">₱{{ "%.2f"|format(partial_repairs_balance if partial_repairs_balance is defined else 0) }}</h4>
-                <small class="mt-2 d-block">Repairs with deposits</small>
+                <h6 class="card-title text-uppercase small text-warning">Sales Balance Due</h6>
+                <h4 class="mb-0 text-warning">₱{{ "%.2f"|format((partial_sales_total if partial_sales_total is defined else 0) + (credit_sales_total if credit_sales_total is defined else 0)) }}</h4>
+                <small class="mt-2 d-block">Unpaid & partial sales</small>
             </div>
         </div>
     </div>
-    <!-- Credit Released -->
+    <!-- Repairs Balance Due (consolidated partial + credit) -->
     <div class="col-md-3 mt-3">
-        <div class="card border-danger">
+        <div class="card border-warning">
             <div class="card-body text-center">
-                <h6 class="card-title text-uppercase small text-danger">Credit Released</h6>
-                <h4 class="mb-0 text-danger">₱{{ "%.2f"|format(credit_repairs_total if credit_repairs_total is defined else 0) }}</h4>
-                <small class="mt-2 d-block">Unpaid repairs</small>
+                <h6 class="card-title text-uppercase small text-warning">Repairs Balance Due</h6>
+                <h4 class="mb-0 text-warning">₱{{ "%.2f"|format((partial_repairs_balance if partial_repairs_balance is defined else 0) + (credit_repairs_total if credit_repairs_total is defined else 0)) }}</h4>
+                <small class="mt-2 d-block">Unpaid & partial repairs</small>
             </div>
         </div>
     </div>
@@ -140,8 +140,8 @@
         <div class="card border-dark bg-light">
             <div class="card-body text-center">
                 <h6 class="card-title text-uppercase small">Total Outstanding</h6>
-                <h4 class="mb-0 fw-bold text-dark">₱{{ "%.2f"|format((partial_repairs_balance if partial_repairs_balance is defined else 0) + (credit_repairs_total if credit_repairs_total is defined else 0)) }}</h4>
-                <small class="mt-2 d-block">To collect from repairs</small>
+                <h4 class="mb-0 fw-bold text-dark">₱{{ "%.2f"|format((pending_sales if pending_sales is defined else 0) + (partial_sales_total if partial_sales_total is defined else 0) + (credit_sales_total if credit_sales_total is defined else 0) + (pending_repairs if pending_repairs is defined else 0) + (partial_repairs_balance if partial_repairs_balance is defined else 0) + (credit_repairs_total if credit_repairs_total is defined else 0)) }}</h4>
+                <small class="mt-2 d-block">All accounts receivable</small>
             </div>
         </div>
     </div>

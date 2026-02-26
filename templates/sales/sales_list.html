@@ -124,7 +124,14 @@
               {% endif %}
             </td>
 
-            <td>{{ entry.created_at.strftime('%Y-%m-%d %H:%M') if entry.created_at else '' }}</td>
+            <td>
+              {# Display latest payment date if available, otherwise show creation date #}
+              {% if entry.latest_payment_date %}
+                {{ entry.latest_payment_date.strftime('%Y-%m-%d %H:%M') }}
+              {% elif entry.created_at %}
+                {{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}
+              {% endif %}
+            </td>
 
             <td>
               <span class="badge bg-info">{{ entry.items_count }}</span>

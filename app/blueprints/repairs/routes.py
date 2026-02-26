@@ -567,8 +567,8 @@ def add_payment(device_id: int):
         # Accept only up to remaining; cap any overpayment
         accepted = amount if amount <= remaining else remaining
         device.deposit_paid = current_deposit + accepted
-        # record deposit timestamp for reporting (use local time so date matches report date)
-        device.deposit_paid_at = datetime.now()
+        # record deposit timestamp for reporting (use utcnow for consistency with sales payments)
+        device.deposit_paid_at = datetime.utcnow()
         recompute_repair_financials(device)
 
         # If this clears the balance and the device was previously released on credit, clear the claim

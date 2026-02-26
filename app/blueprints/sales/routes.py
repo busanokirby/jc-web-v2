@@ -151,7 +151,12 @@ def pos():
             
             # Record payment unless this is a credited sale (no immediate payment)
             if not claim_on_credit:
-                db.session.add(SalePayment(sale_id=sale.id, amount=total, method=payment_method))
+                db.session.add(SalePayment(
+                    sale_id=sale.id,
+                    amount=total,
+                    method=payment_method,
+                    paid_at=datetime.utcnow()  # Ensure timestamp is set for daily_sales filtering
+                ))
 
             db.session.commit()
             
@@ -368,11 +373,20 @@ def sales_list():
                 # compute payments total and remaining balance for sale
                 payments_total = sum((p.amount or 0) for p in (s.payments or []))
                 balance_due = float((s.total or 0) - payments_total)
+                
+                # Get latest payment date (use most recent paid_at from SalePayment records)
+                latest_payment_date = None
+                if s.payments:
+                    # Find the most recent payment date
+                    payment_dates = [p.paid_at for p in s.payments if p.paid_at]
+                    if payment_dates:
+                        latest_payment_date = max(payment_dates)
 
                 history.append({
                     'type': 'sale',
                     'invoice': s.invoice_no,
                     'created_at': s.created_at,
+                    'latest_payment_date': latest_payment_date,
                     'items_count': items_count,
                     'subtotal': float(s.subtotal or 0),
                     'discount': float(s.discount or 0),
@@ -422,10 +436,17 @@ def sales_list():
                     tx_date = d.created_at
 
                 search_text = f"{d.ticket_number or ''} {customer_name} {parts_text} {d.service_type or ''}"
+                
+                # Get latest payment date for repairs (use deposit_paid_at)
+                latest_payment_date = None
+                if d.deposit_paid and d.deposit_paid > 0 and d.deposit_paid_at:
+                    latest_payment_date = d.deposit_paid_at
+                
                 history.append({
                     'type': 'repair',
                     'invoice': d.ticket_number,
                     'created_at': tx_date,
+                    'latest_payment_date': latest_payment_date,
                     'items_count': parts_qty,
                     'subtotal': float(d.total_cost or 0),
                     'discount': 0.0,
@@ -580,7 +601,13 @@ def add_payment_for_sale(sale_id: int):
 
     # Accept only up to remaining; cap any overpayment
     accepted = amount if amount <= remaining else remaining
-    db.session.add(SalePayment(sale_id=sale.id, amount=accepted, method=payment_method))
+    # CRITICAL: Set paid_at explicitly so payment appears in daily sales reports
+    db.session.add(SalePayment(
+        sale_id=sale.id,
+        amount=accepted,
+        method=payment_method,
+        paid_at=datetime.utcnow()  # Ensure timestamp is set for daily_sales filtering
+    ))
 
     # Update sale status and clear claim if fully paid
     new_paid_total = payments_total + accepted
@@ -767,10 +794,10 @@ def daily_sales():
         .filter(
             or_(
                 Device.actual_completion == selected_date,
-                and_(func.date(Device.deposit_paid_at) == selected_date),
                 and_(
                     Device.deposit_paid > 0,
-                    func.date(Device.created_at) == selected_date,
+                    Device.deposit_paid_at.isnot(None),
+                    func.date(Device.deposit_paid_at) == selected_date,
                 ),
             )
         )
@@ -852,67 +879,70 @@ def daily_sales():
 @roles_required("ADMIN", "SALES")
 def reports():
     """Sales analytics and reporting dashboard - includes repairs in sales reporting"""
+    from app.services.financial_reconciliation import FinancialReconciliation
     
     # Date range filter for KPIs and charts
     days_back = request.args.get('days', 30, type=int)
     if days_back < 1:
         days_back = 30
-    start_date = datetime.now() - timedelta(days=days_back)
+    start_datetime = datetime.now() - timedelta(days=days_back)
+    start_date = start_datetime.date()
+    end_date = datetime.now().date()
 
     # Query sales within date range (used by KPI calculations and trends)
     # eager load related items to prevent N+1 issues when iterating
+    # Include ALL sales (both regular and credit) for accurate item counts
     sales_period = (
         Sale.query.options(joinedload(Sale.items).joinedload(SaleItem.product))  # type: ignore[arg-type]
-        .filter(Sale.created_at >= start_date)
+        .filter(Sale.created_at >= start_datetime)
         .all()
     )
 
-    # Daily sales moved to dedicated route `/sales/daily-sales`.
+    # Query devices completed within date range (use actual_completion)
+    repairs_period_devices = (
+        Device.query
+        .filter(
+            Device.actual_completion != None,
+            Device.actual_completion >= start_date,
+            ~Device.claimed_on_credit,
+            ~Device.charge_waived,
+        )
+        .all()
+    )
     
-    # Query devices completed within date range (use actual_completion) and repair parts for product-level aggregation
-    # Convert start_date (datetime) to date for comparison against Device.actual_completion (Date)
-    start_date_only = start_date.date()
-    repairs_period_devices = Device.query.filter(Device.actual_completion != None, Device.actual_completion >= start_date_only).all()
-    # Repair parts used in the selected period (by part created_at or by device completion)
-    repair_parts_period = db.session.query(RepairPartUsed).join(
-        Device, RepairPartUsed.device_id == Device.id
-    ).filter(Device.actual_completion != None, Device.actual_completion >= start_date_only).all()
-    
-    # Calculate KPIs from sales
-    total_revenue = Decimal("0.00")
+    # Calculate KPIs from invoiced revenue (accrual basis)
+    total_invoiced_revenue = Decimal("0.00")
     total_transactions = len(sales_period)
     total_items_sold = 0
     
     for sale in sales_period:
-        total_revenue += sale.total or Decimal("0.00")
+        total_invoiced_revenue += sale.total or Decimal("0.00")
         total_items_sold += sum(item.qty for item in sale.items)
 
-    # Add repair device transactions (use device.total_cost, not individual parts, to avoid double-counting)
+    # Add repair device transactions (use device.total_cost to avoid double-counting)
     repair_transactions = len(repairs_period_devices) if repairs_period_devices else 0
-    repairs_total = Decimal("0.00")
+    repairs_invoiced = Decimal("0.00")
     for dev in repairs_period_devices:
-        repairs_total += dev.total_cost or Decimal("0.00")
-        total_revenue += dev.total_cost or Decimal("0.00")
+        repairs_invoiced += dev.total_cost or Decimal("0.00")
+        total_invoiced_revenue += dev.total_cost or Decimal("0.00")
         # count parts used as items sold
         total_items_sold += sum(p.qty for p in dev.parts_used_rows) if dev.parts_used_rows else 0
 
     # Total transactions include both sales and repair device completions
     total_transactions += repair_transactions
     
-    avg_transaction = (total_revenue / total_transactions) if total_transactions > 0 else Decimal("0.00")
+    avg_transaction = (total_invoiced_revenue / total_transactions) if total_transactions > 0 else Decimal("0.00")
     
-    # Sales by payment method (from regular sales only)
-    payment_methods = db.session.query(
-        SalePayment.method,
-        func.count(SalePayment.id).label('count'),
-        func.sum(SalePayment.amount).label('total')
-    ).join(Sale).filter(Sale.created_at >= start_date).group_by(SalePayment.method).all()
-    
-    payment_data = [{
-        'method': pm.method or 'Unknown',
-        'count': pm.count,
-        'total': float(pm.total or 0)
-    } for pm in payment_methods]
+    # Use unified service for payment breakdown (accurate aggregation by payment method)
+    payment_breakdown = FinancialReconciliation.get_payment_breakdown(start_date, end_date)
+    payment_data = [
+        {
+            'method': method,
+            'count': data['count'],
+            'total': data['total']
+        }
+        for method, data in payment_breakdown.items()
+    ]
     
     # Top 10 products sold - combine sales items and repair parts using Python aggregation
     product_sales = {}
@@ -927,6 +957,10 @@ def reports():
             product_sales[product_name]['amount'] += float(item.line_total or 0)
     
     # Add repair parts (use parts list for product-level aggregation)
+    repair_parts_period = db.session.query(RepairPartUsed).join(
+        Device, RepairPartUsed.device_id == Device.id
+    ).filter(Device.actual_completion != None, Device.actual_completion >= start_date).all()
+    
     for part in repair_parts_period:
         product_name = part.product.name if part.product else "Unknown"
         if product_name not in product_sales:
@@ -941,26 +975,20 @@ def reports():
         reverse=True
     )[:10]
     
-    # Daily sales trend - combine sales and repair parts
+    # Daily sales trend - RECEIPTS (aggregate by payment date, not invoice date)
     daily_totals = {}
     
-    # Add sales transactions
-    for sale in sales_period:
-        date_key = sale.created_at.date()
-        if date_key not in daily_totals:
-            daily_totals[date_key] = {'count': 0, 'total': 0}
-        daily_totals[date_key]['count'] += 1
-        daily_totals[date_key]['total'] += float(sale.total or 0)
+    # Get all payments in period for daily trend (payment-based, not accrual-based)
+    _, _, payment_records = FinancialReconciliation.get_total_revenue_received(start_date, end_date)
     
-    # Add repair device transactions (use actual_completion as date and device.total_cost as total)
-    for dev in repairs_period_devices:
-        date_key = dev.actual_completion if hasattr(dev.actual_completion, 'isoformat') else dev.created_at.date()
-        if isinstance(date_key, datetime):
-            date_key = date_key.date()
-        if date_key not in daily_totals:
-            daily_totals[date_key] = {'count': 0, 'total': 0}
-        daily_totals[date_key]['count'] += 1
-        daily_totals[date_key]['total'] += float(dev.total_cost or 0)
+    for record in payment_records:
+        paid_at = record.get('paid_at')
+        if paid_at:
+            date_key = paid_at if isinstance(paid_at, date) else paid_at.date()
+            if date_key not in daily_totals:
+                daily_totals[date_key] = {'count': 0, 'total': 0}
+            daily_totals[date_key]['count'] += 1
+            daily_totals[date_key]['total'] += record.get('amount', 0)
     
     # Convert to sorted list
     daily_trend = [
@@ -968,34 +996,44 @@ def reports():
         for date, data in sorted(daily_totals.items())
     ]
     
-    # Calculate partial/credit totals for ALL active repairs (not just those completed in the period)
-    # This shows what's currently outstanding to collect, regardless of when they were completed
+    # Calculate outstanding breakdown (CURRENT state, not period-filtered)
+    outstanding = FinancialReconciliation.get_outstanding_by_status()
     
-    # Repairs with partial payment (balance due) - all active partial repairs
-    all_partial_repairs = Device.query.filter(Device.payment_status == 'Partial').all()
-    partial_repairs_balance = Decimal("0.00")
-    for dev in all_partial_repairs:
-        partial_repairs_balance += dev.balance_due or Decimal("0.00")
+    # For template compatibility, map 4-key structure to template variables
+    # Template expects: partial_sales_total, credit_sales_total, partial_repairs_balance, credit_repairs_total
+    # We consolidate by setting one to the value and the other to 0
+    # Also pass pending amounts separately for correct total outstanding calculation
+    pending_sales = outstanding['pending_sales']
+    partial_sales_total = outstanding['sales_balance_due']
+    credit_sales_total = 0  # consolidated into partial_sales_total
     
-    # Repairs claimed on credit - all active credit repairs
-    all_credit_repairs = Device.query.filter(Device.claimed_on_credit == True).all()
-    credit_repairs_total = Decimal("0.00")
-    for dev in all_credit_repairs:
-        credit_repairs_total += dev.total_cost or Decimal("0.00")
+    pending_repairs = outstanding['pending_repairs']
+    partial_repairs_balance = outstanding['repairs_balance_due']
+    credit_repairs_total = 0  # consolidated into partial_repairs_balance
     
     return render_template(
         "sales/reports.html",
         days_back=days_back,
+        # Invoiced revenue (accrual basis for period)
+        total_revenue=float(total_invoiced_revenue),
+        repairs_total=float(repairs_invoiced),
+        # Outstanding breakdown (current state) - consolidated structure
+        pending_sales=float(pending_sales),
+        partial_sales_total=float(partial_sales_total),
+        credit_sales_total=float(credit_sales_total),
+        pending_repairs=float(pending_repairs),
         partial_repairs_balance=float(partial_repairs_balance),
         credit_repairs_total=float(credit_repairs_total),
-        total_revenue=float(total_revenue),
-        repairs_total=float(repairs_total),
+        # Transaction counts
         repair_transactions=repair_transactions,
         total_transactions=total_transactions,
         total_items_sold=total_items_sold,
         avg_transaction=float(avg_transaction),
+        # Payment methods breakdown
         payment_data=payment_data,
+        # Product analysis
         top_products=top_products_data,
+        # Daily trend
         daily_trend=daily_trend,
     )
 

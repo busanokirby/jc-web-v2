@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import StringIO
 import csv
 
@@ -77,106 +77,125 @@ def repairs_report():
 @login_required
 @roles_required("ADMIN")
 def financial_report():
-    """Financial summary: sales totals, payments, outstanding balances"""
-    from app.models.sales import Sale, SalePayment
+    """Financial summary: revenue received, accounts receivable, outstanding balances"""
+    from app.services.financial_reconciliation import FinancialReconciliation
+    from datetime import date
     
     date_from = request.args.get("date_from", "")
     date_to = request.args.get("date_to", "")
     fmt = request.args.get("format", "html")
 
-    # Build date filters
-    date_filter_obj = {}
+    # Parse date filters - default to showing all data if no dates provided
+    start_date = None
+    end_date = None
+    
     if date_from:
         try:
-            df = datetime.fromisoformat(date_from).date()
-            date_filter_obj['from'] = df
+            start_date = datetime.fromisoformat(date_from).date()
         except Exception:
             pass
+    
     if date_to:
         try:
-            dt = datetime.fromisoformat(date_to).date()
-            date_filter_obj['to'] = dt
+            end_date = datetime.fromisoformat(date_to).date()
         except Exception:
             pass
+    
+    # If dates not provided, use reasonable defaults (last 90 days)
+    if not start_date or not end_date:
+        end_date = date.today()
+        start_date = end_date - timedelta(days=90)
 
-    # Query sales total (sales transactions)
-    sales_query = db.session.query(func.coalesce(func.sum(Sale.total), 0).label('total'))
-    if 'from' in date_filter_obj:
-        sales_query = sales_query.filter(Sale.created_at >= date_filter_obj['from'])
-    if 'to' in date_filter_obj:
-        sales_query = sales_query.filter(Sale.created_at <= date_filter_obj['to'])
-    sales_total = float(sales_query.scalar() or 0)
-
-    # Query payments total (payments recorded from sales)
-    payments_query = db.session.query(func.coalesce(func.sum(SalePayment.amount), 0).label('total'))
-    if 'from' in date_filter_obj:
-        payments_query = payments_query.filter(SalePayment.paid_at >= date_filter_obj['from'])
-    if 'to' in date_filter_obj:
-        payments_query = payments_query.filter(SalePayment.paid_at <= date_filter_obj['to'])
-    sales_payments_total = float(payments_query.scalar() or 0)
-
-    # Query repair payments (deposits received on repairs, tracked by deposit_paid_at)
-    repair_payments_query = db.session.query(func.coalesce(func.sum(Device.deposit_paid), 0).label('total'))
-    if 'from' in date_filter_obj:
-        repair_payments_query = repair_payments_query.filter(Device.deposit_paid_at >= date_filter_obj['from'])
-    if 'to' in date_filter_obj:
-        repair_payments_query = repair_payments_query.filter(Device.deposit_paid_at <= date_filter_obj['to'])
-    repair_payments_total = float(repair_payments_query.scalar() or 0)
-
-    # Total payments: sales payments + repair deposits
-    payments_total = sales_payments_total + repair_payments_total
-
-    # Include repair transactions completed within the date range (use actual_completion)
-    repairs_query = db.session.query(func.coalesce(func.sum(Device.total_cost), 0).label('total'))
-    if 'from' in date_filter_obj:
-        repairs_query = repairs_query.filter(Device.actual_completion >= date_filter_obj['from'])
-    if 'to' in date_filter_obj:
-        repairs_query = repairs_query.filter(Device.actual_completion <= date_filter_obj['to'])
-    repairs_total = float(repairs_query.scalar() or 0)
-
-    # Add repairs total into sales_total for a full picture of revenue
-    combined_sales_total = sales_total + repairs_total
-
-    # Outstanding: combined sales (sales + repairs) minus payments recorded
-    outstanding = max(0.0, combined_sales_total - payments_total)
-
-    # Calculate partial/credit breakdown for repairs
-    # Repairs with partial payment (some deposit made, balance still due)
-    partial_repairs_query = db.session.query(func.coalesce(func.sum(Device.balance_due), 0).label('total'))
-    partial_repairs_query = partial_repairs_query.filter(Device.payment_status == 'Partial')
-    if 'from' in date_filter_obj:
-        partial_repairs_query = partial_repairs_query.filter(Device.actual_completion >= date_filter_obj['from'])
-    if 'to' in date_filter_obj:
-        partial_repairs_query = partial_repairs_query.filter(Device.actual_completion <= date_filter_obj['to'])
-    partial_repairs_total = float(partial_repairs_query.scalar() or 0)
-
-    # Repairs claimed on credit (released without payment)
-    credit_repairs_query = db.session.query(func.coalesce(func.sum(Device.total_cost), 0).label('total'))
-    credit_repairs_query = credit_repairs_query.filter(Device.claimed_on_credit == True)
-    if 'from' in date_filter_obj:
-        credit_repairs_query = credit_repairs_query.filter(Device.actual_completion >= date_filter_obj['from'])
-    if 'to' in date_filter_obj:
-        credit_repairs_query = credit_repairs_query.filter(Device.actual_completion <= date_filter_obj['to'])
-    credit_repairs_total = float(credit_repairs_query.scalar() or 0)
+    # Generate comprehensive financial summary using unified reconciliation service
+    summary = FinancialReconciliation.generate_financial_summary(start_date, end_date)
+    
+    # Extract and ensure all values are properly formatted floats
+    revenue_received = float(summary['revenue_received']['total'])
+    sales_total = float(summary['revenue_invoiced']['sales'])
+    repairs_total = float(summary['revenue_invoiced']['repairs'])
+    combined_sales_total = float(summary['revenue_invoiced']['total'])
+    
+    sales_payments_total = float(summary['revenue_received']['sales'])
+    repair_payments_total = float(summary['revenue_received']['repairs'])
+    payments_total = revenue_received
+    
+    # Outstanding breakdown (current, not period-filtered) - consolidated structure
+    outstanding_detail = {
+        'pending_sales': float(summary['outstanding'].get('pending_sales', 0)),
+        'sales_balance_due': float(summary['outstanding'].get('sales_balance_due', 0)),
+        'total_sales_outstanding': float(summary['outstanding'].get('total_sales_outstanding', 0)),
+        'pending_repairs': float(summary['outstanding'].get('pending_repairs', 0)),
+        'repairs_balance_due': float(summary['outstanding'].get('repairs_balance_due', 0)),
+        'total_repairs_outstanding': float(summary['outstanding'].get('total_repairs_outstanding', 0)),
+        'total_outstanding': float(summary['outstanding'].get('total_outstanding', 0)),
+    }
+    
+    # For backward compatibility and CSV export
+    outstanding = outstanding_detail['total_outstanding']
+    
+    # These are now consolidated into sales_balance_due and repairs_balance_due
+    # Keep for CSV and other compatibility needs
+    partial_repairs_total = outstanding_detail['repairs_balance_due']  # consolidated
+    credit_repairs_total = outstanding_detail['repairs_balance_due']   # same as above (for compatibility)
+    credit_sales_total = outstanding_detail['sales_balance_due']       # consolidated
+    partial_sales_total = outstanding_detail['sales_balance_due']      # same as above (for compatibility)
 
     # CSV export
     if fmt == 'csv':
         si = StringIO()
         cw = csv.writer(si)
-        cw.writerow(["Metric", "Amount"])
-        cw.writerow(["Sales Total (sales only)", sales_total])
+        cw.writerow(["Financial Summary Report", f"{start_date} to {end_date}"])
+        cw.writerow([])
+        
+        cw.writerow(["REVENUE INVOICED (Period)", "Amount"])
+        cw.writerow(["Sales Total", sales_total])
         cw.writerow(["Repairs Total", repairs_total])
-        cw.writerow(["Sales + Repairs Total", combined_sales_total])
-        cw.writerow(["Payments from Sales", sales_payments_total])
-        cw.writerow(["Payments from Repairs (Deposits)", repair_payments_total])
-        cw.writerow(["Payments Total", payments_total])
-        cw.writerow(["Outstanding (Pending)", outstanding])
-        cw.writerow(["Repairs with Partial Payment (Balance Due)", partial_repairs_total])
-        cw.writerow(["Repairs Claimed on Credit", credit_repairs_total])
+        cw.writerow(["Total Revenue Invoiced", combined_sales_total])
+        cw.writerow([])
+        
+        cw.writerow(["REVENUE RECEIVED (Period)", "Amount"])
+        cw.writerow(["Sales Payments", sales_payments_total])
+        cw.writerow(["Repair Payments", repair_payments_total])
+        cw.writerow(["Total Revenue Received", payments_total])
+        cw.writerow([])
+        
+        cw.writerow(["ACCOUNTS RECEIVABLE (Current)", "Amount"])
+        cw.writerow(["Pending Sales", outstanding_detail['pending_sales']])
+        cw.writerow(["Sales Balance Due", outstanding_detail['sales_balance_due']])
+        cw.writerow(["Total Sales Outstanding", outstanding_detail['total_sales_outstanding']])
+        cw.writerow([])
+        
+        cw.writerow(["Pending Repairs", outstanding_detail['pending_repairs']])
+        cw.writerow(["Repairs Balance Due", outstanding_detail['repairs_balance_due']])
+        cw.writerow(["Total Repairs Outstanding", outstanding_detail['total_repairs_outstanding']])
+        cw.writerow([])
+        
+        cw.writerow(["TOTAL OUTSTANDING (Current)", outstanding_detail['total_outstanding']])
+        
         output = si.getvalue()
         return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=financial_summary.csv"})
 
-    return render_template('reports/financial.html', sales_total=sales_total, repairs_total=repairs_total, combined_sales_total=combined_sales_total, payments_total=payments_total, sales_payments_total=sales_payments_total, repair_payments_total=repair_payments_total, outstanding=outstanding, partial_repairs_total=partial_repairs_total, credit_repairs_total=credit_repairs_total, date_from=date_from, date_to=date_to)
+    return render_template(
+        'reports/financial.html',
+        # Revenue Invoiced (accrual basis)
+        sales_total=sales_total,
+        repairs_total=repairs_total,
+        combined_sales_total=combined_sales_total,
+        # Revenue Received (cash basis)
+        payments_total=payments_total,
+        sales_payments_total=sales_payments_total,
+        repair_payments_total=repair_payments_total,
+        # Outstanding Breakdown (current state, not period-bound)
+        outstanding=outstanding,
+        partial_repairs_total=partial_repairs_total,
+        credit_repairs_total=credit_repairs_total,
+        credit_sales_total=credit_sales_total,
+        partial_sales_total=partial_sales_total,
+        # Summary for display
+        outstanding_detail=outstanding_detail,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
 
 @reports_bp.route('/inventory')
