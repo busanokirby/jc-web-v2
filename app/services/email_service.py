@@ -91,7 +91,7 @@ class EmailService:
         note = """
                     <p style="font-size: 12px; color: #999;">
                         <strong>Note:</strong> This report includes only received payments (Sales with PAID/PARTIAL status, Repairs with confirmed payments).
-                        {"" if report_data.get('frequency') == 'daily' else "The Excel attachment contains detailed transaction records for both sales and repairs."}
+                        "The Excel attachment contains detailed transaction records for both sales and repairs."}
                     </p>
                     """
 
@@ -99,179 +99,129 @@ class EmailService:
         <!DOCTYPE html>
         <html>
         <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style type="text/css">
-                body {{
-                    font-family: Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                    max-width: 600px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background-color: #f9f9f9;
-                }}
-                .container {{
-                    background-color: white;
-                    border-radius: 8px;
-                    padding: 30px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }}
-                .header {{
-                    background-color: #1b7e3d;
-                    color: white;
-                    padding: 20px;
-                    border-radius: 8px 8px 0 0;
-                    text-align: center;
-                    margin: -30px -30px 30px -30px;
-                }}
-                .header h1 {{
-                    margin: 0;
-                    font-size: 24px;
-                }}
-                .period {{
-                    color: #666;
-                    font-size: 14px;
-                    margin-top: 5px;
-                }}
-                .kpi-section {{
-                    background-color: #f5f5f5;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin-bottom: 30px;
-                }}
-                .kpi-row {{
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 10px 0;
-                    border-bottom: 1px solid #ddd;
-                }}
-                .kpi-row:last-child {{
-                    border-bottom: none;
-                }}
-                .kpi-label {{
-                    font-weight: bold;
-                    color: #333;
-                }}
-                .kpi-value {{
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #1b7e3d;
-                }}
-                .breakdown-table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-bottom: 30px;
-                }}
-                .breakdown-table th {{
-                    background-color: #2d8f56;
-                    color: white;
-                    padding: 12px;
-                    text-align: left;
-                    font-weight: bold;
-                }}
-                .breakdown-table td {{
-                    padding: 12px;
-                    border-bottom: 1px solid #ddd;
-                }}
-                .breakdown-table tr:nth-child(even) {{
-                    background-color: #f9f9f9;
-                }}
-                .footer {{
-                    text-align: center;
-                    padding: 20px;
-                    color: #999;
-                    font-size: 12px;
-                    border-top: 1px solid #ddd;
-                    margin-top: 30px;
-                }}
-                .button {{
-                    display: inline-block;
-                    padding: 10px 20px;
-                    margin-top: 20px;
-                    background-color: #2d8f56;
-                    color: white;
-                    text-decoration: none;
-                    border-radius: 4px;
-                    text-align: center;
-                }}
-                @media only screen and (max-width: 600px) {{
-                    body {{
-                        padding: 10px;
-                    }}
-                    .container {{
-                        padding: 15px;
-                    }}
-                    .header {{
-                        margin: -15px -15px 20px -15px;
-                        padding: 15px;
-                    }}
-                    .header h1 {{
-                        font-size: 20px;
-                    }}
-                    .kpi-row {{
-                        flex-direction: column;
-                    }}
-                    .kpi-value {{
-                        margin-top: 5px;
-                    }}
-                    .breakdown-table th,
-                    .breakdown-table td {{
-                        padding: 8px;
-                        font-size: 12px;
-                    }}
-                }}
-            </style>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sales & Repair Report</title>
         </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>Sales & Repair Report</h1>
-                    <div class="period">{report_data['date_range']}</div>
-                </div>
-                
-                <div class="kpi-section">
-                    <div class="kpi-row">
-                        <span class="kpi-label">Total Revenue:</span>
-                        <span class="kpi-value">₱{report_data['total_revenue']:,.2f}</span>
+
+        <body style="margin:0; padding:0; background-color:#f4f6f9; font-family: Arial, Helvetica, sans-serif;">
+
+        <!-- OUTER WRAPPER -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f6f9">
+        <tr>
+            <td align="center" style="padding:20px 10px;">
+
+            <!-- EMAIL CONTAINER (600px) -->
+            <table width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="max-width:600px; width:100%; border-radius:8px; overflow:hidden;">
+
+                <!-- HEADER -->
+                <tr>
+                <td align="center" bgcolor="#0f766e" style="padding:30px 20px; color:#ffffff;">
+                    <h1 style="margin:0; font-size:22px; font-weight:bold;">
+                    Sales & Repair Report
+                    </h1>
+                    <p style="margin:8px 0 0 0; font-size:14px; opacity:0.9;">
+                    {report_data['date_range']}
+                    </p>
+                </td>
+                </tr>
+
+                <!-- BODY CONTENT -->
+                <tr>
+                <td style="padding:30px 20px;">
+
+                    <!-- KPI SECTION -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:25px;">
+                    
+                    <tr>
+                        <td style="padding:10px 0; border-bottom:1px solid #e5e7eb;">
+                        <strong style="color:#374151;">Total Revenue</strong>
+                        <span style="float:right; color:#059669; font-weight:bold;">
+                            ₱{report_data['total_revenue']:,.2f}
+                        </span>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:10px 0; border-bottom:1px solid #e5e7eb;">
+                        <strong style="color:#374151;">Total Transactions</strong>
+                        <span style="float:right; color:#111827; font-weight:bold;">
+                            {report_data['total_transactions']}
+                        </span>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:10px 0; border-bottom:1px solid #e5e7eb;">
+                        <strong style="color:#374151;">Sales Revenue</strong>
+                        <span style="float:right; color:#059669; font-weight:bold;">
+                            ₱{report_data['total_sales_payments']:,.2f}
+                        </span>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:10px 0;">
+                        <strong style="color:#374151;">Repair Revenue</strong>
+                        <span style="float:right; color:#059669; font-weight:bold;">
+                            ₱{report_data['total_repair_payments']:,.2f}
+                        </span>
+                        </td>
+                    </tr>
+
+                    </table>
+
+                    <!-- SECTION TITLE -->
+                    <h2 style="font-size:16px; margin:0 0 10px 0; color:#111827; border-bottom:2px solid #e5e7eb; padding-bottom:6px;">
+                     Sales Payment Method Breakdown
+                    </h2>
+
+                    <!-- TABLE -->
+                    
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse; font-size:14px;">
+                    
+                    <tr bgcolor="#f3f4f6">
+                        <th align="left" style="padding:10px; border:1px solid #e5e7eb;">Payment Method</th>
+                        <th align="right" style="padding:10px; border:1px solid #e5e7eb;">Count</th>
+                        <th align="right" style="padding:10px; border:1px solid #e5e7eb;">Total</th>
+                    </tr>
+
+                    {breakdown_rows}
+
+                    </table>
+
+                    <!-- OPTIONAL NOTE -->
+                    <div style="margin-top:20px;">
+                    {note}
                     </div>
-                    <div class="kpi-row">
-                        <span class="kpi-label">Total Transactions:</span>
-                        <span class="kpi-value">{report_data['total_transactions']}</span>
+
+                    <!-- OPTIONAL DETAIL SECTION -->
+                    <div style="margin-top:20px;">
+                    {detail_section}
                     </div>
-                    <div class="kpi-row">
-                        <span class="kpi-label">Sales Revenue:</span>
-                        <span class="kpi-value">₱{report_data['total_sales_payments']:,.2f}</span>
-                    </div>
-                    <div class="kpi-row">
-                        <span class="kpi-label">Repair Revenue:</span>
-                        <span class="kpi-value">₱{report_data['total_repair_payments']:,.2f}</span>
-                    </div>
-                </div>
-                
-                <h2 style="color: #1b7e3d; border-bottom: 2px solid #2d8f56; padding-bottom: 10px;">Payment Method Breakdown</h2>
-                <table class="breakdown-table">
-                    <thead>
-                        <tr>
-                            <th>Payment Method</th>
-                            <th style="text-align: right;">Count</th>
-                            <th style="text-align: right;">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {breakdown_rows}
-                    </tbody>
-                </table>
-                
-                {note}
-                
-                {detail_section}
-                
-                <div class="footer">
-                    <p>This is an automated report. Please do not reply to this email.</p>
-                    <p>Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
-                </div>
-            </div>
+
+                </td>
+                </tr>
+
+                <!-- FOOTER -->
+                <tr>
+                <td bgcolor="#f9fafb" align="center" style="padding:20px; font-size:12px; color:#6b7280; border-top:1px solid #e5e7eb;">
+                    <p style="margin:0 0 5px 0;">
+                    This is an automated report. Please do not reply.
+                    </p>
+                    <p style="margin:0;">
+                    Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+                    </p>
+                </td>
+                </tr>
+
+            </table>
+            <!-- END CONTAINER -->
+
+            </td>
+        </tr>
+        </table>
+
         </body>
         </html>
         """
@@ -321,7 +271,7 @@ class EmailService:
             # Prepare message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = EmailService._get_subject(report_data)
-            msg['From'] = smtp_config.email_address
+            msg['From'] = f"JC ICONS DAILY SALES REPORT <{smtp_config.email_address}>"
             msg['To'] = ", ".join(recipients)
             
             # HTML body
