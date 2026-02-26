@@ -476,7 +476,7 @@
                     </li>
                     {% endif %}
 
-                    {% if current_user.role in ['ADMIN', 'SALES'] %}
+                    {% if current_user.role in ['ADMIN', 'SALES', 'TECH'] %}
                     <li class="nav-item" role="none">
                         <a class="nav-link{% if request.endpoint in ['customers.customers', 'customers.add_customer'] %} active{% endif %}"
                            href="{{ url_for('customers.customers') }}" role="menuitem"
@@ -501,7 +501,7 @@
                     </li>
                     {% endif %}
 
-                    {% if current_user.role in ['ADMIN', 'SALES'] %}
+                    {% if current_user.role in ['ADMIN', 'SALES', 'TECH'] %}
                     <li class="nav-item" role="none">
                         <a class="nav-link{% if request.endpoint in ['sales.reports', 'sales.sales_list'] %} active{% endif %}"
                            href="{{ url_for('sales.reports') }}" role="menuitem"
