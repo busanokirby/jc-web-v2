@@ -16,6 +16,15 @@ from app.services.authz import roles_required
 from . import reports_bp
 
 
+@reports_bp.route("")
+@reports_bp.route("/")
+@login_required
+@roles_required("ADMIN")
+def reports_hub():
+    """Reports hub - organized access to all available report templates"""
+    return render_template("reports/hub.html")
+
+
 @reports_bp.route("/repairs")
 @login_required
 @roles_required("ADMIN")
@@ -98,13 +107,24 @@ def financial_report():
         sales_query = sales_query.filter(Sale.created_at <= date_filter_obj['to'])
     sales_total = float(sales_query.scalar() or 0)
 
-    # Query payments total (payments recorded)
+    # Query payments total (payments recorded from sales)
     payments_query = db.session.query(func.coalesce(func.sum(SalePayment.amount), 0).label('total'))
     if 'from' in date_filter_obj:
         payments_query = payments_query.filter(SalePayment.paid_at >= date_filter_obj['from'])
     if 'to' in date_filter_obj:
         payments_query = payments_query.filter(SalePayment.paid_at <= date_filter_obj['to'])
-    payments_total = float(payments_query.scalar() or 0)
+    sales_payments_total = float(payments_query.scalar() or 0)
+
+    # Query repair payments (deposits received on repairs, tracked by deposit_paid_at)
+    repair_payments_query = db.session.query(func.coalesce(func.sum(Device.deposit_paid), 0).label('total'))
+    if 'from' in date_filter_obj:
+        repair_payments_query = repair_payments_query.filter(Device.deposit_paid_at >= date_filter_obj['from'])
+    if 'to' in date_filter_obj:
+        repair_payments_query = repair_payments_query.filter(Device.deposit_paid_at <= date_filter_obj['to'])
+    repair_payments_total = float(repair_payments_query.scalar() or 0)
+
+    # Total payments: sales payments + repair deposits
+    payments_total = sales_payments_total + repair_payments_total
 
     # Include repair transactions completed within the date range (use actual_completion)
     repairs_query = db.session.query(func.coalesce(func.sum(Device.total_cost), 0).label('total'))
@@ -120,6 +140,25 @@ def financial_report():
     # Outstanding: combined sales (sales + repairs) minus payments recorded
     outstanding = max(0.0, combined_sales_total - payments_total)
 
+    # Calculate partial/credit breakdown for repairs
+    # Repairs with partial payment (some deposit made, balance still due)
+    partial_repairs_query = db.session.query(func.coalesce(func.sum(Device.balance_due), 0).label('total'))
+    partial_repairs_query = partial_repairs_query.filter(Device.payment_status == 'Partial')
+    if 'from' in date_filter_obj:
+        partial_repairs_query = partial_repairs_query.filter(Device.actual_completion >= date_filter_obj['from'])
+    if 'to' in date_filter_obj:
+        partial_repairs_query = partial_repairs_query.filter(Device.actual_completion <= date_filter_obj['to'])
+    partial_repairs_total = float(partial_repairs_query.scalar() or 0)
+
+    # Repairs claimed on credit (released without payment)
+    credit_repairs_query = db.session.query(func.coalesce(func.sum(Device.total_cost), 0).label('total'))
+    credit_repairs_query = credit_repairs_query.filter(Device.claimed_on_credit == True)
+    if 'from' in date_filter_obj:
+        credit_repairs_query = credit_repairs_query.filter(Device.actual_completion >= date_filter_obj['from'])
+    if 'to' in date_filter_obj:
+        credit_repairs_query = credit_repairs_query.filter(Device.actual_completion <= date_filter_obj['to'])
+    credit_repairs_total = float(credit_repairs_query.scalar() or 0)
+
     # CSV export
     if fmt == 'csv':
         si = StringIO()
@@ -128,12 +167,16 @@ def financial_report():
         cw.writerow(["Sales Total (sales only)", sales_total])
         cw.writerow(["Repairs Total", repairs_total])
         cw.writerow(["Sales + Repairs Total", combined_sales_total])
+        cw.writerow(["Payments from Sales", sales_payments_total])
+        cw.writerow(["Payments from Repairs (Deposits)", repair_payments_total])
         cw.writerow(["Payments Total", payments_total])
-        cw.writerow(["Outstanding", outstanding])
+        cw.writerow(["Outstanding (Pending)", outstanding])
+        cw.writerow(["Repairs with Partial Payment (Balance Due)", partial_repairs_total])
+        cw.writerow(["Repairs Claimed on Credit", credit_repairs_total])
         output = si.getvalue()
         return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=financial_summary.csv"})
 
-    return render_template('reports/financial.html', sales_total=sales_total, repairs_total=repairs_total, combined_sales_total=combined_sales_total, payments_total=payments_total, outstanding=outstanding, date_from=date_from, date_to=date_to)
+    return render_template('reports/financial.html', sales_total=sales_total, repairs_total=repairs_total, combined_sales_total=combined_sales_total, payments_total=payments_total, sales_payments_total=sales_payments_total, repair_payments_total=repair_payments_total, outstanding=outstanding, partial_repairs_total=partial_repairs_total, credit_repairs_total=credit_repairs_total, date_from=date_from, date_to=date_to)
 
 
 @reports_bp.route('/inventory')

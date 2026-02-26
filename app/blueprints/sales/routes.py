@@ -968,9 +968,26 @@ def reports():
         for date, data in sorted(daily_totals.items())
     ]
     
+    # Calculate partial/credit totals for ALL active repairs (not just those completed in the period)
+    # This shows what's currently outstanding to collect, regardless of when they were completed
+    
+    # Repairs with partial payment (balance due) - all active partial repairs
+    all_partial_repairs = Device.query.filter(Device.payment_status == 'Partial').all()
+    partial_repairs_balance = Decimal("0.00")
+    for dev in all_partial_repairs:
+        partial_repairs_balance += dev.balance_due or Decimal("0.00")
+    
+    # Repairs claimed on credit - all active credit repairs
+    all_credit_repairs = Device.query.filter(Device.claimed_on_credit == True).all()
+    credit_repairs_total = Decimal("0.00")
+    for dev in all_credit_repairs:
+        credit_repairs_total += dev.total_cost or Decimal("0.00")
+    
     return render_template(
         "sales/reports.html",
         days_back=days_back,
+        partial_repairs_balance=float(partial_repairs_balance),
+        credit_repairs_total=float(credit_repairs_total),
         total_revenue=float(total_revenue),
         repairs_total=float(repairs_total),
         repair_transactions=repair_transactions,

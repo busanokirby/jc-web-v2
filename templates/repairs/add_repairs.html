@@ -238,9 +238,9 @@
                         <span class="input-group-text">
                             <input class="form-check-input mt-0" type="checkbox" id="include_deposit" name="include_deposit" value="yes" aria-label="Include deposit">
                         </span>
-                        <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" step="0.01" placeholder="0.00" disabled>
+                        <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" step="0.01" placeholder="0.00" min="0" value="0.00">
                     </div>
-                    <div class="form-text">Check to record a deposit (off by default)</div>
+                    <div class="form-text">Check to record a deposit. Field is optional unless checkbox is enabled.</div>
                 </div>
             </div>
         </div>
@@ -326,23 +326,27 @@ function togglePhoneRequirement() {
 document.addEventListener('DOMContentLoaded', function(){
     const includeDeposit = document.getElementById('include_deposit');
     const depositInput = document.getElementById('deposit_paid');
+    
     if (!includeDeposit || !depositInput) return;
 
+    // Visual feedback: highlight deposit input when checkbox is checked
     includeDeposit.addEventListener('change', function(){
         if (this.checked) {
-            depositInput.disabled = false;
-            depositInput.required = false; // optional even when enabled
-            if (!depositInput.value) depositInput.value = '0.00';
+            depositInput.classList.add('border-success', 'border-2');
+            depositInput.focus();
         } else {
-            depositInput.disabled = true;
-            depositInput.value = '';
+            depositInput.classList.remove('border-success', 'border-2');
         }
     });
 
-    // ensure default is off
-    includeDeposit.checked = false;
-    depositInput.disabled = true;
-    depositInput.value = '';
+    // Allow deposit entry even without checkbox, but checkbox indicates intent
+    depositInput.addEventListener('input', function(){
+        if(parseFloat(this.value) > 0) {
+            includeDeposit.checked = true;
+            depositInput.classList.add('border-success', 'border-2');
+        }
+    });
 });
+
 </script>
 {% endblock %}

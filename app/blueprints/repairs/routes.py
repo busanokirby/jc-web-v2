@@ -398,6 +398,36 @@ def update_device_details(device_id: int):
     return redirect(url_for('repairs.repair_detail', device_id=device.id))
 
 
+@repairs_bp.route("/<int:device_id>/update-deposit", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def update_deposit(device_id: int):
+    """Update/add deposit for a repair"""
+    device = Device.query.get_or_404(device_id)
+
+    if device.payment_status == 'Paid' or device.is_archived:
+        flash('Cannot edit deposit for a processed/paid or archived repair.', 'danger')
+        return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+    deposit_amount = safe_decimal(request.form.get('deposit_amount'), '0.00')
+
+    if deposit_amount < 0:
+        flash('Deposit amount cannot be negative.', 'danger')
+        return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+    device.deposit_paid = deposit_amount
+    
+    # Record deposit timestamp if deposit is being added
+    if deposit_amount > 0:
+        device.deposit_paid_at = datetime.now()
+
+    recompute_repair_financials(device)
+    db.session.commit()
+
+    flash(f'Deposit updated to ₱{deposit_amount}.', 'success')
+    return redirect(url_for('repairs.repair_detail', device_id=device.id))
+
+
 @repairs_bp.route("/<int:device_id>/technician-name", methods=["POST"])
 @login_required
 @roles_required("ADMIN", "TECH")

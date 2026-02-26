@@ -3,52 +3,74 @@
 {% block title %}Repairs Report - JC Icons{% endblock %}
 
 {% block content %}
+<!-- Page Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-graph-up"></i> Repairs by Status</h1>
     <div class="d-flex gap-2">
-        <a href="{{ url_for('reports.repairs_report', date_from=date_from, date_to=date_to, format='csv') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('sales.reports') }}" class="btn btn-outline-secondary" title="Back to Sales Analytics">
+            <i class="bi bi-arrow-left"></i> Sales Analytics
+        </a>
+        <a href="{{ url_for('reports.repairs_report', date_from=date_from, date_to=date_to, format='csv') }}" 
+           class="btn btn-outline-secondary" title="Download report as CSV">
             <i class="bi bi-download"></i> Export CSV
         </a>
     </div>
 </div>
 
+<!-- Date Range Filter -->
 <form method="GET" class="row g-2 mb-3">
     <div class="col-md-3">
-        <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}" placeholder="From">
+        <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}" 
+               placeholder="From" aria-label="Start date filter">
     </div>
     <div class="col-md-3">
-        <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}" placeholder="To">
+        <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}" 
+               placeholder="To" aria-label="End date filter">
     </div>
     <div class="col-md-2 d-grid">
-        <button class="btn btn-primary" type="submit">
+        <button type="submit" class="btn btn-primary">
             <i class="bi bi-filter"></i> Apply
         </button>
     </div>
 </form>
 
+<!-- Repairs Summary Table -->
 <div class="card">
-    <div class="card-body">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-table"></i> Repair Summary by Status</h6>
+    </div>
+    <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
                         <th>Status</th>
-                        <th>Count</th>
-                        <th>Total Cost</th>
+                        <th class="text-center">Count</th>
+                        <th class="text-end">Total Cost</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for r in rows %}
-                    <tr>
-                        <td>{{ r.status }}</td>
-                        <td>{{ r.count }}</td>
-                        <td>{{ r.total_cost|currency }}</td>
-                    </tr>
+                    {% if rows %}
+                        {% for r in rows %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-secondary">{{ r.status }}</span>
+                            </td>
+                            <td class="text-center">
+                                <strong>{{ r.count }}</strong>
+                            </td>
+                            <td class="text-end">
+                                <strong>{{ r.total_cost|currency }}</strong>
+                            </td>
+                        </tr>
+                        {% endfor %}
                     {% else %}
-                    <tr>
-                        <td colspan="3" class="text-center text-muted py-4">No data available</td>
-                    </tr>
-                    {% endfor %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox"></i> No data available for the selected period
+                            </td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>

@@ -1,0 +1,178 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Reports Hub - JC Icons{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-graph-up"></i> Reports Hub</h1>
+        <p class="text-muted mb-0">Access all available reports and analytics in one place</p>
+    </div>
+    <div>
+        <a href="{{ url_for('sales.reports') }}" class="btn btn-outline-secondary" title="Back to Sales Analytics">
+            <i class="bi bi-arrow-left"></i> Sales Analytics
+        </a>
+    </div>
+</div>
+
+<!-- Report Templates Grid -->
+<div class="row g-3 mb-5">
+    <!-- Financial Summary Report -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-start border-success border-4 shadow-sm transition-shadow" role="link" tabindex="0">
+            <div class="card-header bg-light border-bottom">
+                <h5 class="mb-0">
+                    <i class="bi bi-cash-stack text-success"></i> Financial Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text text-muted mb-3">
+                    Complete financial overview including total revenue, sales, repairs, payments, and outstanding balances.
+                </p>
+                <ul class="small text-muted mb-0 ps-3">
+                    <li>Sales & Repairs totals</li>
+                    <li>Payment tracking</li>
+                    <li>Outstanding balances</li>
+                    <li>Credit repairs breakdown</li>
+                </ul>
+            </div>
+            <div class="card-footer bg-white border-top d-flex gap-2">
+                <a href="{{ url_for('reports.financial_report') }}" class="btn btn-success btn-sm flex-grow-1">
+                    <i class="bi bi-eye"></i> View Report
+                </a>
+                <a href="{{ url_for('reports.financial_report', format='csv') }}" class="btn btn-outline-success btn-sm" 
+                   title="Download as CSV" aria-label="Download Financial Summary as CSV">
+                    <i class="bi bi-download"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Repairs Report -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-start border-primary border-4 shadow-sm transition-shadow" role="link" tabindex="0">
+            <div class="card-header bg-light border-bottom">
+                <h5 class="mb-0">
+                    <i class="bi bi-wrench text-primary"></i> Repairs by Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text text-muted mb-3">
+                    Summary of repairs organized by status with total costs and device counts.
+                </p>
+                <ul class="small text-muted mb-0 ps-3">
+                    <li>Status breakdown</li>
+                    <li>Device count by status</li>
+                    <li>Total costs per status</li>
+                    <li>Date range filtering</li>
+                </ul>
+            </div>
+            <div class="card-footer bg-white border-top d-flex gap-2">
+                <a href="{{ url_for('reports.repairs_report') }}" class="btn btn-primary btn-sm flex-grow-1">
+                    <i class="bi bi-eye"></i> View Report
+                </a>
+                <a href="{{ url_for('reports.repairs_report', format='csv') }}" class="btn btn-outline-primary btn-sm" 
+                   title="Download as CSV" aria-label="Download Repairs Report as CSV">
+                    <i class="bi bi-download"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Report -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-start border-info border-4 shadow-sm transition-shadow" role="link" tabindex="0">
+            <div class="card-header bg-light border-bottom">
+                <h5 class="mb-0">
+                    <i class="bi bi-box-seam text-info"></i> Inventory Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text text-muted mb-3">
+                    Complete inventory snapshot with stock levels, values, and low stock alerts.
+                </p>
+                <ul class="small text-muted mb-0 ps-3">
+                    <li>Stock on hand</li>
+                    <li>Inventory value</li>
+                    <li>Low stock alerts</li>
+                    <li>Reorder recommendations</li>
+                </ul>
+            </div>
+            <div class="card-footer bg-white border-top d-flex gap-2">
+                <a href="{{ url_for('reports.inventory_report') }}" class="btn btn-info btn-sm flex-grow-1">
+                    <i class="bi bi-eye"></i> View Report
+                </a>
+                <a href="{{ url_for('reports.inventory_report', format='csv') }}" class="btn btn-outline-info btn-sm" 
+                   title="Download as CSV" aria-label="Download Inventory Report as CSV">
+                    <i class="bi bi-download"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-5">
+
+<!-- Related Reports Section -->
+<div class="row g-3 mb-5">
+    <div class="col-md-6">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="bi bi-graph-up text-success"></i> Sales Analytics
+                </h5>
+                <p class="card-text text-muted mb-3 small">
+                    Detailed sales performance dashboard with revenue trends, top products, and transaction analysis.
+                </p>
+                <a href="{{ url_for('sales.reports') }}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-arrow-right"></i> Go to Sales Reports
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="bi bi-calendar-day text-info"></i> Daily Sales Summary
+                </h5>
+                <p class="card-text text-muted mb-3 small">
+                    Daily payment tracking for sales and repairs completed on a specific date.
+                </p>
+                <a href="{{ url_for('sales.daily_sales') }}" class="btn btn-outline-info btn-sm">
+                    <i class="bi bi-arrow-right"></i> View Daily Sales
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-5">
+
+<!-- Feature Information -->
+<div class="alert alert-info border-start border-info border-4" role="alert">
+    <h5 class="alert-heading">
+        <i class="bi bi-info-circle"></i> Report Features
+    </h5>
+    <p class="mb-2">All report templates include the following capabilities:</p>
+    <ul class="mb-0 small">
+        <li><strong>CSV Export:</strong> Download any report as a CSV file for analysis in spreadsheet applications</li>
+        <li><strong>Date Filtering:</strong> Financial and Repairs reports include date range filtering</li>
+        <li><strong>Print-Friendly:</strong> All reports are optimized for browser printing</li>
+        <li><strong>Real-Time Data:</strong> Reports reflect current system data</li>
+    </ul>
+</div>
+
+<style>
+    .transition-shadow {
+        transition: box-shadow 0.3s ease, transform 0.2s ease;
+    }
+    
+    .transition-shadow:hover {
+        box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.15) !important;
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
