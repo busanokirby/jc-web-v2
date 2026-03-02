@@ -5,7 +5,7 @@ import os
 import logging
 from flask import Flask, render_template, url_for
 from decimal import Decimal, ROUND_HALF_UP
-from app.extensions import db, login_manager
+from app.extensions import db, login_manager, migrate
 from app.models.user import User
 
 
@@ -91,6 +91,7 @@ def create_app(config=None):
     
     # Initialize extensions
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'  # type: ignore
     login_manager.login_message = 'Please log in to access this page.'

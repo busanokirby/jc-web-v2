@@ -8,13 +8,10 @@ import smtplib
 import socket
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
 import logging
 
 from app.models.email_config import SMTPSettings, EmailReport
 from app.services.report_service import ReportService
-from app.services.excel_service import ExcelReportService
 from app.extensions import db
 
 logger = logging.getLogger(__name__)
@@ -100,57 +97,29 @@ class EmailService:
     @staticmethod
     def generate_html_body(report_data: dict, config: SMTPSettings) -> str:
         """
-        Generate mobile-friendly HTML email body matching daily_sales.html calculations.
+        Generate mobile-friendly HTML email body from pre-calculated report_data.
 
         Args:
-            report_data: Report dict from ReportService
+            report_data: Report dict from ReportService (single source of truth)
             config: SMTPSettings config
 
         Returns:
             HTML string with formatted report
         """
-        # Get the same context as the web page for accurate calculations
+        # Get report metadata
         report_date = report_data.get('report_date', get_ph_date())
         
-        try:
-            # Use same backend as daily_sales.html for consistency
-            daily_ctx = ReportService.build_daily_sales_context(report_date)
-            sales_records = daily_ctx.get('sales_records', [])
-        except Exception as e:
-            logger.error(f"Error building daily context: {e}")
-            sales_records = []
+        # Use totals from report_data (already calculated by ReportService)
+        total_revenue = report_data.get('total_revenue', 0)
+        total_transactions = report_data.get('total_transactions', 0)
+        total_sales_payments = report_data.get('total_sales_payments', 0)
+        total_repair_payments = report_data.get('total_repair_payments', 0)
         
-        # Filter for received payments (amount > 0) - matching daily_sales.html logic
-        received_records = [rec for rec in sales_records if rec.get('amount', 0) > 0]
+        # Use payment breakdown from report_data (centrally computed)
+        payment_breakdown = report_data.get('payment_breakdown', {})
         
-        logger.debug(f"Email body generation: {len(received_records)} received records")
-        if received_records:
-            logger.debug(f"First record keys: {received_records[0].keys()}")
-            logger.debug(f"First record: {received_records[0]}")
-        
-        # Calculate totals from actual records displayed - matching daily_sales.html
-        total_revenue = sum(rec.get('amount', 0) for rec in received_records)
-        total_transactions = len(received_records)
-        
-        # Separate sales and repair revenues
-        sales_revenue = sum(rec.get('amount', 0) for rec in received_records if rec.get('type') == 'Purchase')
-        repair_revenue = sum(rec.get('amount', 0) for rec in received_records if rec.get('type') == 'Repair')
-        
-        # Count partial payments
-        partial_records = [rec for rec in received_records if rec.get('is_partial')]
-        total_partial_count = len(partial_records)
-        
-        logger.debug(f"Email generation: {total_transactions} records, ₱{total_revenue:.2f} revenue")
-        
-        # Build payment method breakdown
-        payment_breakdown = {}
-        for rec in received_records:
-            if rec.get('type') == 'Purchase':  # Only count sales for method breakdown
-                payment_method = rec.get('payment_method', 'Cash')
-                if payment_method not in payment_breakdown:
-                    payment_breakdown[payment_method] = {'count': 0, 'total': 0.0}
-                payment_breakdown[payment_method]['count'] += 1
-                payment_breakdown[payment_method]['total'] += rec.get('amount', 0)
+        # Prepare transaction records for display
+        received_records = EmailService._prepare_email_records(report_data)
         
         # Build breakdown rows for HTML
         breakdown_rows = ""
@@ -201,8 +170,6 @@ class EmailService:
             </tbody>
         </table>
         """ if received_records else ""
-        
-        logger.debug(f"Detail section built: {len(detail_section)} chars, {len(detail_rows)} chars of rows")
         
         # Stable HTML template from git
         html = f"""
@@ -330,11 +297,11 @@ class EmailService:
                     </div>
                     <div class="kpi-row">
                         <span class="kpi-label">Sales Revenue:</span>
-                        <span class="kpi-value">₱{sales_revenue:,.2f}</span>
+                        <span class="kpi-value">₱{total_sales_payments:,.2f}</span>
                     </div>
                     <div class="kpi-row">
                         <span class="kpi-label">Repair Revenue:</span>
-                        <span class="kpi-value">₱{repair_revenue:,.2f}</span>
+                        <span class="kpi-value">₱{total_repair_payments:,.2f}</span>
                     </div>
                 </div>
                 
@@ -371,80 +338,53 @@ class EmailService:
         smtp_config: SMTPSettings,
         recipient_emails: list[str] | str,
         report_data: dict,
-        attachment_bytes: Optional[bytes],
-        attachment_filename: str
+        attachment_bytes: Optional[bytes] = None,
+        attachment_filename: str = ""
     ) -> tuple[bool, str]:
         """
-        Send email with report attachment to one or more recipients.
+        Send email with report to one or more recipients.
         
         Args:
             smtp_config: SMTPSettings instance
             recipient_emails: single email or list of emails
             report_data: Report data dict
-            attachment_bytes: Excel file bytes
-            attachment_filename: Name for attachment
-        
-        Returns:
-            (success: bool, message: str)
-        """
-        """
-        Send email with report attachment.
-        
-        Args:
-            smtp_config: SMTPSettings instance
-            recipient_email: Email address to send to
-            report_data: Report data dict
-            attachment_bytes: Excel file bytes
-            attachment_filename: Name for attachment
+            attachment_bytes: Excel file bytes (optional, not used)
+            attachment_filename: Name for attachment (optional, not used)
         
         Returns:
             (success: bool, message: str)
         """
         try:
+            # Validate required report_data fields
+            required_keys = ['date_range', 'frequency', 'total_revenue', 'total_transactions',
+                           'total_sales_payments', 'total_repair_payments']
+            missing_keys = [k for k in required_keys if k not in report_data]
+            if missing_keys:
+                error_msg = f"Report data missing required keys: {missing_keys}"
+                logger.error(f"Structural validation failed: {error_msg}")
+                return False, error_msg
+            
             # Normalize recipients to list
             if isinstance(recipient_emails, str):
                 recipients = [recipient_emails]
             else:
                 recipients = recipient_emails
-            
-            logger.debug(f"send_report called: recipients={recipients}, attachment_bytes={len(attachment_bytes) if attachment_bytes else 0} bytes, filename={attachment_filename}")
 
             # Prepare message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = EmailService._get_subject(report_data)
-            msg['From'] = f"JC ICONS DAILY SALES REPORT <{smtp_config.email_address}>"
+            
+            # Use configurable sender name (fallback to default if not set)
+            sender_name = getattr(smtp_config, 'sender_name', 'JC ICONS DAILY SALES REPORT')
+            msg['From'] = f"{sender_name} <{smtp_config.email_address}>"
             msg['To'] = ", ".join(recipients)
             
             # HTML body
             html_body = EmailService.generate_html_body(report_data, smtp_config)
             html_part = MIMEText(html_body, 'html')
             msg.attach(html_part)
-            
-            # Attach file when provided (some frequencies, e.g. daily, use inline details only)
-            if attachment_bytes and len(attachment_bytes) > 0:
-                logger.debug(f"Attachment found: {attachment_filename}, size: {len(attachment_bytes)} bytes")
-                try:
-                    # Use correct MIME type for Excel files
-                    attachment = MIMEBase('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-                    attachment.set_payload(attachment_bytes)
-                    encoders.encode_base64(attachment)
-                    attachment.add_header(
-                        'Content-Disposition',
-                        'attachment',
-                        filename=attachment_filename or 'report.xlsx'
-                    )
-                    msg.attach(attachment)
-                    logger.debug(f"Attachment successfully added to email: {attachment_filename}")
-                except Exception as e:
-                    logger.error(f"Error attaching file: {e}", exc_info=True)
-            else:
-                logger.debug(f"No attachment provided or attachment is empty (bytes: {len(attachment_bytes) if attachment_bytes else 0})")
 
             # Send via SMTP
-            # Verify message content before sending
-            attachment_count = len([part for part in msg.walk() if part.get_filename()])
-            logger.debug(f"Message prepared with {attachment_count} attachment(s)")
-            
             with smtplib.SMTP(smtp_config.smtp_server, smtp_config.smtp_port) as server:
                 if smtp_config.use_tls:
                     server.starttls()
@@ -490,13 +430,10 @@ class EmailService:
         Returns:
             True if report was sent, False otherwise
         """
-        logger.info("=== send_automated_report() called by scheduler ===")
-        
         if smtp_config is None:
             smtp_config = SMTPSettings.get_active_config()
         
         if not smtp_config or not smtp_config.is_enabled:
-            logger.debug("SMTP config not enabled, skipping report send")
             return False
         
         # Check if current time matches scheduled time
@@ -505,13 +442,15 @@ class EmailService:
         now_ph = get_ph_now()
         configured_hour = smtp_config.auto_send_time.hour
         configured_minute = smtp_config.auto_send_time.minute
-        # scheduler runs every minute so a strict hour/minute comparison is sufficient
-        if now_ph.hour != configured_hour or now_ph.minute != configured_minute:
+        
+        # 1-minute tolerance window: allow sends if within 61 seconds of configured time
+        # Prevents missing scheduled time due to scheduler granularity
+        time_diff = abs((now_ph.hour * 60 + now_ph.minute) - (configured_hour * 60 + configured_minute))
+        if time_diff > 1 and time_diff < (24 * 60 - 1):  # Not within 1-minute window on either side
             return False
         
         # Check if enough time has passed based on frequency
         if not EmailService._should_send_based_on_frequency(smtp_config):
-            logger.debug(f"Not enough time passed since last send (frequency: {smtp_config.frequency})")
             return False
         
         logger.info(f"Sending {smtp_config.frequency} report at {now_ph}")
@@ -537,48 +476,29 @@ class EmailService:
             sales_records = daily_ctx.get('sales_records', [])
             received_records = [rec for rec in sales_records if rec.get('amount', 0) > 0]
             report_data['received_records'] = received_records
-            logger.debug(f"Extracted {len(received_records)} received_records for Excel transactions sheet")
         else:
             logger.info(f"Building {smtp_config.frequency} report data")
             report_data = ReportService.generate_report_data(start_date, end_date, smtp_config.frequency)
         
         logger.info(f"Report data: {report_data.get('total_transactions', 0)} transactions, ₱{report_data.get('total_revenue', 0):.2f} total")
         
-        # include dates for later use (HTML detail section)
+        # include dates for later use
         report_data['start_date'] = start_date
         report_data['end_date'] = end_date
 
-        # Generate Excel attachment for all frequencies (include detailed records)
-        # For daily reports, Excel provides backup/archive of all transactions
-        try:
-            logger.info("Starting Excel attachment generation...")
-            excel_bytes = ExcelReportService.create_report(report_data)
-            if excel_bytes and len(excel_bytes) > 0:
-                logger.info(f"Excel attachment created successfully: {len(excel_bytes)} bytes")
-            else:
-                logger.warning(f"Excel file creation returned empty or invalid bytes (length: {len(excel_bytes) if excel_bytes else 0})")
-                excel_bytes = None
-        except Exception as e:
-            logger.error(f"Error generating Excel attachment: {e}", exc_info=True)
-            excel_bytes = None
-        
-        excel_filename = ExcelReportService.generate_filename(start_date, end_date) if excel_bytes else ""
-        logger.debug(f"Excel file: {excel_filename if excel_filename else 'NOT GENERATED'}, bytes: {len(excel_bytes) if excel_bytes else 0}")
-        
-        # Send email
+        # Send email without attachment
         recips = smtp_config.get_recipients()
         if not recips:
             logger.warning("No recipients configured for automated report")
             return False
         
         logger.info(f"Sending report to {len(recips)} recipients")
-        logger.debug(f"Calling send_report with attachment: {excel_filename if excel_bytes else 'None'}")
         success, message = EmailService.send_report(
             smtp_config,
             recips,
             report_data,
-            excel_bytes,
-            excel_filename
+            None,  # No attachment
+            ""     # No filename
         )
         
         logger.info(f"Email send attempt result: success={success}, message={message}")
@@ -593,7 +513,7 @@ class EmailService:
             total_sales_payments=report_data['total_sales_payments'],
             total_repair_payments=report_data['total_repair_payments'],
             report_type=f"{smtp_config.frequency}_sales",
-            attachment_filename=excel_filename,
+            attachment_filename=None,
             report_date_start=start_date,
             report_date_end=end_date,
             status='sent' if success else 'failed',
@@ -614,6 +534,7 @@ class EmailService:
         """
         Check if report should be sent based on frequency and last_sent_at.
         
+        Uses timezone-aware Philippines time for all calculations.
         Uses total_seconds() for precise timing (fixes .days truncation bug).
         .days truncates: 23.5 hours = 0 days → can send twice on server restart
         
@@ -621,29 +542,31 @@ class EmailService:
             True if enough time has passed, False otherwise
         """
         if not smtp_config.last_sent_at:
-            # Never sent before, send now
             return True
         
-        # Use naive datetime for comparison to avoid timezone issues
-        current_time = datetime.now()
+        # Use timezone-aware Philippines time (consistent with rest of system)
+        current_time_ph = get_ph_now()
         last_sent = smtp_config.last_sent_at
         
-        # Handle both naive and aware datetimes
-        if last_sent.tzinfo is not None:
-            # Convert aware datetime to naive
-            last_sent = last_sent.replace(tzinfo=None)
+        # Ensure last_sent is aware (convert if naive)
+        if last_sent.tzinfo is None:
+            # Assume naive datetime is already in Philippines time
+            last_sent = last_sent.replace(tzinfo=PHILIPPINES_TZ)
         
-        # Use total_seconds() for precise comparison
-        time_since_last = (current_time - last_sent).total_seconds()
+        # Use total_seconds() for precise comparison (avoids .days truncation)
+        time_since_last = (current_time_ph - last_sent).total_seconds()
         
         if smtp_config.frequency == 'daily':
             # 86,400 seconds = 24 hours (precise)
-            return time_since_last >= 86400
+            min_seconds = 86400
         elif smtp_config.frequency == 'every_3_days':
             # 259,200 seconds = 72 hours (precise)
-            return time_since_last >= 259200
+            min_seconds = 259200
         elif smtp_config.frequency == 'weekly':
             # 604,800 seconds = 168 hours = 7 days (precise)
-            return time_since_last >= 604800
+            min_seconds = 604800
+        else:
+            logger.warning(f"Unknown frequency: {smtp_config.frequency}, defaulting to daily")
+            min_seconds = 86400
         
-        return False
+        return time_since_last >= min_seconds

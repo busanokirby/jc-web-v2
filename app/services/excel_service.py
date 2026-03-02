@@ -5,13 +5,15 @@ Creates .xlsx files with sales and repair data
 from __future__ import annotations
 from datetime import date
 from decimal import Decimal
-from typing import Dict
-import os
+from typing import Dict, Optional
+import logging
 from io import BytesIO
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+logger = logging.getLogger(__name__)
 
 
 class ExcelReportService:
@@ -39,18 +41,33 @@ class ExcelReportService:
             return f"Sales_Report_{start_date.strftime('%Y_%m_%d')}_to_{end_date.strftime('%Y_%m_%d')}.xlsx"
     
     @staticmethod
-    def create_report(report_data: Dict) -> bytes:
+    def create_report(report_data: Dict) -> Optional[bytes]:
         """
         Create Excel workbook from report data.
+        
+        CRITICAL: Validates report_data structure before processing.
+        Raises exception on validation failure (no silent failures).
         
         Args:
             report_data: Report dict from ReportService.generate_report_data()
         
         Returns:
-            Excel file as bytes
+            Excel file as bytes, or None if validation fails
+            
+        Raises:
+            ValueError: If required fields are missing
+            Exception: If workbook creation fails
         """
-        import logging
-        logger = logging.getLogger(__name__)
+        # Validate required fields before processing
+        required_keys = [
+            'date_range', 'frequency', 'total_revenue', 'total_transactions',
+            'total_sales_payments', 'total_repair_payments', 'payment_breakdown'
+        ]
+        missing_keys = [k for k in required_keys if k not in report_data]
+        if missing_keys:
+            error_msg = f"Report data validation failed: missing keys {missing_keys}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
         
         try:
             wb = Workbook()
@@ -84,14 +101,16 @@ class ExcelReportService:
             wb.save(output)
             output.seek(0)
             excel_bytes = output.getvalue()
+            
+            if not excel_bytes or len(excel_bytes) == 0:
+                raise ValueError("Workbook conversion produced empty bytes")
+            
             logger.info(f"Excel report generated successfully: {len(excel_bytes)} bytes")
             return excel_bytes
         
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"Error creating Excel report: {e}", exc_info=True)
-            return b''  # Return empty bytes instead of None
+            raise  # Re-raise to allow caller to handle failure explicitly
     
     @staticmethod
     def _create_summary_sheet(wb: Workbook, report_data: Dict):
@@ -108,20 +127,20 @@ class ExcelReportService:
         
         # Date range
         ws['A3'] = "Report Period:"
-        ws['B3'] = report_data['date_range']
+        ws['B3'] = report_data.get('date_range', 'N/A')
         ws['A3'].font = Font(bold=True)
         
         ws['A4'] = "Frequency:"
-        ws['B4'] = report_data['frequency'].replace('_', ' ').title()
+        ws['B4'] = report_data.get('frequency', 'N/A').replace('_', ' ').title()
         ws['A4'].font = Font(bold=True)
         
         # KPIs
         row = 6
         metrics = [
-            ("Total Revenue", report_data['total_revenue'], "₱{:,.2f}"),
-            ("Total Transactions", report_data['total_transactions'], "{}"),
-            ("Sales Payments", report_data['total_sales_payments'], "₱{:,.2f}"),
-            ("Repair Payments", report_data['total_repair_payments'], "₱{:,.2f}"),
+            ("Total Revenue", report_data.get('total_revenue', 0), "₱{:,.2f}"),
+            ("Total Transactions", report_data.get('total_transactions', 0), "{}"),
+            ("Sales Payments", report_data.get('total_sales_payments', 0), "₱{:,.2f}"),
+            ("Repair Payments", report_data.get('total_repair_payments', 0), "₱{:,.2f}"),
         ]
         
         for label, value, fmt in metrics:
@@ -309,14 +328,14 @@ class ExcelReportService:
         # Data
         row = 2
         for sale in report_data.get('sales_records', []):
-            ws.cell(row=row, column=1, value=sale['invoice_number'])
-            ws.cell(row=row, column=2, value=sale['customer_name'])
-            ws.cell(row=row, column=3, value=sale['payment_method'])
+            ws.cell(row=row, column=1, value=sale.get('invoice_number', ''))
+            ws.cell(row=row, column=2, value=sale.get('customer_name', ''))
+            ws.cell(row=row, column=3, value=sale.get('payment_method', ''))
             
-            amount_cell = ws.cell(row=row, column=4, value=sale['amount_paid'])
+            amount_cell = ws.cell(row=row, column=4, value=sale.get('amount_paid', 0))
             amount_cell.number_format = '₱#,##0.00'
             
-            date_cell = ws.cell(row=row, column=5, value=sale['payment_date'])
+            date_cell = ws.cell(row=row, column=5, value=sale.get('payment_date', ''))
             date_cell.number_format = 'yyyy-mm-dd'
             
             for col in range(1, 6):
@@ -329,7 +348,7 @@ class ExcelReportService:
             ws.cell(row=row, column=1, value="TOTAL")
             ws.cell(row=row, column=1).font = Font(bold=True)
             
-            total_cell = ws.cell(row=row, column=4, value=report_data['total_sales_payments'])
+            total_cell = ws.cell(row=row, column=4, value=report_data.get('total_sales_payments', 0))
             total_cell.number_format = '₱#,##0.00'
             total_cell.font = Font(bold=True)
             total_cell.fill = ExcelReportService.SUMMARY_FILL
@@ -360,15 +379,15 @@ class ExcelReportService:
         # Data
         row = 2
         for repair in report_data.get('repair_records', []):
-            ws.cell(row=row, column=1, value=repair['ticket_number'])
-            ws.cell(row=row, column=2, value=repair['customer_name'])
-            ws.cell(row=row, column=3, value=repair['device_type'])
-            ws.cell(row=row, column=4, value=repair['payment_method'])
+            ws.cell(row=row, column=1, value=repair.get('ticket_number', ''))
+            ws.cell(row=row, column=2, value=repair.get('customer_name', ''))
+            ws.cell(row=row, column=3, value=repair.get('device_type', ''))
+            ws.cell(row=row, column=4, value=repair.get('payment_method', ''))
             
-            amount_cell = ws.cell(row=row, column=5, value=repair['amount_paid'])
+            amount_cell = ws.cell(row=row, column=5, value=repair.get('amount_paid', 0))
             amount_cell.number_format = '₱#,##0.00'
             
-            date_cell = ws.cell(row=row, column=6, value=repair['payment_date'])
+            date_cell = ws.cell(row=row, column=6, value=repair.get('payment_date', ''))
             date_cell.number_format = 'yyyy-mm-dd'
             
             for col in range(1, 7):
@@ -381,7 +400,7 @@ class ExcelReportService:
             ws.cell(row=row, column=1, value="TOTAL")
             ws.cell(row=row, column=1).font = Font(bold=True)
             
-            total_cell = ws.cell(row=row, column=5, value=report_data['total_repair_payments'])
+            total_cell = ws.cell(row=row, column=5, value=report_data.get('total_repair_payments', 0))
             total_cell.number_format = '₱#,##0.00'
             total_cell.font = Font(bold=True)
             total_cell.fill = ExcelReportService.SUMMARY_FILL

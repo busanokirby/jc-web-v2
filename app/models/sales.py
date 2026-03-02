@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from app.extensions import db
 from app.models.base import BaseModel
+
+if TYPE_CHECKING:
+    from app.models.customer import Customer
+    from app.models.inventory import Product
 
 
 class Sale(BaseModel, db.Model):
@@ -30,9 +34,9 @@ class Sale(BaseModel, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # relationship hints for static type checking
-    customer: Optional["Customer"]
-    items: List["SaleItem"]
-    payments: List["SalePayment"]
+    customer: Optional[Customer] = None
+    items: List[SaleItem] = []
+    payments: List[SalePayment] = []
 
     customer = db.relationship("Customer", back_populates="sales")
     items = db.relationship("SaleItem", backref="sale", cascade="all, delete-orphan")
@@ -53,7 +57,7 @@ class SaleItem(BaseModel, db.Model):
     unit_price = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     line_total = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
 
-    product: "Product"
+    product: Product = None
     product = db.relationship("Product")
 
     def __repr__(self) -> str:
@@ -73,7 +77,7 @@ class SalePayment(BaseModel, db.Model):
     paid_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
     # relationship hint
-    sale: "Sale"
+    sale: Sale = None
     sale = db.relationship("Sale", back_populates="payments")
 
     def __repr__(self) -> str:

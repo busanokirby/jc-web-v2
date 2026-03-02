@@ -3,9 +3,16 @@
 {% block title %}New Repair Ticket - JC Icons{% endblock %}
 
 {% block content %}
+<style>
+/* Ensure customer search dropdown appears above and is not clipped */
+#existing-customer-section {
+    position: relative;
+    z-index: 10;
+}
+</style>
 <h1 class="mb-4"><i class="bi bi-plus-circle"></i> Create New Repair Ticket</h1>
 
-<form method="POST" action="{{ url_for('repairs.add_repair') }}" class="needs-validation" novalidate>
+<form method="POST" action="{{ url_for('repairs.add_repair') }}" class="needs-validation" novalidate onsubmit="return handleFormSubmit(event)">
     <!-- CUSTOMER SELECTION -->
     <div class="card mb-4">
         <div class="card-header bg-light">
@@ -28,10 +35,27 @@
                 </div>
             </div>
 
-            <!-- Existing Customer Selection -->
+            <!-- Existing Customer Selection with Search -->
             <div id="existing-customer-section" class="mb-3">
-                <label for="existing_customer_id" class="form-label">Select Customer *</label>
-                <select class="form-select" id="existing_customer_id" name="existing_customer_id">
+                <label for="customer_search" class="form-label">Search & Select Customer *</label>
+                <div class="position-relative">
+                    <input 
+                        type="text" 
+                        class="form-control" 
+                        id="customer_search" 
+                        placeholder="Type customer name or phone number..."
+                        autocomplete="off"
+                    >
+                    <ul id="customer_suggestions" class="list-group position-absolute w-100" style="display: none; max-height: 300px; overflow-y: auto; z-index: 1000; top: 100%; margin-top: 5px;">
+                    </ul>
+                </div>
+                <div id="selected_customer_display" class="mt-2" style="display: none;">
+                    <div class="alert alert-info mb-0" role="alert">
+                        <strong>Selected:</strong> <span id="selected_customer_name"></span>
+                    </div>
+                </div>
+                <!-- Hidden select to store the selected customer ID -->
+                <select class="form-select" id="existing_customer_id" name="existing_customer_id" style="display: none;">
                     <option value="">-- Choose a customer --</option>
                     {% for customer in customers %}
                     <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.phone }})</option>
@@ -104,7 +128,7 @@
             <div class="row mb-3">
                 <div class="col-md-4">
                     <label for="device_type" class="form-label">Device Type *</label>
-                    <select class="form-select" id="device_type" name="device_type" required>
+                    <select class="form-select" id="device_type" name="device_type" required onchange="toggleCustomDeviceType()">
                         <option value="">-- Select device type --</option>
                         <option value="printer">Printer</option>
                         <option value="laptop">Laptop</option>
@@ -113,6 +137,17 @@
                         <option value="tablet">Tablet</option>
                         <option value="other">Other</option>
                     </select>
+                    <!-- Custom device type input (hidden by default) -->
+                    <div id="custom_device_type_section" style="display: none; margin-top: 10px;">
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="custom_device_type" 
+                            placeholder="Enter custom device type"
+                            autocomplete="off"
+                        >
+                        <small class="text-muted" style="display: block; margin-top: 5px;">This will be displayed but not saved as a preset option</small>
+                    </div>
                 </div>
                 <div class="col-md-4">
                     <label for="brand" class="form-label">Brand (Make)</label>
@@ -288,6 +323,89 @@
 </form>
 
 <script>
+// Customer data from server (extract from select options)
+const allCustomers = [
+    {% for customer in customers %}
+    { id: {{ customer.id }}, name: "{{ customer.name }}", phone: "{{ customer.phone }}" },
+    {% endfor %}
+];
+
+// Customer search and autocomplete functionality
+function initializeCustomerSearch() {
+    const searchInput = document.getElementById('customer_search');
+    const suggestionsList = document.getElementById('customer_suggestions');
+    const selectedDisplay = document.getElementById('selected_customer_display');
+    const selectedName = document.getElementById('selected_customer_name');
+    const hiddenSelect = document.getElementById('existing_customer_id');
+
+    // Filter and show suggestions as user types
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        
+        if (query.length === 0) {
+            suggestionsList.style.display = 'none';
+            return;
+        }
+
+        // Filter customers by name or phone
+        const filtered = allCustomers.filter(customer => 
+            customer.name.toLowerCase().includes(query) || 
+            customer.phone.includes(query)
+        );
+
+        // Display suggestions
+        suggestionsList.innerHTML = '';
+        if (filtered.length === 0) {
+            suggestionsList.innerHTML = '<li class="list-group-item text-muted">No customers found</li>';
+        } else {
+            filtered.forEach(customer => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item list-group-item-action cursor-pointer';
+                li.innerHTML = `<strong>${customer.name}</strong><br><small class="text-muted">${customer.phone}</small>`;
+                li.style.cursor = 'pointer';
+                li.addEventListener('click', () => selectCustomer(customer));
+                suggestionsList.appendChild(li);
+            });
+        }
+        suggestionsList.style.display = 'block';
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('#existing-customer-section')) {
+            suggestionsList.style.display = 'none';
+        }
+    });
+
+    // Select customer from suggestions
+    window.selectCustomer = function(customer) {
+        hiddenSelect.value = customer.id;
+        searchInput.value = `${customer.name} (${customer.phone})`;
+        suggestionsList.style.display = 'none';
+        selectedName.textContent = `${customer.name} (${customer.phone})`;
+        selectedDisplay.style.display = 'block';
+        searchInput.classList.add('is-valid');
+    };
+
+    // Clear selection when user starts typing after selection
+    searchInput.addEventListener('focus', function() {
+        if (this.value && hiddenSelect.value) {
+            // Keep the current value, just show suggestions if they continue typing
+        }
+    });
+
+    // Allow clearing selection
+    searchInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            hiddenSelect.value = '';
+            this.value = '';
+            suggestionsList.style.display = 'none';
+            selectedDisplay.style.display = 'none';
+            this.classList.remove('is-valid');
+        }
+    });
+}
+
 function toggleCustomerMode() {
     const modeExisting = document.getElementById('customer_mode_existing').checked;
     const existingSection = document.getElementById('existing-customer-section');
@@ -322,8 +440,25 @@ function togglePhoneRequirement() {
     }
 }
 
+function toggleCustomDeviceType() {
+    const deviceTypeSelect = document.getElementById('device_type');
+    const customSection = document.getElementById('custom_device_type_section');
+    const customInput = document.getElementById('custom_device_type');
+    
+    if (deviceTypeSelect.value === 'other') {
+        customSection.style.display = 'block';
+        customInput.focus();
+    } else {
+        customSection.style.display = 'none';
+        customInput.value = '';
+    }
+}
+
 // Toggle deposit input when include_deposit checkbox changes
 document.addEventListener('DOMContentLoaded', function(){
+    // Initialize customer search
+    initializeCustomerSearch();
+
     const includeDeposit = document.getElementById('include_deposit');
     const depositInput = document.getElementById('deposit_paid');
     
@@ -347,6 +482,25 @@ document.addEventListener('DOMContentLoaded', function(){
         }
     });
 });
+
+function handleFormSubmit(event) {
+    // Handle custom device type before form submission
+    const deviceTypeSelect = document.getElementById('device_type');
+    const customInput = document.getElementById('custom_device_type');
+    
+    if (deviceTypeSelect.value === 'other' && customInput.value.trim()) {
+        // If "Other" is selected and custom type is provided, use the custom value
+        deviceTypeSelect.value = customInput.value.trim();
+    } else if (deviceTypeSelect.value === 'other' && !customInput.value.trim()) {
+        // If "Other" is selected but no custom type provided, show error
+        event.preventDefault();
+        alert('Please enter a custom device type or select a different option');
+        customInput.focus();
+        return false;
+    }
+    
+    return true; // Allow form submission
+}
 
 </script>
 {% endblock %}
