@@ -57,6 +57,7 @@ class ExcelReportService:
         
         # Create sheets
         ExcelReportService._create_summary_sheet(wb, report_data)
+        ExcelReportService._create_transactions_sheet(wb, report_data)
         ExcelReportService._create_sales_sheet(wb, report_data)
         ExcelReportService._create_repairs_sheet(wb, report_data)
         
@@ -132,9 +133,105 @@ class ExcelReportService:
         ws.column_dimensions['C'].width = 20
     
     @staticmethod
+    def _create_transactions_sheet(wb: Workbook, report_data: Dict):
+        """Create combined transactions sheet with all sales and repairs"""
+        ws = wb.create_sheet("Transactions", 1)
+        
+        # Header
+        headers = ["Date", "Type", "Receipt #", "Customer", "Description", "Payment Method", "Amount"]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = ExcelReportService.HEADER_FONT
+            cell.fill = ExcelReportService.HEADER_FILL
+            cell.border = ExcelReportService.BORDER
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        ws.row_dimensions[1].height = 20
+        
+        # Combine and sort transactions
+        transactions = []
+        
+        # Add sales transactions
+        for sale in report_data.get('sales_records', []):
+            transactions.append({
+                'date': sale.get('payment_date'),
+                'type': 'Sale',
+                'receipt_id': sale.get('invoice_number'),
+                'customer': sale.get('customer_name'),
+                'description': sale.get('items_description', ''),
+                'payment_method': sale.get('payment_method'),
+                'amount': sale.get('amount_paid', 0)
+            })
+        
+        # Add repair transactions
+        for repair in report_data.get('repair_records', []):
+            transactions.append({
+                'date': repair.get('payment_date'),
+                'type': 'Repair',
+                'receipt_id': repair.get('ticket_number'),
+                'customer': repair.get('customer_name'),
+                'description': repair.get('device_type', ''),
+                'payment_method': repair.get('payment_method'),
+                'amount': repair.get('amount_paid', 0)
+            })
+        
+        # Sort by date (most recent first or ascending based on date type)
+        transactions.sort(key=lambda x: x.get('date', ''), reverse=False)
+        
+        # Write data
+        row = 2
+        for trans in transactions:
+            ws.cell(row=row, column=1, value=trans['date'])  # Date
+            ws.cell(row=row, column=1).number_format = 'yyyy-mm-dd'
+            
+            ws.cell(row=row, column=2, value=trans['type'])  # Type
+            ws.cell(row=row, column=3, value=trans['receipt_id'])  # Receipt #
+            ws.cell(row=row, column=4, value=trans['customer'])  # Customer
+            ws.cell(row=row, column=5, value=trans['description'])  # Description
+            ws.cell(row=row, column=6, value=trans['payment_method'])  # Payment Method
+            
+            amount_cell = ws.cell(row=row, column=7, value=trans['amount'])
+            amount_cell.number_format = '₱#,##0.00'
+            
+            for col in range(1, 8):
+                ws.cell(row=row, column=col).border = ExcelReportService.BORDER
+            
+            row += 1
+        
+        # Grand total row
+        if row > 2:
+            row += 1  # Add blank row for spacing
+            
+            ws.cell(row=row, column=1, value="TOTAL")
+            ws.cell(row=row, column=1).font = Font(bold=True, size=11)
+            ws.cell(row=row, column=1).fill = ExcelReportService.SUMMARY_FILL
+            
+            # Calculate grand total (sales + repairs)
+            grand_total = report_data.get('total_sales_payments', 0) + report_data.get('total_repair_payments', 0)
+            
+            total_cell = ws.cell(row=row, column=7, value=grand_total)
+            total_cell.number_format = '₱#,##0.00'
+            total_cell.font = Font(bold=True, size=11)
+            total_cell.fill = ExcelReportService.SUMMARY_FILL
+            
+            # Style the entire total row
+            for col in range(1, 8):
+                ws.cell(row=row, column=col).fill = ExcelReportService.SUMMARY_FILL
+                ws.cell(row=row, column=col).border = ExcelReportService.BORDER
+        
+        # Column widths
+        ws.column_dimensions['A'].width = 12
+        ws.column_dimensions['B'].width = 10
+        ws.column_dimensions['C'].width = 15
+        ws.column_dimensions['D'].width = 20
+        ws.column_dimensions['E'].width = 25
+        ws.column_dimensions['F'].width = 15
+        ws.column_dimensions['G'].width = 15
+    
+    @staticmethod
     def _create_sales_sheet(wb: Workbook, report_data: Dict):
         """Create sales transactions sheet"""
-        ws = wb.create_sheet("Sales", 1)
+        ws = wb.create_sheet("Sales", 2)
         
         # Header
         headers = ["Invoice #", "Customer", "Payment Method", "Amount Paid", "Payment Date"]
@@ -185,7 +282,7 @@ class ExcelReportService:
     @staticmethod
     def _create_repairs_sheet(wb: Workbook, report_data: Dict):
         """Create repairs transactions sheet"""
-        ws = wb.create_sheet("Repairs", 2)
+        ws = wb.create_sheet("Repairs", 3)
         
         # Header
         headers = ["Ticket #", "Customer", "Device", "Payment Method", "Amount Paid", "Payment Date"]
