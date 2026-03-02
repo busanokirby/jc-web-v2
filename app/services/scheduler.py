@@ -4,7 +4,7 @@ Uses APScheduler to run email checks every minute
 """
 from __future__ import annotations
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -12,6 +12,13 @@ from app.models.email_config import SMTPSettings
 from app.services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
+
+# Philippines timezone: UTC+8
+PHILIPPINES_TZ = timezone(timedelta(hours=8))
+
+def get_ph_now():
+    """Get current datetime in Philippines timezone (UTC+8)"""
+    return datetime.now(PHILIPPINES_TZ)
 
 scheduler = BackgroundScheduler()
 
@@ -64,7 +71,8 @@ def check_and_send_email(app):
         with app.app_context():
             success = EmailService.send_automated_report()
             if success:
-                logger.info(f"Automated email report sent at {datetime.now()}")
+                now_ph = get_ph_now()
+                logger.info(f"Automated email report sent at {now_ph.strftime('%B %d, %Y at %I:%M %p')} (Philippines Time - UTC+8)")
     except Exception as e:
         logger.error(f"Error in email check task: {e}", exc_info=True)
 
