@@ -49,23 +49,49 @@ class ExcelReportService:
         Returns:
             Excel file as bytes
         """
-        wb = Workbook()
+        import logging
+        logger = logging.getLogger(__name__)
         
-        # Remove default sheet
-        if 'Sheet' in wb.sheetnames:
-            wb.remove(wb['Sheet'])
+        try:
+            wb = Workbook()
+            logger.debug("Workbook created")
+            
+            # Remove default sheet
+            if 'Sheet' in wb.sheetnames:
+                wb.remove(wb['Sheet'])
+                logger.debug("Default sheet removed")
+            
+            # Create sheets
+            logger.debug("Creating summary sheet...")
+            ExcelReportService._create_summary_sheet(wb, report_data)
+            logger.debug("Summary sheet created successfully")
+            
+            logger.debug("Creating transactions sheet...")
+            ExcelReportService._create_transactions_sheet(wb, report_data)
+            logger.debug("Transactions sheet created successfully")
+            
+            logger.debug("Creating sales sheet...")
+            ExcelReportService._create_sales_sheet(wb, report_data)
+            logger.debug("Sales sheet created successfully")
+            
+            logger.debug("Creating repairs sheet...")
+            ExcelReportService._create_repairs_sheet(wb, report_data)
+            logger.debug("Repairs sheet created successfully")
+            
+            # Save to bytes
+            logger.debug("Converting workbook to bytes...")
+            output = BytesIO()
+            wb.save(output)
+            output.seek(0)
+            excel_bytes = output.getvalue()
+            logger.info(f"Excel report generated successfully: {len(excel_bytes)} bytes")
+            return excel_bytes
         
-        # Create sheets
-        ExcelReportService._create_summary_sheet(wb, report_data)
-        ExcelReportService._create_transactions_sheet(wb, report_data)
-        ExcelReportService._create_sales_sheet(wb, report_data)
-        ExcelReportService._create_repairs_sheet(wb, report_data)
-        
-        # Save to bytes
-        output = BytesIO()
-        wb.save(output)
-        output.seek(0)
-        return output.getvalue()
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error creating Excel report: {e}", exc_info=True)
+            return b''  # Return empty bytes instead of None
     
     @staticmethod
     def _create_summary_sheet(wb: Workbook, report_data: Dict):

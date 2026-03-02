@@ -399,6 +399,8 @@ class EmailService:
                 recipients = [recipient_emails]
             else:
                 recipients = recipient_emails
+            
+            logger.debug(f"send_report called: recipients={recipients}, attachment_bytes={len(attachment_bytes) if attachment_bytes else 0} bytes, filename={attachment_filename}")
 
             # Prepare message
             msg = MIMEMultipart('alternative')
@@ -412,14 +414,30 @@ class EmailService:
             msg.attach(html_part)
             
             # Attach file when provided (some frequencies, e.g. daily, use inline details only)
-            if attachment_bytes:
-                attachment = MIMEBase('application', 'octet-stream')
-                attachment.set_payload(attachment_bytes)
-                encoders.encode_base64(attachment)
-                attachment.add_header('Content-Disposition', 'attachment', filename=attachment_filename or 'report.xlsx')
-                msg.attach(attachment)
+            if attachment_bytes and len(attachment_bytes) > 0:
+                logger.debug(f"Attachment found: {attachment_filename}, size: {len(attachment_bytes)} bytes")
+                try:
+                    # Use correct MIME type for Excel files
+                    attachment = MIMEBase('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    attachment.set_payload(attachment_bytes)
+                    encoders.encode_base64(attachment)
+                    attachment.add_header(
+                        'Content-Disposition',
+                        'attachment',
+                        filename=attachment_filename or 'report.xlsx'
+                    )
+                    msg.attach(attachment)
+                    logger.debug(f"Attachment successfully added to email: {attachment_filename}")
+                except Exception as e:
+                    logger.error(f"Error attaching file: {e}", exc_info=True)
+            else:
+                logger.debug(f"No attachment provided or attachment is empty (bytes: {len(attachment_bytes) if attachment_bytes else 0})")
 
             # Send via SMTP
+            # Verify message content before sending
+            attachment_count = len([part for part in msg.walk() if part.get_filename()])
+            logger.debug(f"Message prepared with {attachment_count} attachment(s)")
+            
             with smtplib.SMTP(smtp_config.smtp_server, smtp_config.smtp_port) as server:
                 if smtp_config.use_tls:
                     server.starttls()
@@ -517,9 +535,20 @@ class EmailService:
 
         # Generate Excel attachment for all frequencies (include detailed records)
         # For daily reports, Excel provides backup/archive of all transactions
-        excel_bytes = ExcelReportService.create_report(report_data)
-        excel_filename = ExcelReportService.generate_filename(start_date, end_date)
-        logger.debug(f"Excel file generated: {excel_filename}, {len(excel_bytes) if excel_bytes else 0} bytes")
+        try:
+            logger.info("Starting Excel attachment generation...")
+            excel_bytes = ExcelReportService.create_report(report_data)
+            if excel_bytes and len(excel_bytes) > 0:
+                logger.info(f"Excel attachment created successfully: {len(excel_bytes)} bytes")
+            else:
+                logger.warning(f"Excel file creation returned empty or invalid bytes (length: {len(excel_bytes) if excel_bytes else 0})")
+                excel_bytes = None
+        except Exception as e:
+            logger.error(f"Error generating Excel attachment: {e}", exc_info=True)
+            excel_bytes = None
+        
+        excel_filename = ExcelReportService.generate_filename(start_date, end_date) if excel_bytes else ""
+        logger.debug(f"Excel file: {excel_filename if excel_filename else 'NOT GENERATED'}, bytes: {len(excel_bytes) if excel_bytes else 0}")
         
         # Send email
         recips = smtp_config.get_recipients()
@@ -528,6 +557,7 @@ class EmailService:
             return False
         
         logger.info(f"Sending report to {len(recips)} recipients")
+        logger.debug(f"Calling send_report with attachment: {excel_filename if excel_bytes else 'None'}")
         success, message = EmailService.send_report(
             smtp_config,
             recips,
