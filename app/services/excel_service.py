@@ -134,11 +134,11 @@ class ExcelReportService:
     
     @staticmethod
     def _create_transactions_sheet(wb: Workbook, report_data: Dict):
-        """Create combined transactions sheet with all sales and repairs"""
+        """Create combined transactions sheet with all sales and repairs - matching daily_sales.html display"""
         ws = wb.create_sheet("Transactions", 1)
         
         # Header
-        headers = ["Date", "Type", "Receipt #", "Customer", "Description", "Payment Method", "Amount"]
+        headers = ["Date", "Type", "Receipt #", "Customer", "Description", "Payment Method", "Status", "Amount"]
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=header)
             cell.font = ExcelReportService.HEADER_FONT
@@ -148,38 +148,47 @@ class ExcelReportService:
         
         ws.row_dimensions[1].height = 20
         
-        # Combine and sort transactions
+        # Combine and sort transactions (only received payments - amount > 0)
         transactions = []
         
-        # Add sales transactions
+        # Add sales transactions (filter for received payments only)
         for sale in report_data.get('sales_records', []):
-            transactions.append({
-                'date': sale.get('payment_date'),
-                'type': 'Sale',
-                'receipt_id': sale.get('invoice_number'),
-                'customer': sale.get('customer_name'),
-                'description': sale.get('items_description', ''),
-                'payment_method': sale.get('payment_method'),
-                'amount': sale.get('amount_paid', 0)
-            })
+            amount = sale.get('amount_paid', 0) or sale.get('amount', 0)
+            # Only include records with amount > 0 (matching daily_sales.html filter)
+            if amount > 0:
+                transactions.append({
+                    'date': sale.get('payment_date'),
+                    'type': 'Sale',
+                    'receipt_id': sale.get('invoice_number'),
+                    'customer': sale.get('customer_name'),
+                    'description': sale.get('items_description', ''),
+                    'payment_method': sale.get('payment_method'),
+                    'status': 'Partial' if sale.get('payment_status', '').upper() == 'PARTIAL' else 'Paid',
+                    'amount': amount
+                })
         
-        # Add repair transactions
+        # Add repair transactions (filter for received payments only)
         for repair in report_data.get('repair_records', []):
-            transactions.append({
-                'date': repair.get('payment_date'),
-                'type': 'Repair',
-                'receipt_id': repair.get('ticket_number'),
-                'customer': repair.get('customer_name'),
-                'description': repair.get('device_type', ''),
-                'payment_method': repair.get('payment_method'),
-                'amount': repair.get('amount_paid', 0)
-            })
+            amount = repair.get('amount_paid', 0) or repair.get('amount', 0)
+            # Only include records with amount > 0 (matching daily_sales.html filter)
+            if amount > 0:
+                transactions.append({
+                    'date': repair.get('payment_date'),
+                    'type': 'Repair',
+                    'receipt_id': repair.get('ticket_number'),
+                    'customer': repair.get('customer_name'),
+                    'description': repair.get('device_type', ''),
+                    'payment_method': repair.get('payment_method'),
+                    'status': 'Partial' if repair.get('payment_status', '').upper() == 'PARTIAL' else 'Paid',
+                    'amount': amount
+                })
         
-        # Sort by date (most recent first or ascending based on date type)
+        # Sort by date (ascending)
         transactions.sort(key=lambda x: x.get('date', ''), reverse=False)
         
         # Write data
         row = 2
+        total_amount = 0
         for trans in transactions:
             ws.cell(row=row, column=1, value=trans['date'])  # Date
             ws.cell(row=row, column=1).number_format = 'yyyy-mm-dd'
@@ -189,11 +198,14 @@ class ExcelReportService:
             ws.cell(row=row, column=4, value=trans['customer'])  # Customer
             ws.cell(row=row, column=5, value=trans['description'])  # Description
             ws.cell(row=row, column=6, value=trans['payment_method'])  # Payment Method
+            ws.cell(row=row, column=7, value=trans['status'])  # Status
             
-            amount_cell = ws.cell(row=row, column=7, value=trans['amount'])
+            amount_cell = ws.cell(row=row, column=8, value=trans['amount'])
             amount_cell.number_format = '₱#,##0.00'
             
-            for col in range(1, 8):
+            total_amount += trans['amount']
+            
+            for col in range(1, 9):
                 ws.cell(row=row, column=col).border = ExcelReportService.BORDER
             
             row += 1
@@ -206,16 +218,13 @@ class ExcelReportService:
             ws.cell(row=row, column=1).font = Font(bold=True, size=11)
             ws.cell(row=row, column=1).fill = ExcelReportService.SUMMARY_FILL
             
-            # Calculate grand total (sales + repairs)
-            grand_total = report_data.get('total_sales_payments', 0) + report_data.get('total_repair_payments', 0)
-            
-            total_cell = ws.cell(row=row, column=7, value=grand_total)
+            total_cell = ws.cell(row=row, column=8, value=total_amount)
             total_cell.number_format = '₱#,##0.00'
             total_cell.font = Font(bold=True, size=11)
             total_cell.fill = ExcelReportService.SUMMARY_FILL
             
             # Style the entire total row
-            for col in range(1, 8):
+            for col in range(1, 9):
                 ws.cell(row=row, column=col).fill = ExcelReportService.SUMMARY_FILL
                 ws.cell(row=row, column=col).border = ExcelReportService.BORDER
         
@@ -226,7 +235,8 @@ class ExcelReportService:
         ws.column_dimensions['D'].width = 20
         ws.column_dimensions['E'].width = 25
         ws.column_dimensions['F'].width = 15
-        ws.column_dimensions['G'].width = 15
+        ws.column_dimensions['G'].width = 10
+        ws.column_dimensions['H'].width = 15
     
     @staticmethod
     def _create_sales_sheet(wb: Workbook, report_data: Dict):
