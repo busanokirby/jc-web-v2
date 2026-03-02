@@ -160,6 +160,26 @@
                 <span>₱{{ "%.2f"|format(sale.total) }}</span>
             </div>
         </div>
+
+        <!-- Balance Section -->
+        {% set paid_amount = sale.payments | map(attribute='amount') | sum %}
+        {% set balance_due = sale.total - paid_amount %}
+        <div style="background-color: #fff3cd; padding: 0.5rem; margin-top: 0.5rem; border-radius: 4px; width: 100%; max-width: 200px; margin-left: auto; border: 1px solid #ffc107;">
+            <div style="font-size: 0.75rem; font-weight: bold; margin-bottom: 0.3rem; color: #856404;">BALANCE SUMMARY</div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.2rem;">
+                <span>Total Amount:</span>
+                <span>₱{{ "%.2f"|format(sale.total) }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.2rem;">
+                <span>Amount Paid:</span>
+                <span>₱{{ "%.2f"|format(paid_amount) }}</span>
+            </div>
+            <hr style="margin: 0.2rem 0; border: none; border-top: 1px solid #ffeaa7;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: bold; {% if balance_due <= 0 %}color: #28a745;{% else %}color: #dc3545;{% endif %}">
+                <span>Balance Due:</span>
+                <span>₱{{ "%.2f"|format(balance_due if balance_due > 0 else 0) }}</span>
+            </div>
+        </div>
         </div>
 
         <hr class="my-2">
