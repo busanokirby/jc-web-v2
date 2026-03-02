@@ -123,6 +123,11 @@ class EmailService:
         # Filter for received payments (amount > 0) - matching daily_sales.html logic
         received_records = [rec for rec in sales_records if rec.get('amount', 0) > 0]
         
+        logger.debug(f"Email body generation: {len(received_records)} received records")
+        if received_records:
+            logger.debug(f"First record keys: {received_records[0].keys()}")
+            logger.debug(f"First record: {received_records[0]}")
+        
         # Calculate totals from actual records displayed - matching daily_sales.html
         total_revenue = sum(rec.get('amount', 0) for rec in received_records)
         total_transactions = len(received_records)
@@ -196,6 +201,8 @@ class EmailService:
             </tbody>
         </table>
         """ if received_records else ""
+        
+        logger.debug(f"Detail section built: {len(detail_section)} chars, {len(detail_rows)} chars of rows")
         
         # Stable HTML template from git
         html = f"""
@@ -483,6 +490,8 @@ class EmailService:
         Returns:
             True if report was sent, False otherwise
         """
+        logger.info("=== send_automated_report() called by scheduler ===")
+        
         if smtp_config is None:
             smtp_config = SMTPSettings.get_active_config()
         
@@ -523,6 +532,12 @@ class EmailService:
                 logger.warning(f"Daily report has no sales_records. Database diagnostics: {diag}")
             
             report_data = ReportService._build_daily_report_data(daily_ctx, start_date, end_date, smtp_config.frequency)
+            
+            # Extract received_records (filtered, display-formatted) for Excel transactions sheet
+            sales_records = daily_ctx.get('sales_records', [])
+            received_records = [rec for rec in sales_records if rec.get('amount', 0) > 0]
+            report_data['received_records'] = received_records
+            logger.debug(f"Extracted {len(received_records)} received_records for Excel transactions sheet")
         else:
             logger.info(f"Building {smtp_config.frequency} report data")
             report_data = ReportService.generate_report_data(start_date, end_date, smtp_config.frequency)

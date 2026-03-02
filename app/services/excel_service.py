@@ -164,7 +164,7 @@ class ExcelReportService:
         ws = wb.create_sheet("Transactions", 1)
         
         # Header
-        headers = ["Date", "Type", "Receipt #", "Customer", "Description", "Payment Method", "Status", "Amount"]
+        headers = ["Customer", "Type", "Description", "Status", "Amount", "Date/Time"]
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=header)
             cell.font = ExcelReportService.HEADER_FONT
@@ -174,64 +174,92 @@ class ExcelReportService:
         
         ws.row_dimensions[1].height = 20
         
-        # Combine and sort transactions (only received payments - amount > 0)
+        # Get transactions - prefer pre-formatted received_records from daily_sales context
         transactions = []
+        total_amount = 0
         
-        # Add sales transactions (filter for received payments only)
-        for sale in report_data.get('sales_records', []):
-            amount = sale.get('amount_paid', 0) or sale.get('amount', 0)
-            # Only include records with amount > 0 (matching daily_sales.html filter)
-            if amount > 0:
+        # Use received_records if available (from daily_sales.html context)
+        if 'received_records' in report_data and report_data['received_records']:
+            received_records = report_data['received_records']
+            for rec in received_records:
+                # received_records are already formatted with all needed fields
+                dt = rec.get('datetime')
+                dt_str = ''
+                if dt:
+                    if hasattr(dt, 'strftime'):
+                        dt_str = dt.strftime('%Y-%m-%d %I:%M %p')
+                    else:
+                        dt_str = str(dt)
+                
                 transactions.append({
-                    'date': sale.get('payment_date'),
-                    'type': 'Sale',
-                    'receipt_id': sale.get('invoice_number'),
-                    'customer': sale.get('customer_name'),
-                    'description': sale.get('items_description', ''),
-                    'payment_method': sale.get('payment_method'),
-                    'status': 'Partial' if sale.get('payment_status', '').upper() == 'PARTIAL' else 'Paid',
-                    'amount': amount
+                    'customer': rec.get('customer', ''),
+                    'type': rec.get('type', ''),
+                    'description': rec.get('description', ''),
+                    'status': 'Partial' if rec.get('is_partial') else 'Paid',
+                    'amount': rec.get('amount', 0),
+                    'datetime_str': dt_str
                 })
-        
-        # Add repair transactions (filter for received payments only)
-        for repair in report_data.get('repair_records', []):
-            amount = repair.get('amount_paid', 0) or repair.get('amount', 0)
-            # Only include records with amount > 0 (matching daily_sales.html filter)
-            if amount > 0:
-                transactions.append({
-                    'date': repair.get('payment_date'),
-                    'type': 'Repair',
-                    'receipt_id': repair.get('ticket_number'),
-                    'customer': repair.get('customer_name'),
-                    'description': repair.get('device_type', ''),
-                    'payment_method': repair.get('payment_method'),
-                    'status': 'Partial' if repair.get('payment_status', '').upper() == 'PARTIAL' else 'Paid',
-                    'amount': amount
-                })
-        
-        # Sort by date (ascending)
-        transactions.sort(key=lambda x: x.get('date', ''), reverse=False)
+                total_amount += rec.get('amount', 0)
+        else:
+            # Fallback: construct from sales_records and repair_records
+            # Add sales transactions (filter for received payments only)
+            for sale in report_data.get('sales_records', []):
+                amount = sale.get('amount_paid', 0) or sale.get('amount', 0)
+                if amount > 0:
+                    dt_str = ''
+                    dt = sale.get('payment_date')
+                    if dt:
+                        if hasattr(dt, 'strftime'):
+                            dt_str = dt.strftime('%Y-%m-%d %I:%M %p')
+                        else:
+                            dt_str = str(dt)
+                    
+                    transactions.append({
+                        'customer': sale.get('customer_name', ''),
+                        'type': 'Sale',
+                        'description': sale.get('items_description', ''),
+                        'status': 'Partial' if sale.get('payment_status', '').upper() == 'PARTIAL' else 'Paid',
+                        'amount': amount,
+                        'datetime_str': dt_str
+                    })
+                    total_amount += amount
+            
+            # Add repair transactions (filter for received payments only)
+            for repair in report_data.get('repair_records', []):
+                amount = repair.get('amount_paid', 0) or repair.get('amount', 0)
+                if amount > 0:
+                    dt_str = ''
+                    dt = repair.get('payment_date')
+                    if dt:
+                        if hasattr(dt, 'strftime'):
+                            dt_str = dt.strftime('%Y-%m-%d %I:%M %p')
+                        else:
+                            dt_str = str(dt)
+                    
+                    transactions.append({
+                        'customer': repair.get('customer_name', ''),
+                        'type': 'Repair',
+                        'description': repair.get('device_type', ''),
+                        'status': 'Partial' if repair.get('payment_status', '').upper() == 'PARTIAL' else 'Paid',
+                        'amount': amount,
+                        'datetime_str': dt_str
+                    })
+                    total_amount += amount
         
         # Write data
         row = 2
-        total_amount = 0
         for trans in transactions:
-            ws.cell(row=row, column=1, value=trans['date'])  # Date
-            ws.cell(row=row, column=1).number_format = 'yyyy-mm-dd'
-            
+            ws.cell(row=row, column=1, value=trans['customer'])  # Customer
             ws.cell(row=row, column=2, value=trans['type'])  # Type
-            ws.cell(row=row, column=3, value=trans['receipt_id'])  # Receipt #
-            ws.cell(row=row, column=4, value=trans['customer'])  # Customer
-            ws.cell(row=row, column=5, value=trans['description'])  # Description
-            ws.cell(row=row, column=6, value=trans['payment_method'])  # Payment Method
-            ws.cell(row=row, column=7, value=trans['status'])  # Status
+            ws.cell(row=row, column=3, value=trans['description'])  # Description
+            ws.cell(row=row, column=4, value=trans['status'])  # Status
             
-            amount_cell = ws.cell(row=row, column=8, value=trans['amount'])
+            amount_cell = ws.cell(row=row, column=5, value=trans['amount'])
             amount_cell.number_format = '₱#,##0.00'
             
-            total_amount += trans['amount']
+            ws.cell(row=row, column=6, value=trans['datetime_str'])  # Date/Time
             
-            for col in range(1, 9):
+            for col in range(1, 7):
                 ws.cell(row=row, column=col).border = ExcelReportService.BORDER
             
             row += 1
@@ -244,25 +272,23 @@ class ExcelReportService:
             ws.cell(row=row, column=1).font = Font(bold=True, size=11)
             ws.cell(row=row, column=1).fill = ExcelReportService.SUMMARY_FILL
             
-            total_cell = ws.cell(row=row, column=8, value=total_amount)
+            total_cell = ws.cell(row=row, column=5, value=total_amount)
             total_cell.number_format = '₱#,##0.00'
             total_cell.font = Font(bold=True, size=11)
             total_cell.fill = ExcelReportService.SUMMARY_FILL
             
             # Style the entire total row
-            for col in range(1, 9):
+            for col in range(1, 7):
                 ws.cell(row=row, column=col).fill = ExcelReportService.SUMMARY_FILL
                 ws.cell(row=row, column=col).border = ExcelReportService.BORDER
         
         # Column widths
-        ws.column_dimensions['A'].width = 12
-        ws.column_dimensions['B'].width = 10
-        ws.column_dimensions['C'].width = 15
-        ws.column_dimensions['D'].width = 20
-        ws.column_dimensions['E'].width = 25
-        ws.column_dimensions['F'].width = 15
-        ws.column_dimensions['G'].width = 10
-        ws.column_dimensions['H'].width = 15
+        ws.column_dimensions['A'].width = 25
+        ws.column_dimensions['B'].width = 12
+        ws.column_dimensions['C'].width = 30
+        ws.column_dimensions['D'].width = 10
+        ws.column_dimensions['E'].width = 15
+        ws.column_dimensions['F'].width = 20
     
     @staticmethod
     def _create_sales_sheet(wb: Workbook, report_data: Dict):

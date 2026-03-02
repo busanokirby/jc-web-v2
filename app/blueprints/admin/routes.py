@@ -87,9 +87,15 @@ def email_settings():
                 report_data = ReportService.generate_report_data(start_date, end_date, 'daily')
                 report_data['start_date'] = start_date
                 report_data['end_date'] = end_date
-                # match EmailService behaviour: no attachment for daily reports
-                excel_bytes = None
-                excel_filename = ''
+                
+                # Generate Excel attachment for test email
+                try:
+                    excel_bytes = ExcelReportService.create_report(report_data)
+                except Exception as e:
+                    flash(f'Warning: Excel attachment generation failed: {e}', 'warning')
+                    excel_bytes = None
+                
+                excel_filename = ExcelReportService.generate_filename(start_date, end_date) if excel_bytes else ''
                 
                 # Send test email
                 success, message = EmailService.send_report(

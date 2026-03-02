@@ -135,10 +135,27 @@
                             <input type="number" id="discount-input" class="form-control form-control-sm" value="0" min="0" step="0.01" placeholder="0.00">
                         </div>
                     </div>
-                    <div class="row mb-2">
-                        <div class="col-6"><strong>Total:</strong></div>
-                        <div class="col-6 text-end"><h5 class="mb-0" id="total">₱0.00</h5></div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>Total:</strong>
+                        </div>
+                        <div class="col-6 text-end">
+                            <h5 class="mb-0" id="total">₱0.00</h5>
+                        </div>
                     </div>
+
+                    <div class="row mb-2">
+                        <div class="col-6"><label class="form-label small">Amount to Pay</label></div>
+                        <div class="col-6">
+                            <input type="number" id="payment-amount" class="form-control form-control-sm" value="0" min="0" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small">Notes/Remarks (Optional)</label>
+                        <textarea id="notes-input" class="form-control form-control-sm" rows="2" placeholder="Add any notes about this sale..."></textarea>
+                    </div>
+
                     <hr>
                     <div class="row mb-3">
                         <div class="col-6">
@@ -171,6 +188,8 @@
                     <input type="hidden" id="customer-input" name="customer_id">
                     <input type="hidden" id="discount-input-hidden" name="discount">
                     <input type="hidden" id="payment-method-input" name="payment_method">
+                    <input type="hidden" id="payment-amount-input" name="payment_amount" value="0">
+                    <input type="hidden" id="notes-input-hidden" name="notes" value="">
                     <input type="hidden" id="apply-as-deposit-input" name="apply_as_deposit" value="no">
                     <input type="hidden" id="claim-on-credit-input" name="claim_on_credit" value="no">
                 </form>
@@ -272,6 +291,12 @@ function updateCart() {
 
     document.getElementById('subtotal').textContent = '₱' + subtotal.toFixed(2);
     document.getElementById('total').textContent = '₱' + total.toFixed(2);
+    
+    // Auto-update payment amount to match total (user can override)
+    const paymentAmountInput = document.getElementById('payment-amount');
+    if (paymentAmountInput.value === '' || parseFloat(paymentAmountInput.value) === 0) {
+        paymentAmountInput.value = total.toFixed(2);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function(){
@@ -287,6 +312,10 @@ document.addEventListener('DOMContentLoaded', function(){
     searchResults = document.getElementById('product-search-results');
     customerSelect = document.getElementById('customer-select');
     claimOnCreditCheckbox = document.getElementById('claim-on-credit-pos');
+    
+    // New fields for partial payments and notes
+    const paymentAmountInput = document.getElementById('payment-amount');
+    const notesInput = document.getElementById('notes-input');
 
     // Product selection
     productSelect.addEventListener('change', function(){
@@ -392,10 +421,22 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
 
+        const paymentAmountInput = document.getElementById('payment-amount');
+        const notesInput = document.getElementById('notes-input');
+        const paymentAmount = parseFloat(paymentAmountInput.value) || 0;
+        const total = parseFloat(document.getElementById('total').textContent.replace('₱', '').replace(',', '')) || 0;
+
+        if (paymentAmount < 0) {
+            alert('Payment amount cannot be negative.');
+            return;
+        }
+
         document.getElementById('items-input').value = JSON.stringify(cart);
         document.getElementById('customer-input').value = customerSelect.value || '';
         document.getElementById('discount-input-hidden').value = discountInput.value;
         document.getElementById('payment-method-input').value = paymentMethodSelect.value;
+        document.getElementById('payment-amount-input').value = paymentAmount;
+        document.getElementById('notes-input-hidden').value = notesInput.value || '';
             // include apply_as_deposit flag
         const applyDepositCheckbox = document.getElementById('apply-as-deposit-pos');
         document.getElementById('apply-as-deposit-input').value = (applyDepositCheckbox && applyDepositCheckbox.checked) ? 'yes' : 'no';

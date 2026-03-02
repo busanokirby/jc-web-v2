@@ -108,18 +108,23 @@ def pos():
             
             total = max(Decimal("0.00"), subtotal - discount)
             
+            # Get payment amount and notes from POS
+            payment_amount = safe_decimal(request.form.get("payment_amount") or str(total), str(total))
+            notes = request.form.get("notes", "").strip()
+
             # claim_on_credit already handled above from the submitted form
 
             # Create sale with optional customer
             sale = Sale(
                 invoice_no=generate_invoice_no(),
                 customer_id=customer_id,
-                status="PAID" if not claim_on_credit else "PARTIAL",
+                status="PAID" if payment_amount >= total and not claim_on_credit else ("PARTIAL" if payment_amount > 0 else "PARTIAL" if claim_on_credit else "PAID"),
                 subtotal=subtotal,
                 discount=discount,
                 tax=Decimal("0.00"),
                 total=total,
-                claimed_on_credit=claim_on_credit
+                claimed_on_credit=claim_on_credit,
+                notes=notes if notes else None
             )
             db.session.add(sale)
             db.session.flush()
@@ -150,10 +155,10 @@ def pos():
                         return redirect(url_for("sales.pos"))
             
             # Record payment unless this is a credited sale (no immediate payment)
-            if not claim_on_credit:
+            if not claim_on_credit and payment_amount > 0:
                 db.session.add(SalePayment(
                     sale_id=sale.id,
-                    amount=total,
+                    amount=payment_amount,
                     method=payment_method,
                     paid_at=datetime.utcnow()  # Ensure timestamp is set for daily_sales filtering
                 ))

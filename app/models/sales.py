@@ -19,6 +19,9 @@ class Sale(BaseModel, db.Model):
     # Allow sales to be marked as claimed_on_credit (released unpaid)
     claimed_on_credit = db.Column(db.Boolean, default=False, nullable=False)
 
+    # Notes/remarks for the sale
+    notes = db.Column(db.Text, nullable=True, default=None)
+
     subtotal = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     discount = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     tax = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
