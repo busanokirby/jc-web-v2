@@ -63,12 +63,12 @@
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label class="form-label fw-bold">Category <span class="text-danger">*</span></label>
-                            <div class="position-relative">
+                            <div class="position-relative" style="z-index: 10;">
                                 <input type="text" class="form-control" id="category-search" 
                                        placeholder="Search or type category name..."
                                        autocomplete="off">
                                 <ul id="category-suggestions" class="list-group position-absolute w-100" 
-                                    style="display: none; max-height: 300px; overflow-y: auto; z-index: 1000; top: 100%; margin-top: 5px;">
+                                    style="display: none; max-height: 300px; overflow-y: auto; z-index: 10000; top: 100%; margin-top: 5px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
                                 </ul>
                             </div>
                             <div id="selected-category-display" class="mt-2" style="display: none;">
