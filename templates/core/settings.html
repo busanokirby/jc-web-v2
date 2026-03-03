@@ -68,6 +68,116 @@
                 <li><strong>ADMIN:</strong> Always has full access regardless of toggles</li>
             </ul>
         </div>
+
+        <!-- Technician Management Card -->
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-person-badge"></i> Technician Management</h5>
+            </div>
+            <div class="card-body">
+                {% if technicians %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Specialty</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tech in technicians %}
+                            <tr>
+                                <td><strong>{{ tech.name }}</strong></td>
+                                <td>{{ tech.specialty or "—" }}</td>
+                                <td>
+                                    {% if tech.status == 'Available' %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if tech.status == 'Available' %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger deactivate-tech-btn" data-tech-id="{{ tech.id }}" data-tech-name="{{ tech.name }}">
+                                            <i class="bi bi-x-circle"></i> Deactivate
+                                        </button>
+                                    {% else %}
+                                        <button type="button" class="btn btn-sm btn-outline-success activate-tech-btn" data-tech-id="{{ tech.id }}" data-tech-name="{{ tech.name }}">
+                                            <i class="bi bi-check-circle"></i> Activate
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-secondary mb-0">
+                    <i class="bi bi-info-circle"></i> No technicians created yet. Create technicians when adding or managing repairs.
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
-{% endblock %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    // Deactivate technician buttons
+    document.querySelectorAll('.deactivate-tech-btn').forEach(btn => {
+        btn.addEventListener('click', async function(){
+            const techId = this.dataset.techId;
+            const techName = this.dataset.techName;
+            
+            if (!confirm(`Deactivate ${techName}? They will no longer appear in technician assignment dropdowns.`)) return;
+            
+            try {
+                const res = await fetch(`/repairs/technicians/${techId}/deactivate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const json = await res.json();
+                if (!json.success) {
+                    alert(json.message || 'Error deactivating technician');
+                    return;
+                }
+                // Reload page to show updated status
+                location.reload();
+            } catch (err) {
+                console.error('Error:', err);
+                alert('Error deactivating technician');
+            }
+        });
+    });
+    
+    // Activate technician buttons
+    document.querySelectorAll('.activate-tech-btn').forEach(btn => {
+        btn.addEventListener('click', async function(){
+            const techId = this.dataset.techId;
+            const techName = this.dataset.techName;
+            
+            if (!confirm(`Activate ${techName}? They will appear in technician assignment dropdowns.`)) return;
+            
+            try {
+                const res = await fetch(`/repairs/technicians/${techId}/activate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const json = await res.json();
+                if (!json.success) {
+                    alert(json.message || 'Error activating technician');
+                    return;
+                }
+                // Reload page to show updated status
+                location.reload();
+            } catch (err) {
+                console.error('Error:', err);
+                alert('Error activating technician');
+            }
+        });
+    });
+});
+</script>

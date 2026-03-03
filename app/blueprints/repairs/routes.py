@@ -10,7 +10,7 @@ from sqlalchemy import or_
 from app.extensions import db
 from app.models.customer import Customer
 from app.models.inventory import Product
-from app.models.repair import Device, RepairPartUsed
+from app.models.repair import Device, RepairPartUsed, Technician, DeviceAssignment
 from app.services.authz import roles_required
 from app.services.codes import generate_customer_code, generate_ticket_number
 from app.services.financials import safe_decimal, recompute_repair_financials
@@ -133,11 +133,155 @@ def repairs_search_api():
     return Response(json.dumps(payload), mimetype='application/json')
 
 
+@repairs_bp.route("/technicians", methods=["GET"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def get_technicians():
+    """Get all available technicians as JSON"""
+    technicians = Technician.query.filter_by(status="Available").order_by(Technician.name).all()
+    return jsonify([
+        {"id": t.id, "name": t.name, "specialty": t.specialty}
+        for t in technicians
+    ])
+
+
+@repairs_bp.route("/technicians/add", methods=["POST"])
+@login_required
+@roles_required("ADMIN")
+def add_technician():
+    """Add a new technician (doesn't require an account)"""
+    data = request.get_json() or request.form
+    name = (data.get('name') or '').strip()
+    specialty = (data.get('specialty') or '').strip() or None
+    
+    if not name:
+        return jsonify({"success": False, "message": "Technician name is required."}), 400
+    
+    # Check if technician already exists
+    existing = Technician.query.filter_by(name=name).first()
+    if existing:
+        return jsonify({"success": True, "technician": {"id": existing.id, "name": existing.name, "specialty": existing.specialty}})
+    
+    tech = Technician(name=name, specialty=specialty, status="Available")
+    db.session.add(tech)
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "technician": {"id": tech.id, "name": tech.name, "specialty": tech.specialty}
+    })
+
+
+@repairs_bp.route("/<int:device_id>/assign-technician", methods=["POST"])
+@login_required
+@roles_required("ADMIN")
+def assign_technician(device_id: int):
+    """Assign a technician to a device"""
+    device = Device.query.get_or_404(device_id)
+    
+    data = request.get_json() or request.form
+    technician_id = data.get('technician_id')
+    
+    if not technician_id:
+        return jsonify({"success": False, "message": "Technician is required."}), 400
+    
+    technician = Technician.query.get_or_404(int(technician_id))
+    
+    # Remove any previous assignments
+    DeviceAssignment.query.filter_by(device_id=device_id, completed_date=None).delete()
+    
+    # Create new assignment
+    assignment = DeviceAssignment(device_id=device_id, technician_id=technician.id)
+    db.session.add(assignment)
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "message": f"Technician {technician.name} assigned to {device.ticket_number}.",
+        "technician": {"id": technician.id, "name": technician.name}
+    })
+
+
+@repairs_bp.route("/<int:device_id>/assigned-technician", methods=["GET"])
+@login_required
+def get_assigned_technician(device_id: int):
+    """Get the currently assigned technician for a device"""
+    device = Device.query.get_or_404(device_id)
+    assignment = DeviceAssignment.query.filter_by(device_id=device_id, completed_date=None).first()
+    
+    if assignment:
+        return jsonify({
+            "id": assignment.technician.id,
+            "name": assignment.technician.name,
+            "specialty": assignment.technician.specialty
+        })
+    
+    return jsonify(None)
+
+
+@repairs_bp.route("/<int:device_id>/remove-technician-assignment", methods=["POST"])
+@login_required
+@roles_required("ADMIN")
+def remove_technician_assignment(device_id: int):
+    """Remove the technician assignment from a device"""
+    device = Device.query.get_or_404(device_id)
+    
+    # Remove the active assignment
+    assignment = DeviceAssignment.query.filter_by(device_id=device_id, completed_date=None).first()
+    if assignment:
+        db.session.delete(assignment)
+        db.session.commit()
+        return jsonify({
+            "success": True,
+            "message": f"Technician assignment removed from {device.ticket_number}."
+        })
+    
+    return jsonify({
+        "success": False,
+        "message": "No technician assignment found."
+    }), 404
+
+
+@repairs_bp.route("/technicians/<int:technician_id>/deactivate", methods=["POST"])
+@login_required
+@roles_required("ADMIN")
+def deactivate_technician(technician_id: int):
+    """Deactivate a technician (e.g., when they resign)"""
+    technician = Technician.query.get_or_404(technician_id)
+    
+    # Deactivate the technician
+    technician.status = "Inactive"
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "message": f"Technician {technician.name} has been deactivated."
+    })
+
+
+@repairs_bp.route("/technicians/<int:technician_id>/activate", methods=["POST"])
+@login_required
+@roles_required("ADMIN")
+def activate_technician(technician_id: int):
+    """Reactivate a deactivated technician"""
+    technician = Technician.query.get_or_404(technician_id)
+    
+    # Activate the technician
+    technician.status = "Available"
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "message": f"Technician {technician.name} has been reactivated."
+    })
+
+
 @repairs_bp.route("/add", methods=["GET", "POST"])
 @login_required
 @roles_required("ADMIN", "TECH")
 def add_repair():
     customers = Customer.query.order_by(Customer.name).all()
+    technicians = Technician.query.filter_by(status="Available").order_by(Technician.name).all()
     
     if request.method == "POST":
         # Get customer selection mode
@@ -285,6 +429,16 @@ def add_repair():
         db.session.add(d)
         db.session.commit()
 
+        # Assign technician if provided
+        technician_id = request.form.get("technician_id")
+        if technician_id:
+            try:
+                assignment = DeviceAssignment(device_id=d.id, technician_id=int(technician_id))
+                db.session.add(assignment)
+                db.session.commit()
+            except (ValueError, Exception):
+                pass  # Silently ignore if technician assignment fails
+
         # If original deposit exceeded total cost it will have been capped
         if orig_deposit > d.deposit_paid:
             flash(f"Deposit amount exceeded the total cost and was capped to ₱{d.deposit_paid}", "warning")
@@ -293,7 +447,7 @@ def add_repair():
         # Redirect to print ticket with option to add receipt
         return redirect(url_for("repairs.print_ticket", device_id=d.id))
 
-    return render_template("repairs/add_repairs.html", customers=customers)
+    return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians)
 
 
 @repairs_bp.route("/<int:device_id>")
@@ -304,7 +458,8 @@ def repair_detail(device_id: int):
     device = Device.query.get_or_404(device_id)
     days_in_shop = (date.today() - device.received_date).days if device.received_date else 0
     products = Product.query.filter_by(is_active=True, is_service=False).order_by(Product.name).all()
-    return render_template("repairs/repair_detail.html", device=device, days_in_shop=days_in_shop, products=products)
+    technicians = Technician.query.filter_by(status="Available").order_by(Technician.name).all()
+    return render_template("repairs/repair_detail.html", device=device, days_in_shop=days_in_shop, products=products, technicians=technicians)
 
 
 @repairs_bp.route("/<int:device_id>/status", methods=["POST"])

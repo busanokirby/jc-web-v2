@@ -301,7 +301,8 @@
     <div class="right-bottom">
       <div style="margin-top: 1px;">
         {%- if technician_display_name is not defined -%}
-          {%- set technician_display_name = device.technician_name_override or (device.created_by_user.full_name if device.created_by_user else 'Judith Balaba') -%}
+          {%- set assigned_tech = device.assignments[0].technician.name if device.assignments else None -%}
+          {%- set technician_display_name = assigned_tech or device.technician_name_override or (device.created_by_user.full_name if device.created_by_user else 'Judith Balaba') -%}
         {%- endif -%}
 
         <div style="margin-top: 20px;">

@@ -311,6 +311,33 @@
         </div>
     </div>
 
+    <!-- TECHNICIAN ASSIGNMENT -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="bi bi-person-badge"></i> Technician Assignment</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <label for="technician_id" class="form-label">Assign Technician (optional)</label>
+                    <select class="form-select" id="technician_id" name="technician_id">
+                        <option value="">-- No Technician Assigned --</option>
+                        {% for tech in technicians %}
+                        <option value="{{ tech.id }}">{{ tech.name }}{% if tech.specialty %} ({{ tech.specialty }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="button" class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#addTechnicianModal">
+                        <i class="bi bi-plus-circle"></i> Add New Technician
+                    </button>
+                </div>
+            </div>
+            <small class="form-text text-muted mt-2">Technicians don't require system accounts. They will appear in the device detail view.</small>
+        </div>
+    </div>
+
     <!-- FORM ACTIONS -->
     <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
         <a href="{{ url_for('repairs.repairs') }}" class="btn btn-outline-secondary">
@@ -321,6 +348,41 @@
         </button>
     </div>
 </form>
+
+<!-- Modal for Adding New Technician -->
+<div class="modal fade" id="addTechnicianModal" tabindex="-1" aria-labelledby="addTechnicianModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title" id="addTechnicianModalLabel">
+                    <i class="bi bi-plus-circle"></i> Add New Technician
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="add-tech-alert" class="alert alert-danger" style="display:none;" role="alert"></div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Technician Name <span class="text-danger">*</span></label>
+                    <input type="text" id="new-technician-name" class="form-control form-control-lg" 
+                           placeholder="e.g., John Smith">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Specialty (optional)</label>
+                    <input type="text" id="new-technician-specialty" class="form-control" 
+                           placeholder="e.g., Laptops, Printers">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="save-technician-btn">
+                    <i class="bi bi-check"></i> Add Technician
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 // Customer data from server (extract from select options)
@@ -481,6 +543,89 @@ document.addEventListener('DOMContentLoaded', function(){
             depositInput.classList.add('border-success', 'border-2');
         }
     });
+
+    // Technician modal handling
+    const addTechBtn = document.getElementById('save-technician-btn');
+    const modalEl = document.getElementById('addTechnicianModal');
+    const technicianSelect = document.getElementById('technician_id');
+    const nameInput = document.getElementById('new-technician-name');
+    const specialtyInput = document.getElementById('new-technician-specialty');
+    const alertEl = document.getElementById('add-tech-alert');
+
+    let bsModal = null;
+    if (modalEl && window.bootstrap) {
+        bsModal = new bootstrap.Modal(modalEl);
+    }
+
+    function showAlert(message) {
+        alertEl.textContent = message;
+        alertEl.style.display = 'block';
+    }
+
+    function hideAlert() {
+        alertEl.style.display = 'none';
+        alertEl.textContent = '';
+    }
+
+    if (addTechBtn) {
+        addTechBtn.addEventListener('click', async function(e){
+            e.preventDefault();
+            hideAlert();
+            const name = (nameInput.value || '').trim();
+            if (!name) {
+                showAlert('Please enter a technician name.');
+                nameInput.focus();
+                return;
+            }
+            addTechBtn.disabled = true;
+            try {
+                const res = await fetch('/repairs/technicians/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name: name,
+                        specialty: (specialtyInput.value || '').trim() || null
+                    })
+                });
+                const json = await res.json();
+                if (!json.success) {
+                    showAlert(json.message || 'Error adding technician.');
+                    addTechBtn.disabled = false;
+                    return;
+                }
+                const tech = json.technician;
+                // Add to select
+                const opt = document.createElement('option');
+                opt.value = tech.id;
+                opt.textContent = tech.name + (tech.specialty ? ` (${tech.specialty})` : '');
+                opt.selected = true;
+                technicianSelect.appendChild(opt);
+                // Trigger change event for form validation if needed
+                technicianSelect.dispatchEvent(new Event('change'));
+                bsModal.hide();
+                // Reset for next use
+                nameInput.value = '';
+                specialtyInput.value = '';
+            } catch (err) {
+                console.error('Fetch error:', err);
+                showAlert('Error adding technician. Please try again.');
+                addTechBtn.disabled = false;
+            }
+        });
+
+        // Submit on Enter
+        nameInput.addEventListener('keydown', function(e){
+            if (e.key === 'Enter' && !addTechBtn.disabled) {
+                e.preventDefault();
+                addTechBtn.click();
+            }
+        });
+
+        // Re-enable button after modal closes
+        modalEl.addEventListener('hidden.bs.modal', function(){
+            addTechBtn.disabled = false;
+        });
+    }
 });
 
 function handleFormSubmit(event) {

@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from app.blueprints.core import core_bp
 from app.services.authz import admin_required
 from app.models.settings import Setting
+from app.models.repair import Technician
 from app.services.feature_flags import get_all_feature_flags
 from app.extensions import db
 
@@ -38,7 +39,7 @@ def dashboard():
 @core_bp.route('/settings', methods=['GET', 'POST'])
 @admin_required
 def settings():
-    """Admin settings page for feature flags"""
+    """Admin settings page for feature flags and technician management"""
     if request.method == 'POST':
         # Update POS_ENABLED
         pos_enabled = request.form.get('pos_enabled') == 'on'
@@ -58,4 +59,7 @@ def settings():
     # Get current feature flags
     flags = get_all_feature_flags()
     
-    return render_template('core/settings.html', flags=flags)
+    # Get technicians for management
+    technicians = Technician.query.order_by(Technician.name).all()
+    
+    return render_template('core/settings.html', flags=flags, technicians=technicians)

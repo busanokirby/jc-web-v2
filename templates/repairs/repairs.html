@@ -55,6 +55,7 @@
                                 <th>Device</th>
                                 <th>Status</th>
                                 <th>Priority</th>
+                                <th>Technician</th>
                                 <th>Received</th>
                                 <th>Total Cost</th>
                                 <th>Actions</th>
@@ -89,6 +90,14 @@
                                         <span class="badge bg-success">{{ device.priority }}</span>
                                     {% endif %}
                                 </td>
+                                <td>
+                                    {% set assignment = device.assignments[0] if device.assignments else None %}
+                                    {% if assignment %}
+                                        <small class="text-muted">{{ assignment.technician.name }}</small>
+                                    {% else %}
+                                        <small class="text-muted text-secondary">—</small>
+                                    {% endif %}
+                                </td>
                                 <td>{{ device.received_date|datetimeformat }}</td>
                                 <td><strong>{{ device.total_cost|currency }}</strong></td>
                                 <td>
@@ -99,7 +108,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-4">
+                                <td colspan="9" class="text-center text-muted py-4">
                                     <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
                                     No repair tickets found
                                 </td>

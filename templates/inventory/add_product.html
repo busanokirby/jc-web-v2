@@ -63,20 +63,22 @@
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label class="form-label fw-bold">Category <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <select name="category_id" class="form-select" id="category-select" required>
-                                    <option value="">-- Select a Category --</option>
-                                    {% for c in categories %}
-                                    <option value="{{ c.id }}" {% if product and product.category_id == c.id %}selected{% endif %}>
-                                        {{ c.name }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                                <button class="btn btn-outline-secondary" type="button" id="add-category-btn" title="Add a new category">
-                                    <i class="bi bi-plus"></i> Add Type
-                                </button>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="category-search" 
+                                       placeholder="Search or type category name..."
+                                       autocomplete="off">
+                                <ul id="category-suggestions" class="list-group position-absolute w-100" 
+                                    style="display: none; max-height: 300px; overflow-y: auto; z-index: 1000; top: 100%; margin-top: 5px;">
+                                </ul>
                             </div>
-                            <small class="form-text text-muted">Organize products by type. Create new types on-the-fly.</small>
+                            <div id="selected-category-display" class="mt-2" style="display: none;">
+                                <div class="alert alert-info mb-0">
+                                    <strong>Selected:</strong> <span id="selected-category-name"></span>
+                                </div>
+                            </div>
+                            <!-- Hidden input to store the selected category ID -->
+                            <input type="hidden" name="category_id" id="category-id" value="{{ product.category_id if product else '' }}">
+                            <small class="form-text text-muted d-block mt-2">Start typing to search or select from suggestions</small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Sell Price <span class="text-danger">*</span></label>
@@ -87,6 +89,13 @@
                                        placeholder="0.00" required>
                             </div>
                             <small class="form-text text-muted">Selling price per unit</small>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-8">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                                <i class="bi bi-plus-circle"></i> Add New Category
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -202,6 +211,13 @@
 
 {% block extra_js %}
 <script>
+// Fetch categories data
+const allCategories = [
+    {% for cat in categories %}
+    { id: {{ cat.id }}, name: "{{ cat.name }}" },
+    {% endfor %}
+];
+
 // shared JavaScript for product form
 (function(){
     // price input formatting
@@ -219,16 +235,117 @@
     }
 })();
 
+// Category search and autocomplete functionality
+function initializeCategorySearch() {
+    const searchInput = document.getElementById('category-search');
+    const suggestionsList = document.getElementById('category-suggestions');
+    const selectedDisplay = document.getElementById('selected-category-display');
+    const selectedName = document.getElementById('selected-category-name');
+    const hiddenInput = document.getElementById('category-id');
+    const form = document.getElementById('product-form');
+
+    if (!searchInput) return;
+
+    // If category is pre-selected (edit mode), show it
+    if (hiddenInput.value) {
+        const selected = allCategories.find(c => c.id == hiddenInput.value);
+        if (selected) {
+            searchInput.value = selected.name;
+            selectedName.textContent = selected.name;
+            selectedDisplay.style.display = 'block';
+            searchInput.classList.add('is-valid');
+        }
+    }
+
+    // Filter and show suggestions as user types
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        
+        if (query.length === 0) {
+            suggestionsList.style.display = 'none';
+            hiddenInput.value = '';
+            selectedDisplay.style.display = 'none';
+            this.classList.remove('is-valid', 'is-invalid');
+            return;
+        }
+
+        // Filter categories by name
+        const filtered = allCategories.filter(category => 
+            category.name.toLowerCase().includes(query)
+        );
+
+        // Display suggestions
+        suggestionsList.innerHTML = '';
+        if (filtered.length === 0) {
+            suggestionsList.innerHTML = '<li class="list-group-item text-muted">No categories found. Create a new one below.</li>';
+        } else {
+            filtered.forEach(category => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item list-group-item-action';
+                li.textContent = category.name;
+                li.style.cursor = 'pointer';
+                li.addEventListener('click', function() {
+                    selectCategory(category);
+                });
+                suggestionsList.appendChild(li);
+            });
+        }
+        suggestionsList.style.display = 'block';
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.position-relative')) {
+            suggestionsList.style.display = 'none';
+        }
+    });
+
+    // Select category from suggestions
+    window.selectCategory = function(category) {
+        hiddenInput.value = category.id;
+        searchInput.value = category.name;
+        suggestionsList.style.display = 'none';
+        selectedName.textContent = category.name;
+        selectedDisplay.style.display = 'block';
+        searchInput.classList.add('is-valid');
+        searchInput.classList.remove('is-invalid');
+    };
+
+    // Allow clearing selection
+    searchInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            hiddenInput.value = '';
+            this.value = '';
+            suggestionsList.style.display = 'none';
+            selectedDisplay.style.display = 'none';
+            this.classList.remove('is-valid', 'is-invalid');
+        }
+    });
+
+    // Handle form submission - validate that a category is selected
+    form.addEventListener('submit', function(e) {
+        if (!hiddenInput.value) {
+            e.preventDefault();
+            searchInput.classList.add('is-invalid');
+            alert('Please select a category');
+            searchInput.focus();
+            return false;
+        }
+    });
+}
+
 // category modal & form handling
 
 document.addEventListener('DOMContentLoaded', function(){
-    const addBtn = document.getElementById('add-category-btn');
+    // Initialize category search
+    initializeCategorySearch();
+
     const modalEl = document.getElementById('addCategoryModal');
-    const categorySelect = document.getElementById('category-select');
     const saveBtn = document.getElementById('save-category-btn');
     const nameInput = document.getElementById('new-category-name');
     const alertEl = document.getElementById('add-cat-alert');
-    const form = document.getElementById('product-form');
+    const searchInput = document.getElementById('category-search');
+    const hiddenInput = document.getElementById('category-id');
 
     let bsModal = null;
     if (modalEl && window.bootstrap) {
@@ -246,25 +363,13 @@ document.addEventListener('DOMContentLoaded', function(){
         alertEl.textContent = '';
     }
 
-    if (addBtn && bsModal) {
-        addBtn.addEventListener('click', function(e){
-            e.preventDefault();
-            hideAlert();
-            nameInput.value = '';
-            // Clear any previous focus states
-            alertEl.classList.remove('alert-danger', 'alert-success');
-            bsModal.show();
-            setTimeout(() => nameInput.focus(), 200);
-        });
-    }
-
     if (saveBtn) {
         saveBtn.addEventListener('click', async function(e){
             e.preventDefault();
             hideAlert();
             const name = (nameInput.value || '').trim();
             if (!name) {
-                showAlert('Please enter a type name.');
+                showAlert('Please enter a category name.');
                 nameInput.focus();
                 return;
             }
@@ -277,25 +382,32 @@ document.addEventListener('DOMContentLoaded', function(){
                 });
                 const json = await res.json();
                 if (!json.success) {
-                    showAlert(json.message || 'Error adding type.');
+                    showAlert(json.message || 'Error adding category.');
                     saveBtn.disabled = false;
                     return;
                 }
                 const cat = json.category;
-                // Add to select
-                const opt = document.createElement('option');
-                opt.value = cat.id;
-                opt.textContent = cat.name;
-                opt.selected = true;
-                categorySelect.appendChild(opt);
-                // Trigger change event for form validation if needed
-                categorySelect.dispatchEvent(new Event('change'));
+                
+                // Add to local categories list
+                const existing = allCategories.find(c => c.id === cat.id);
+                if (!existing) {
+                    allCategories.push({ id: cat.id, name: cat.name });
+                    // Sort alphabetically
+                    allCategories.sort((a, b) => a.name.localeCompare(b.name));
+                }
+                
+                // Select the newly added category
+               selectCategory({ id: cat.id, name: cat.name });
+                
+                // Close modal
                 bsModal.hide();
+                
                 // Reset for next use
                 nameInput.value = '';
+                saveBtn.disabled = false;
             } catch (err) {
                 console.error('Fetch error:', err);
-                showAlert('Error adding type. Please try again.');
+                showAlert('Error adding category. Please try again.');
                 saveBtn.disabled = false;
             }
         });
@@ -308,8 +420,10 @@ document.addEventListener('DOMContentLoaded', function(){
             }
         });
 
-        // Re-enable button after modal closes
+        // Clear alert when modal closes
         modalEl.addEventListener('hidden.bs.modal', function(){
+            hideAlert();
+            nameInput.value = '';
             saveBtn.disabled = false;
         });
     }

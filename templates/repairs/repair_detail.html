@@ -343,6 +343,54 @@
             </div>
         </div>
 
+        <!-- Technician Assignment -->
+        {% if current_user.role == 'ADMIN' %}
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-person-badge"></i> Assigned Technician</h5>
+            </div>
+            <div class="card-body">
+                {% set assignment = device.assignments[0] if device.assignments else None %}
+                <div id="technician-display">
+                    {% if assignment %}
+                        <div class="alert alert-info mb-3">
+                            <strong>{{ assignment.technician.name }}</strong>
+                            {% if assignment.technician.specialty %}<br><small>{{ assignment.technician.specialty }}</small>{% endif %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-secondary mb-3">
+                            <small>No technician assigned</small>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="technician-select" class="form-label">Assign Technician</label>
+                    <select class="form-select" id="technician-select">
+                        <option value="">-- No Technician --</option>
+                        {% for tech in technicians %}
+                        <option value="{{ tech.id }}" {% if assignment and assignment.technician.id == tech.id %}selected{% endif %}>
+                            {{ tech.name }}{% if tech.specialty %} ({{ tech.specialty }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-primary btn-sm" id="save-technician-btn">
+                        <i class="bi bi-check-circle"></i> Save Assignment
+                    </button>
+                    {% if assignment %}
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="remove-technician-btn">
+                        <i class="bi bi-trash"></i> Remove Assignment
+                    </button>
+                    {% endif %}
+                </div>
+                <button type="button" class="btn btn-outline-secondary w-100 btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#addTechnicianDetailModal">
+                    <i class="bi bi-plus-circle"></i> Add Technician
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Add/Edit Deposit -->
         {% if device.payment_status != 'Paid' and not device.is_archived %}
         <div class="card mb-4">
@@ -916,6 +964,218 @@ document.addEventListener('DOMContentLoaded', function(){
             }
         });
     });
+
+    // Technician assignment handling
+    const saveTechBtn = document.getElementById('save-technician-btn');
+    const removeTechBtn = document.getElementById('remove-technician-btn');
+    const techSelect = document.getElementById('technician-select');
+    
+    if (saveTechBtn && techSelect) {
+        saveTechBtn.addEventListener('click', async function(){
+            const technicianId = techSelect.value;
+            if (!technicianId) {
+                alert('Please select a technician');
+                return;
+            }
+            
+            saveTechBtn.disabled = true;
+            try {
+                const res = await fetch('/repairs/{{ device.id }}/assign-technician', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ technician_id: technicianId })
+                });
+                const json = await res.json();
+                if (!json.success) {
+                    alert(json.message || 'Error assigning technician');
+                    saveTechBtn.disabled = false;
+                    return;
+                }
+                // Update display
+                const techDisplay = document.getElementById('technician-display');
+                if (techDisplay) {
+                    const selectedOption = techSelect.options[techSelect.selectedIndex];
+                    const techName = selectedOption.text;
+                    techDisplay.innerHTML = `<div class="alert alert-info mb-3"><strong>${techName}</strong></div>`;
+                }
+                
+                // Show/update remove button
+                if (!removeTechBtn && technicianId) {
+                    const btnsDiv = saveTechBtn.parentElement;
+                    const removeBtn = document.createElement('button');
+                    removeBtn.id = 'remove-technician-btn';
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'btn btn-outline-danger btn-sm';
+                    removeBtn.innerHTML = '<i class="bi bi-trash"></i> Remove Assignment';
+                    btnsDiv.appendChild(removeBtn);
+                    removeBtn.addEventListener('click', removeTechnicianAssignment);
+                }
+                alert('Technician assigned successfully');
+                saveTechBtn.disabled = false;
+            } catch (err) {
+                console.error('Error:', err);
+                alert('Error assigning technician');
+                saveTechBtn.disabled = false;
+            }
+        });
+    }
+    
+    if (removeTechBtn) {
+        removeTechBtn.addEventListener('click', removeTechnicianAssignment);
+    }
+    
+    async function removeTechnicianAssignment() {
+        if (!confirm('Remove technician assignment from this repair?')) return;
+        
+        try {
+            const res = await fetch('/repairs/{{ device.id }}/remove-technician-assignment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const json = await res.json();
+            if (!json.success) {
+                alert(json.message || 'Error removing assignment');
+                return;
+            }
+            // Update display
+            const techDisplay = document.getElementById('technician-display');
+            if (techDisplay) {
+                techDisplay.innerHTML = `<div class="alert alert-secondary mb-3"><small>No technician assigned</small></div>`;
+            }
+            
+            // Clear select and hide/remove the remove button
+            techSelect.value = '';
+            const removeBtn = document.getElementById('remove-technician-btn');
+            if (removeBtn) removeBtn.remove();
+            
+            alert('Technician assignment removed');
+        } catch (err) {
+            console.error('Error:', err);
+            alert('Error removing assignment');
+        }
+    }
+});
+</script>
+
+<!-- Modal for Adding Technician in Repair Detail -->
+<div class="modal fade" id="addTechnicianDetailModal" tabindex="-1" aria-labelledby="addTechnicianDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title" id="addTechnicianDetailModalLabel">
+                    <i class="bi bi-plus-circle"></i> Add New Technician
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="add-tech-detail-alert" class="alert alert-danger" style="display:none;" role="alert"></div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Technician Name <span class="text-danger">*</span></label>
+                    <input type="text" id="new-technician-detail-name" class="form-control form-control-lg" 
+                           placeholder="e.g., John Smith">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Specialty (optional)</label>
+                    <input type="text" id="new-technician-detail-specialty" class="form-control" 
+                           placeholder="e.g., Laptops, Printers">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="save-technician-detail-btn">
+                    <i class="bi bi-check"></i> Add & Assign
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const addTechDetailBtn = document.getElementById('save-technician-detail-btn');
+    const modalEl = document.getElementById('addTechnicianDetailModal');
+    const techSelect = document.getElementById('technician-select');
+    const nameInput = document.getElementById('new-technician-detail-name');
+    const specialtyInput = document.getElementById('new-technician-detail-specialty');
+    const alertEl = document.getElementById('add-tech-detail-alert');
+
+    let bsModal = null;
+    if (modalEl && window.bootstrap) {
+        bsModal = new bootstrap.Modal(modalEl);
+    }
+
+    function showAlert(message) {
+        alertEl.textContent = message;
+        alertEl.style.display = 'block';
+    }
+
+    function hideAlert() {
+        alertEl.style.display = 'none';
+        alertEl.textContent = '';
+    }
+
+    if (addTechDetailBtn) {
+        addTechDetailBtn.addEventListener('click', async function(e){
+            e.preventDefault();
+            hideAlert();
+            const name = (nameInput.value || '').trim();
+            if (!name) {
+                showAlert('Please enter a technician name.');
+                nameInput.focus();
+                return;
+            }
+            addTechDetailBtn.disabled = true;
+            try {
+                const res = await fetch('/repairs/technicians/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name: name,
+                        specialty: (specialtyInput.value || '').trim() || null
+                    })
+                });
+                const json = await res.json();
+                if (!json.success) {
+                    showAlert(json.message || 'Error adding technician.');
+                    addTechDetailBtn.disabled = false;
+                    return;
+                }
+                const tech = json.technician;
+                // Add to select and select it
+                let opt = Array.from(techSelect.options).find(o => o.value === String(tech.id));
+                if (!opt) {
+                    opt = document.createElement('option');
+                    opt.value = tech.id;
+                    opt.textContent = tech.name + (tech.specialty ? ` (${tech.specialty})` : '');
+                    techSelect.appendChild(opt);
+                }
+                techSelect.value = tech.id;
+                techSelect.dispatchEvent(new Event('change'));
+                bsModal.hide();
+                nameInput.value = '';
+                specialtyInput.value = '';
+            } catch (err) {
+                console.error('Fetch error:', err);
+                showAlert('Error adding technician. Please try again.');
+                addTechDetailBtn.disabled = false;
+            }
+        });
+
+        // Submit on Enter
+        nameInput.addEventListener('keydown', function(e){
+            if (e.key === 'Enter' && !addTechDetailBtn.disabled) {
+                e.preventDefault();
+                addTechDetailBtn.click();
+            }
+        });
+
+        // Re-enable button after modal closes
+        modalEl.addEventListener('hidden.bs.modal', function(){
+            addTechDetailBtn.disabled = false;
+        });
+    }
 });
 </script>
 {% endblock %}

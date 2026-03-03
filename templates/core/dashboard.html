@@ -323,11 +323,31 @@
                             <i class="bi bi-gear" style="color: #6c757d;"></i>
                         </div>
                         <h5 class="card-title">Settings</h5>
-                        <p class="card-text">Configure</p>
+                        <p class="card-text">Configure system</p>
                     </a>
                     <div class="mt-2">
                         <a href="{{ url_for('core.settings') }}" class="btn btn-secondary btn-sm w-100">
                             <i class="bi bi-sliders" aria-hidden="true"></i> Setup
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technician Management Card -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card dashboard-card card-info h-100" role="link" tabindex="0">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('core.settings') }}" class="text-decoration-none d-block" aria-label="Technician Management">
+                        <div class="icon-circle bg-info bg-opacity-10">
+                            <i class="bi bi-person-badge" style="color: #0dcaf0;"></i>
+                        </div>
+                        <h5 class="card-title">Technicians</h5>
+                        <p class="card-text">Manage staff</p>
+                    </a>
+                    <div class="mt-2">
+                        <a href="{{ url_for('core.settings') }}" class="btn btn-info btn-sm w-100">
+                            <i class="bi bi-list" aria-hidden="true"></i> Manage
                         </a>
                     </div>
                 </div>
