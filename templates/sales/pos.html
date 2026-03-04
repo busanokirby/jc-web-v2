@@ -531,6 +531,12 @@ document.addEventListener('DOMContentLoaded', function(){
     // Search functionality
     searchInput.addEventListener('input', function(){
         const q = this.value.trim().toLowerCase();
+        // ensure dropdown remains wrapped before any DOM changes
+        const wrapper = document.querySelector('.product-search-wrapper');
+        if (wrapper && searchResults && !wrapper.contains(searchResults)) {
+            wrapper.appendChild(searchResults);
+        }
+
         if (q.length < 1) {
             searchResults.classList.remove('show');
             return;
