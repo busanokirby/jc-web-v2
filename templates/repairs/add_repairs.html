@@ -30,6 +30,42 @@
 #customer_suggestions.show {
     display: block;
 }
+
+/* Prevent card from moving on hover/focus */
+.card {
+    transition: none !important;
+}
+
+.card:hover,
+.card:focus,
+.card:active {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove button hover movement effects */
+.btn:hover,
+.btn:active,
+.btn:focus {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Ensure form controls don't shift on focus */
+.form-control:focus,
+.form-select:focus {
+    box-shadow: none;
+    border-color: #86b7fe;
+}
+
+/* Prevent card body from shifting */
+.card-body {
+    transition: none !important;
+}
+
+.card-header {
+    transition: none !important;
+}
 </style>
 <h1 class="mb-4"><i class="bi bi-plus-circle"></i> Create New Repair Ticket</h1>
 

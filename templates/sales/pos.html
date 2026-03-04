@@ -4,12 +4,31 @@
 
 {% block content %}
 <style>
-/* Ensure search dropdowns appear above and are not clipped */
+/* Ensure card and card-body don't clip dropdowns */
+.card {
+    overflow: visible !important;
+}
+
+.card-body {
+    overflow: visible !important;
+}
+
+/* Search dropdown containers with absolute positioning */
+.product-search-wrapper,
+.customer-search-wrapper {
+    position: relative;
+    overflow: visible;
+    z-index: 1000;
+}
+
 #customer-search-results,
 #product-search-results {
-    position: fixed;          /* escape any container context */
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
     z-index: 1050;
-    display: none !important;
+    display: none;
     background: white;
     border: 1px solid #dee2e6;
     border-top: none;
@@ -23,20 +42,7 @@
 
 #customer-search-results.show,
 #product-search-results.show {
-    display: block !important;
-}
-
-/* Provide a stable positioning context for the dropdowns */
-.position-relative {
-    position: relative !important;
-    overflow: visible;         /* make sure dropdown is not clipped */
-    z-index: 1000;             /* stacking context beneath the dropdown */
-}
-
-#customer-search-input,
-#product-search-input {
-    /* input itself need not be positioned; wrapper handles layout */
-    position: static;
+    display: block;
 }
 
 #customer-search-results .list-group-item,
@@ -55,6 +61,42 @@
 #customer-search-results .list-group-item:hover,
 #product-search-results .list-group-item:hover {
     background-color: #f8f9fa;
+}
+
+/* Prevent card from moving on hover/focus */
+.card {
+    transition: none !important;
+}
+
+.card:hover,
+.card:focus,
+.card:active {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove button hover movement effects */
+.btn:hover,
+.btn:active,
+.btn:focus {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Ensure form controls don't shift on focus */
+.form-control:focus,
+.form-select:focus {
+    box-shadow: none;
+    border-color: #86b7fe;
+}
+
+/* Prevent card body from shifting */
+.card-body {
+    transition: none !important;
+}
+
+.card-header {
+    transition: none !important;
 }
 </style>
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -326,9 +368,9 @@ window.updatePrice = function(idx, price) {
     }
 };
 
-window.selectFromSearch = function(productId, name, price, stock, isService) {
-    productSelect.value = productId;
-    searchInput.value = name;
+window.selectFromSearch = function(product) {
+    productSelect.value = product.id;
+    searchInput.value = product.name;
     searchResults.classList.remove('show');
     productQty.focus();
     productQty.select();
@@ -400,34 +442,6 @@ document.addEventListener('DOMContentLoaded', function(){
     searchResults = document.getElementById('product-search-results');
     customerSelect = document.getElementById('customer-select');
     claimOnCreditCheckbox = document.getElementById('claim-on-credit-pos');
-
-    // ensure dropdown element lives under <body> when using fixed positioning
-    if (searchResults && searchResults.parentElement !== document.body) {
-        document.body.appendChild(searchResults);
-    }
-    
-    // dynamic positioning helper for product dropdown
-    function updateProductDropdownPosition() {
-        if (!searchInput || !searchResults) return;
-        const rect = searchInput.getBoundingClientRect();
-        // use fixed positioning (coordinates relative to viewport)
-        searchResults.style.position = 'fixed';
-        searchResults.style.left = rect.left + 'px';
-        searchResults.style.top = rect.bottom + 'px';
-        searchResults.style.width = rect.width + 'px';
-    }
-
-    // reposition when window changes
-    window.addEventListener('scroll', () => {
-        if (searchResults && searchResults.classList.contains('show')) {
-            updateProductDropdownPosition();
-        }
-    });
-    window.addEventListener('resize', () => {
-        if (searchResults && searchResults.classList.contains('show')) {
-            updateProductDropdownPosition();
-        }
-    });
 
     // New fields for partial payments and notes
     const paymentAmountInput = document.getElementById('payment-amount');
@@ -545,48 +559,82 @@ document.addEventListener('DOMContentLoaded', function(){
         updateCart();
     });
 
-    // Search functionality
-    searchInput.addEventListener('input', function(){
-        const q = this.value.trim().toLowerCase();
-        // make sure dropdown is attached to body so it isn't clipped by containers
-        if (searchResults && searchResults.parentElement !== document.body) {
-            document.body.appendChild(searchResults);
-        }
+    // Search functionality - stable implementation
+    function initializeProductSearch() {
+        const searchInput = document.getElementById('product-search-input');
+        const searchResults = document.getElementById('product-search-results');
+        const searchBtn = document.getElementById('product-search-btn');
 
-        if (q.length < 1) {
-            searchResults.classList.remove('show');
-            return;
-        }
+        if (!searchInput || !searchResults) return;
 
-        const results = products.filter(p => p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q)));
-        if (results.length === 0) {
-            searchResults.innerHTML = '<div class="list-group-item">No products found</div>';
+        // Filter and show suggestions as user types
+        searchInput.addEventListener('input', function() {
+            const q = this.value.trim().toLowerCase();
+            
+            if (q.length < 1) {
+                searchResults.classList.remove('show');
+                return;
+            }
+
+            // Filter products by name or SKU
+            const filtered = products.filter(p => 
+                p.name.toLowerCase().includes(q) || 
+                (p.sku && p.sku.toLowerCase().includes(q))
+            );
+
+            // Display suggestions
+            searchResults.innerHTML = '';
+            if (filtered.length === 0) {
+                searchResults.innerHTML = '<div class="list-group-item text-muted">No products found</div>';
+            } else {
+                filtered.forEach(p => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'list-group-item list-group-item-action';
+                    button.innerHTML = `
+                        <div class="d-flex justify-content-between">
+                            <strong>${p.name}</strong>
+                            <span class="text-muted">₱${p.sell_price.toFixed(2)}</span>
+                        </div>
+                        <small class="text-muted">${p.is_service ? 'Service' : 'Stock: ' + p.stock_on_hand}</small>
+                    `;
+                    button.addEventListener('click', () => selectFromSearch(p));
+                    searchResults.appendChild(button);
+                });
+            }
             searchResults.classList.add('show');
-            return;
-        }
+        });
 
-        searchResults.innerHTML = results.map(p => `
-            <button type="button" class="list-group-item list-group-item-action" onclick="selectFromSearch(${p.id}, '${p.name}', ${p.sell_price}, ${p.stock_on_hand}, ${p.is_service})">
-                <div class="d-flex justify-content-between">
-                    <strong>${p.name}</strong>
-                    <span class="text-muted">₱${p.sell_price.toFixed(2)}</span>
-                </div>
-                <small class="text-muted">${p.is_service ? 'Service' : 'Stock: ' + p.stock_on_hand}</small>
-            </button>
-        `).join('');
-        searchResults.classList.add('show');
-        // dynamically position under the input in case wrapper context fails
-        updateProductDropdownPosition();
-    });
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.product-search-wrapper')) {
+                searchResults.classList.remove('show');
+            }
+        });
 
-    searchBtn.addEventListener('click', function(){
-        const q = searchInput.value.trim().toLowerCase();
-        if (q.length < 1) return;
-        const results = products.filter(p => p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q)));
-        if (results.length > 0) {
-            selectFromSearch(results[0].id, results[0].name, results[0].sell_price, results[0].stock_on_hand, results[0].is_service);
-        }
-    });
+        // Search button click
+        searchBtn.addEventListener('click', function(){
+            const q = searchInput.value.trim().toLowerCase();
+            if (q.length < 1) return;
+            const results = products.filter(p => 
+                p.name.toLowerCase().includes(q) || 
+                (p.sku && p.sku.toLowerCase().includes(q))
+            );
+            if (results.length > 0) {
+                selectFromSearch(results[0]);
+            }
+        });
+
+        // Allow clearing selection
+        searchInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                this.value = '';
+                searchResults.classList.remove('show');
+            }
+        });
+    }
+
+    initializeProductSearch();
 
     // Clear cart
     clearBtn.addEventListener('click', function(){
@@ -670,7 +718,7 @@ document.addEventListener('DOMContentLoaded', function(){
         if (e.key === 'Enter') addBtn.click();
     });
 
-    // Customer search functionality
+    // Customer search functionality - stable version from GitHub
     const customerSearchInput = document.getElementById('customer-search-input');
     const customerSearchResults = document.getElementById('customer-search-results');
     const selectedCustomerDiv = document.getElementById('selected-customer');
@@ -707,6 +755,7 @@ document.addEventListener('DOMContentLoaded', function(){
             customerSelect.value = '';
             selectedCustomerDiv.style.display = 'none';
             customerSearchInput.value = '';
+            customerSearchResults.classList.remove('show');
         });
     }
 

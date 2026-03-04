@@ -526,84 +526,91 @@ document.addEventListener('DOMContentLoaded', function(){
     const productSelect = document.getElementById('product_id');
 
     if (searchInput && productSelect) {
+        // Helper to extract clean product name from option
+        function getCleanProductName(option) {
+            // Try to use data-name first
+            if (option.dataset.name) {
+                return option.dataset.name.toLowerCase();
+            }
+            // Fall back to text content, but extract only the product name (before price)
+            const fullText = option.textContent;
+            const nameOnly = fullText.split('(')[0].trim().toLowerCase();
+            return nameOnly;
+        }
+
         searchInput.addEventListener('input', function(){
             const searchTerm = this.value.toLowerCase().trim();
             const options = productSelect.querySelectorAll('option');
-            let hasMatches = false;
 
             if (!searchTerm) {
-                // Show all options when search is empty
+                // Hide all options when search is empty (except default)
                 options.forEach(option => {
-                    option.style.display = '';
+                    if (option.value === '') {
+                        option.style.display = '';
+                    } else {
+                        option.style.display = 'none';
+                    }
                 });
+                productSelect.size = 0;
                 return;
             }
 
-            // Enhanced matching: exact words, partial words, and fuzzy matching
-            function getMatchScore(productName, searchTerm) {
-                const name = productName.toLowerCase();
-                const terms = searchTerm.split(/\s+/);
-                let score = 0;
-
-                terms.forEach(term => {
-                    // Exact word match (highest priority)
-                    if (name.split(/\s+/).some(word => word === term)) {
-                        score += 100;
-                    }
-                    // Word starts with term
-                    else if (name.split(/\s+/).some(word => word.startsWith(term))) {
-                        score += 50;
-                    }
-                    // Substring match
-                    else if (name.includes(term)) {
-                        score += 25;
-                    }
-                    // Partial character match (at least 70% similar)
-                    else {
-                        const matches = term.split('').filter(char => name.includes(char)).length;
-                        if (matches >= term.length * 0.7) {
-                            score += 10;
-                        }
-                    }
-                });
-
-                return score;
-            }
-
-            // Calculate scores and sort options
+            // Only show products that match the search term
             const optionsWithScores = [];
             options.forEach(option => {
                 if (option.value === '') return; // Skip default option
 
-                const productName = option.dataset.name || option.textContent.toLowerCase();
-                const score = getMatchScore(productName, searchTerm);
+                const productName = getCleanProductName(option);
                 
-                if (score > 0) {
+                // Check if search term appears anywhere in product name
+                if (productName.includes(searchTerm)) {
+                    // Calculate match quality
+                    let score = 0;
+                    const words = productName.split(/\s+/);
+                    
+                    // Word starts with search term = highest priority
+                    if (words.some(word => word.startsWith(searchTerm))) {
+                        score = 100;
+                    }
+                    // Exact word match
+                    else if (words.some(word => word === searchTerm)) {
+                        score = 80;
+                    }
+                    // Substring match at start of name
+                    else if (productName.startsWith(searchTerm)) {
+                        score = 50;
+                    }
+                    // Substring match anywhere
+                    else {
+                        score = 25;
+                    }
+                    
                     optionsWithScores.push({ option, score });
-                    hasMatches = true;
                 }
             });
 
             // Sort by score (highest first)
             optionsWithScores.sort((a, b) => b.score - a.score);
 
-            // Update display
+            // Hide all options first
             options.forEach(option => {
-                if (option.value === '') {
-                    option.style.display = ''; // Always show default
-                    return;
-                }
                 option.style.display = 'none';
             });
 
-            // Show matching options in order
-            optionsWithScores.forEach(({ option }) => {
-                option.style.display = '';
-            });
+            // Show default option
+            const defaultOption = productSelect.querySelector('option[value=""]');
+            if (defaultOption) {
+                defaultOption.style.display = '';
+            }
 
-            // Open dropdown to show results
-            if (hasMatches) {
-                productSelect.size = Math.min(optionsWithScores.length + 1, 8); // Show up to 8 options
+            // Show only matching options
+            if (optionsWithScores.length > 0) {
+                optionsWithScores.forEach(({ option }) => {
+                    option.style.display = '';
+                });
+                productSelect.size = Math.min(optionsWithScores.length + 1, 8);
+            } else {
+                productSelect.size = 1; // Show empty dropdown for no matches
             }
         });
 
