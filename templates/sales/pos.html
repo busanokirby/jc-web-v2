@@ -31,10 +31,17 @@
     display: block !important;
 }
 
-/* Ensure parent containers for search dropdowns have proper positioning context */
+/* Provide a stable positioning context for the dropdowns */
+.position-relative {
+    position: relative !important;
+    overflow: visible;         /* make sure dropdown is not clipped */
+    z-index: 1000;             /* stacking context beneath the dropdown */
+}
+
 #customer-search-input,
 #product-search-input {
-    position: relative;
+    /* input itself need not be positioned; wrapper handles layout */
+    position: static;
 }
 
 #customer-search-results .list-group-item,
@@ -77,7 +84,7 @@
             </div>
             <div class="card-body">
                 <label class="form-label">Search and select a customer for this sale</label>
-                <div class="position-relative">
+                <div class="position-relative customer-search-wrapper">
                     <input type="text" id="customer-search-input" class="form-control mb-2" placeholder="Type customer name or phone..." autocomplete="off">
                     <!-- Search results dropdown -->
                     <div id="customer-search-results" class="list-group">
@@ -147,15 +154,15 @@
             <div class="card-body">
                 <div class="mb-3">
                     <label class="form-label">Search for a product</label>
-                    <div class="position-relative">
+                    <div class="position-relative product-search-wrapper">
                         <input type="text" class="form-control" id="product-search-input" placeholder="Type product name or SKU..." autocomplete="off">
                         <button class="btn btn-outline-secondary" type="button" id="product-search-btn" style="position: absolute; right: 0; top: 0; z-index: 1;">
                             <i class="bi bi-search"></i>
                         </button>
-                    </div>
-                    <!-- Search results dropdown -->
-                    <div id="product-search-results" class="list-group">
-                        <!-- Results populated by JS -->
+                        <!-- Search results dropdown -->
+                        <div id="product-search-results" class="list-group">
+                            <!-- Results populated by JS -->
+                        </div>
                     </div>
                 </div>
 
