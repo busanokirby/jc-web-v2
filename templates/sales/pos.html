@@ -462,24 +462,6 @@ document.addEventListener('DOMContentLoaded', function(){
         }
     };
 
-    // Auto-select customer if passed via URL parameter
-    {% if preselected_customer %}
-    const preselectedCustomerId = {{ preselected_customer.id }};
-    const preselectedCustomerName = "{{ preselected_customer.name }} ({{ preselected_customer.phone }})";
-    const customerSearchInput = document.getElementById('customer-search-input');
-    const selectedCustomerDiv = document.getElementById('selected-customer');
-    const selectedCustomerName = document.getElementById('selected-customer-name');
-    
-    // Trigger customer selection
-    customerSelect.value = preselectedCustomerId;
-    selectedCustomerName.textContent = preselectedCustomerName;
-    selectedCustomerDiv.style.display = 'block';
-    customerSearchInput.value = preselectedCustomerName;
-    
-    // Load departments for preselected customer
-    updateDepartmentOptions(preselectedCustomerId);
-    {% endif %}
-
     // Product selection
     productSelect.addEventListener('change', function(){
         if (this.value) {
@@ -703,6 +685,11 @@ document.addEventListener('DOMContentLoaded', function(){
             updateDepartmentOptions(customerId);
         }
     };
+
+    // Auto-select customer if passed via URL parameter (must be after selectCustomer definition)
+    {% if preselected_customer %}
+    window.selectCustomer('{{ preselected_customer.id }}', '{{ preselected_customer.name }} ({{ preselected_customer.phone }})');
+    {% endif %}
 
     // Handle add customer form submission
     const addCustomerForm = document.getElementById('add-customer-form');
