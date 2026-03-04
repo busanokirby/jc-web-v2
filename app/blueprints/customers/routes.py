@@ -5,7 +5,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import or_
 
 from app.extensions import db
-from app.models.customer import Customer
+from app.models.customer import Customer, Department
 from app.models.repair import Device
 from app.models.sales import Sale
 from app.services.authz import roles_required
@@ -65,6 +65,7 @@ def customers():
         query = query.filter(
             or_(
                 Customer.name.ilike(f"%{q}%"),
+                Customer.business_name.ilike(f"%{q}%"),
                 Customer.phone.ilike(f"%{q}%"),
                 Customer.customer_code.ilike(f"%{q}%"),
                 Customer.email.ilike(f"%{q}%")
@@ -211,7 +212,7 @@ def delete_customer(customer_id: int):
 
 @customers_bp.route("/search/api", methods=["GET"])
 @login_required
-@roles_required("ADMIN", "SALES")
+@roles_required("ADMIN", "SALES", "TECH")
 def search_api():
     """API endpoint for customer search (for autocomplete)"""
     q = request.args.get("q", "").strip()
@@ -223,6 +224,7 @@ def search_api():
     customers_list = Customer.query.filter(
         or_(
             Customer.name.ilike(f"%{q}%"),
+            Customer.business_name.ilike(f"%{q}%"),
             Customer.phone.ilike(f"%{q}%"),
             Customer.customer_code.ilike(f"%{q}%")
         )
@@ -232,6 +234,7 @@ def search_api():
         {
             "id": c.id,
             "name": c.name,
+            "business_name": c.business_name,
             "phone": c.phone,
             "code": c.customer_code,
             "email": c.email
@@ -245,11 +248,20 @@ def search_api():
 @roles_required("ADMIN", "SALES")
 def add_customer():
     """Add a new customer (API endpoint for POS)"""
-    name = (request.form.get("name") or "").strip()
+    customer_type = (request.form.get("customer_type") or "Individual").strip()
     skip_phone = request.form.get("skip_phone", "no") == "yes"
     phone = (request.form.get("phone") or "").strip()
     email = (request.form.get("email") or "").strip() or None
     address = (request.form.get("address") or "").strip() or None
+    
+    # Get name based on customer type
+    if customer_type == "Individual":
+        name = (request.form.get("name") or "").strip()
+        business_name = None
+    else:
+        # For Business/Government, use company_name or fall back to business_name
+        name = (request.form.get("company_name") or request.form.get("name") or "").strip()
+        business_name = (request.form.get("company_name") or "").strip() or None
     
     if not name:
         return jsonify({"success": False, "message": "Name is required"}), 400
@@ -277,10 +289,30 @@ def add_customer():
             phone=phone,
             email=email,
             address=address,
-            customer_type="Individual",
+            customer_type=customer_type,
+            business_name=business_name,
             created_by_user_id=current_user.id
         )
         db.session.add(customer)
+        db.session.flush()
+        
+        # Create department if details provided and customer is Business/Government
+        department = None
+        if customer_type != "Individual":
+            dept_name = (request.form.get("department_name") or "").strip()
+            if dept_name:
+                from app.models.customer import Department
+                department = Department(
+                    customer_id=customer.id,
+                    name=dept_name,
+                    contact_person=(request.form.get("department_contact") or "").strip() or None,
+                    phone=(request.form.get("department_phone") or "").strip() or None,
+                    email=(request.form.get("department_email") or "").strip() or None,
+                    is_active=True
+                )
+                db.session.add(department)
+                db.session.flush()
+        
         db.session.commit()
         
         return jsonify({
@@ -289,9 +321,294 @@ def add_customer():
                 "id": customer.id,
                 "name": customer.name,
                 "phone": customer.phone,
-                "email": customer.email
+                "email": customer.email,
+                "customer_type": customer.customer_type,
+                "business_name": business_name
             }
         })
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+@customers_bp.route("/<int:customer_id>/quick-repair", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH")
+def quick_repair(customer_id: int):
+    """Quick repair creation directly from customer details page"""
+    if not _tech_can_access_customer(customer_id):
+        return render_template("errors/403.html"), 403
+    
+    customer = Customer.query.get_or_404(customer_id)
+    
+    # Get or create department if specified
+    department_id = None
+    department_choice = request.form.get("department_id", "").strip()
+    
+    if customer.customer_type != "Individual" and department_choice:
+        if department_choice == "__new__":
+            # Create new department
+            from app.models.customer import Department
+            dept_name = (request.form.get("new_department_name") or "").strip()
+            dept_contact = (request.form.get("new_department_contact") or "").strip()
+            
+            if not dept_name:
+                flash("Department name is required.", "danger")
+                return redirect(url_for("customers.customer_detail", customer_id=customer_id))
+            
+            department = Department(
+                customer_id=customer_id,
+                name=dept_name,
+                contact_person=dept_contact or None,
+                is_active=True
+            )
+            db.session.add(department)
+            db.session.flush()
+            department_id = department.id
+        else:
+            # Use existing department
+            try:
+                department_id = int(department_choice)
+            except (ValueError, TypeError):
+                pass
+    
+    # Redirect to repair creation with customer pre-filled
+    from app.services.codes import generate_ticket_number
+    
+    device_type = (request.form.get("device_type") or "").strip()
+    brand = (request.form.get("brand") or "").strip() or None
+    model = (request.form.get("model") or "").strip() or None
+    issue_description = (request.form.get("issue_description") or "").strip()
+    
+    if not device_type or not issue_description:
+        flash("Device type and issue description are required.", "danger")
+        return redirect(url_for("customers.customer_detail", customer_id=customer_id))
+    
+    # Create the repair directly
+    from app.models.repair import Device
+    from app.services.financials import recompute_repair_financials
+    from decimal import Decimal
+    
+    try:
+        device = Device(
+            ticket_number=generate_ticket_number(),
+            customer_id=customer_id,
+            department_id=department_id,
+            device_type=device_type,
+            brand=brand,
+            model=model,
+            issue_description=issue_description,
+            status="Received",
+            priority="Normal",
+            diagnostic_fee=Decimal("0.00"),
+            repair_cost=Decimal("0.00"),
+            parts_cost=Decimal("0.00"),
+            created_by_user_id=current_user.id,
+        )
+        recompute_repair_financials(device)
+        db.session.add(device)
+        db.session.commit()
+        
+        flash(f"Repair ticket created: {device.ticket_number}", "success")
+        return redirect(url_for("repairs.repair_detail", device_id=device.id))
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error creating repair: {str(e)}", "danger")
+        return redirect(url_for("customers.customer_detail", customer_id=customer_id))
+
+
+@customers_bp.route("/<int:customer_id>/quick-sale", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "SALES")
+def quick_sale(customer_id: int):
+    """Quick sale creation directly from customer details page"""
+    customer = Customer.query.get_or_404(customer_id)
+    
+    # Get or create department if specified
+    department_id = None
+    department_choice = request.form.get("department_id", "").strip()
+    
+    if customer.customer_type != "Individual" and department_choice:
+        if department_choice == "__new__":
+            # Create new department
+            from app.models.customer import Department
+            dept_name = (request.form.get("new_department_name") or "").strip()
+            dept_contact = (request.form.get("new_department_contact") or "").strip()
+            
+            if not dept_name:
+                flash("Department name is required.", "danger")
+                return redirect(url_for("customers.customer_detail", customer_id=customer_id))
+            
+            department = Department(
+                customer_id=customer_id,
+                name=dept_name,
+                contact_person=dept_contact or None,
+                is_active=True
+            )
+            db.session.add(department)
+            db.session.flush()
+            department_id = department.id
+        else:
+            # Use existing department
+            try:
+                department_id = int(department_choice)
+            except (ValueError, TypeError):
+                pass
+    
+    # Create a minimal sale record
+    from app.services.codes import generate_ticket_number
+    from app.models.sales import Sale
+    from decimal import Decimal
+    import uuid
+    
+    try:
+        notes = (request.form.get("notes") or "").strip() or "Quick sale from customer detail"
+        
+        sale = Sale(
+            invoice_no=f"JC-{uuid.uuid4().hex[:8].upper()}",
+            customer_id=customer_id,
+            department_id=department_id,
+            status="DRAFT",
+            notes=notes,
+            subtotal=Decimal("0.00"),
+            discount=Decimal("0.00"),
+            tax=Decimal("0.00"),
+            total=Decimal("0.00")
+        )
+        db.session.add(sale)
+        db.session.commit()
+        
+        flash(f"Sale created: {sale.invoice_no}. You can now add items in the POS system.", "success")
+        return redirect(url_for("sales.pos", sale_id=sale.id))
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error creating sale: {str(e)}", "danger")
+        return redirect(url_for("customers.customer_detail", customer_id=customer_id))
+
+
+@customers_bp.route("/<int:customer_id>/departments-api", methods=["GET"])
+@login_required
+@roles_required("ADMIN", "TECH", "SALES")
+def departments_api(customer_id: int):
+    """API endpoint to fetch customer departments (for dynamic UI updates)"""
+    customer = Customer.query.get_or_404(customer_id)
+    
+    return jsonify({
+        "customer_id": customer.id,
+        "customer_type": customer.customer_type,
+        "departments": [
+            {
+                "id": dept.id,
+                "name": dept.name,
+                "contact_person": dept.contact_person,
+                "is_active": dept.is_active
+            }
+            for dept in customer.departments if dept.is_active
+        ]
+    })
+
+
+@customers_bp.route("/<int:customer_id>/departments", methods=["POST"])
+@login_required
+@roles_required("ADMIN", "TECH", "SALES")
+def create_department(customer_id: int):
+    """API endpoint to create a new department for a customer"""
+    customer = Customer.query.get_or_404(customer_id)
+    data = request.get_json()
+    
+    # Validate required fields
+    if not data.get("name"):
+        return jsonify({"error": "Department name is required"}), 400
+    
+    dept = Department(
+        customer_id=customer_id,
+        name=data.get("name"),
+        contact_person=data.get("contact_person"),
+        phone=data.get("phone"),
+        email=data.get("email"),
+        is_active=data.get("is_active", True)
+    )
+    
+    db.session.add(dept)
+    db.session.commit()
+    
+    return jsonify({
+        "id": dept.id,
+        "name": dept.name,
+        "contact_person": dept.contact_person,
+        "phone": dept.phone,
+        "email": dept.email,
+        "is_active": dept.is_active
+    }), 201
+
+
+@customers_bp.route("/<int:customer_id>/departments/<int:dept_id>/api", methods=["GET"])
+@login_required
+@roles_required("ADMIN", "TECH", "SALES")
+def get_department(customer_id: int, dept_id: int):
+    """API endpoint to fetch a single department"""
+    customer = Customer.query.get_or_404(customer_id)
+    dept = Department.query.filter_by(id=dept_id, customer_id=customer_id).first_or_404()
+    
+    return jsonify({
+        "id": dept.id,
+        "name": dept.name,
+        "contact_person": dept.contact_person,
+        "phone": dept.phone,
+        "email": dept.email,
+        "is_active": dept.is_active
+    })
+
+
+@customers_bp.route("/<int:customer_id>/departments/<int:dept_id>", methods=["PUT"])
+@login_required
+@roles_required("ADMIN", "TECH", "SALES")
+def update_department(customer_id: int, dept_id: int):
+    """API endpoint to update a department"""
+    customer = Customer.query.get_or_404(customer_id)
+    dept = Department.query.filter_by(id=dept_id, customer_id=customer_id).first_or_404()
+    data = request.get_json()
+    
+    # Update fields
+    if "name" in data:
+        if not data["name"]:
+            return jsonify({"error": "Department name cannot be empty"}), 400
+        dept.name = data["name"]
+    
+    if "contact_person" in data:
+        dept.contact_person = data["contact_person"]
+    
+    if "phone" in data:
+        dept.phone = data["phone"]
+    
+    if "email" in data:
+        dept.email = data["email"]
+    
+    if "is_active" in data:
+        dept.is_active = data["is_active"]
+    
+    db.session.commit()
+    
+    return jsonify({
+        "id": dept.id,
+        "name": dept.name,
+        "contact_person": dept.contact_person,
+        "phone": dept.phone,
+        "email": dept.email,
+        "is_active": dept.is_active
+    })
+
+
+@customers_bp.route("/<int:customer_id>/departments/<int:dept_id>", methods=["DELETE"])
+@login_required
+@roles_required("ADMIN", "TECH", "SALES")
+def delete_department(customer_id: int, dept_id: int):
+    """API endpoint to delete a department"""
+    customer = Customer.query.get_or_404(customer_id)
+    dept = Department.query.filter_by(id=dept_id, customer_id=customer_id).first_or_404()
+    
+    db.session.delete(dept)
+    db.session.commit()
+    
+    return "", 204
+

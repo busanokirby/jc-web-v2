@@ -32,9 +32,6 @@
         </div>
         {% if current_user.role in ['ADMIN', 'SALES'] %}
         <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary" href="{{ url_for('inventory.adjust_stock_page') }}">
-                <i class="bi bi-sliders"></i> Adjust Stock & Price
-            </a>
             <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#categoryModal">
                 <i class="bi bi-tag"></i> Manage Categories
             </button>

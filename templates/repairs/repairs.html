@@ -13,8 +13,28 @@
 <!-- Search form -->
 <form method="GET" id="repairs-filter-form" class="row g-2 mb-3">
     <div class="col-md-4 position-relative">
-        <input type="text" id="repairs-search" name="q" class="form-control" placeholder="Search by ticket, customer, model..." value="{{ q or '' }}" autocomplete="off">
-        <div id="repairs-search-results" class="list-group position-absolute w-100" style="z-index: 1050; display: none;"></div>
+        <div class="input-group input-group-lg shadow-sm" style="border-radius: 8px; overflow: hidden;">
+            <span class="input-group-text bg-white border-end-0">
+                <i class="bi bi-search text-secondary"></i>
+            </span>
+            <input type="text"
+                   id="repairs-search"
+                   name="q"
+                   class="form-control border-start-0"
+                   placeholder="Search by ticket, customer, company, or model..."
+                   value="{{ q or '' }}"
+                   autofocus
+                   autocomplete="off"
+                   aria-label="Search repairs by ticket, customer name, company, or model"
+                   hx-get="{{ url_for('repairs.repairs') }}"
+                   hx-trigger="keyup changed delay:500ms, search"
+                   hx-target=".table-responsive"
+                   hx-select=".table-responsive"
+                   hx-include="#repairs-status-filter, #repairs-date-from, #repairs-date-to, #show-archived"
+                   hx-push-url="true"
+                   style="font-size: 1rem;">
+        </div>
+        <div id="repairs-search-results" class="list-group position-absolute w-100" style="z-index: 1050; display: none; border-radius: 8px; margin-top: 2px;"></div>
     </div>
     <div class="col-md-2">
         <select id="repairs-status-filter" name="status" class="form-select" data-auto-submit="true">
@@ -58,6 +78,7 @@
                                 <th>Technician</th>
                                 <th>Received</th>
                                 <th>Total Cost</th>
+                                <th class="text-center">Department</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -69,7 +90,12 @@
                                         {{ device.ticket_number }}
                                     </a>
                                 </td>
-                                <td>{{ device.owner.display_name }}</td>
+                                <td>
+                                    {{ device.owner.display_name }}
+                                    {% if device.owner.business_name %}
+                                        <br><small class="text-muted">{{ device.owner.business_name }}</small>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <small class="text-muted">
                                         {{ device.brand }} {{ device.model }}<br>
@@ -100,6 +126,17 @@
                                 </td>
                                 <td>{{ device.received_date|datetimeformat }}</td>
                                 <td><strong>{{ device.total_cost|currency }}</strong></td>
+                                <td class="text-center">
+                                    {% if device.owner.customer_type in ['Business', 'Government'] %}
+                                        {% if device.department %}
+                                            <span class="badge bg-info">{{ device.department.name }}</span>
+                                        {% else %}
+                                            <span class="text-muted small">—</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="opacity-0">—</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <a href="{{ url_for('repairs.repair_detail', device_id=device.id) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="bi bi-eye"></i> View
@@ -108,7 +145,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="9" class="text-center text-muted py-4">
+                                <td colspan="10" class="text-center text-muted py-4">
                                     <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
                                     No repair tickets found
                                 </td>
@@ -130,9 +167,84 @@
 
 {% block extra_css %}
 <style>
+    /* Search input styling */
+    .input-group-lg .form-control {
+        padding: 0.75rem 1rem;
+    }
+    
+    .input-group-lg .input-group-text {
+        padding: 0.75rem 1rem;
+    }
+    
+    .input-group-lg .btn {
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+    }
+    
+    #repairs-search:focus {
+        box-shadow: none;
+        border-color: #dee2e6;
+    }
+    
     /* Autocomplete dropdown styling */
+    #repairs-search-results {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
     #repairs-search-results .list-group-item {
         cursor: pointer;
+        border: none;
+        padding: 0.75rem 1rem;
+        transition: all 0.15s ease;
+    }
+    
+    #repairs-search-results .list-group-item:hover {
+        background-color: #f8f9fa;
+        border-left: 3px solid #1e7f43;
+        padding-left: calc(1rem - 3px);
+    }
+    
+    #repairs-search-results .list-group-item:focus {
+        background-color: #e7f5ef;
+        outline: none;
+        border-left: 3px solid #1e7f43;
+        padding-left: calc(1rem - 3px);
+    }
+
+    /* Card and table styling */
+    .card {
+        border: none !important;
+        background-color: #fff;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    /* Table header styling */
+    .table thead {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+
+    .table tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.03);
+    }
+
+    /* Badge styling */
+    .badge {
+        padding: 0.4rem 0.6rem;
+        font-weight: 500;
+        font-size: 0.8rem;
+    }
+
+    /* Department badge styling */
+    .badge.bg-info {
+        background-color: #0dcaf0 !important;
+        color: white;
     }
 </style>
 {% endblock %}

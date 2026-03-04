@@ -9,19 +9,38 @@
 
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card">
+        <div class="card border-0 shadow-sm">
             <div class="card-body">
-                <form method="GET" class="mb-3">
-                    <div class="input-group">
-                        <input type="text" name="q" class="form-control" placeholder="Search by name, phone, email, or code..." value="{{ q or '' }}">
-                        <button type="submit" class="btn btn-outline-secondary">
-                            <i class="bi bi-search"></i> Search
-                        </button>
-                        {% if q %}
-                        <a href="{{ url_for('customers.customers') }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-clockwise"></i> Clear
-                        </a>
-                        {% endif %}
+                <form method="GET" class="mb-0">
+                    <div class="search-wrapper position-relative">
+                        <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="bi bi-search text-secondary"></i>
+                            </span>
+                            <input type="text"
+                                   id="customers-search"
+                                   name="q"
+                                   class="form-control border-start-0"
+                                   placeholder="Search by name, company, phone, email, or code..."
+                                   value="{{ q or '' }}"
+                                   autofocus
+                                   autocomplete="off"
+                                   aria-label="Search customers by name, company, phone, email, or code"
+                                   hx-get="{{ url_for('customers.customers') }}"
+                                   hx-trigger="keyup changed delay:500ms, search"
+                                   hx-target=".customers-table-container"
+                                   hx-select=".customers-table-container"
+                                   hx-push-url="true">
+                            <button type="submit" class="btn btn-primary btn-lg text-nowrap">
+                                <i class="bi bi-arrow-right"></i> Search
+                            </button>
+                            {% if q %}
+                            <a href="{{ url_for('customers.customers') }}" class="btn btn-outline-secondary btn-lg text-nowrap">
+                                <i class="bi bi-x-circle"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                        <div id="customers-search-results" class="search-dropdown list-group"></div>
                     </div>
                 </form>
             </div>
@@ -31,31 +50,38 @@
 
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card">
-            <div class="card-body">
+        <div class="card border-0 shadow-sm">
+            <div class="customers-table-container">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
-                        <thead>
+                        <thead class="table-light">
                             <tr>
                                 <th>Code</th>
                                 <th>Name</th>
                                 <th>Phone</th>
                                 <th>Email</th>
                                 <th>Type</th>
-                                <th>Repairs</th>
-                                <th>Actions</th>
+                                <th class="text-center">Repairs</th>
+                                <th class="text-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for customer in customers.items %}
                             <tr>
-                                <td><code>{{ customer.customer_code }}</code></td>
                                 <td>
-                                    <a href="{{ url_for('customers.customer_detail', customer_id=customer.id) }}" class="text-decoration-none fw-bold">
+                                    <code class="bg-light px-2 py-1 rounded" style="font-size: 0.85rem;">{{ customer.customer_code }}</code>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('customers.customer_detail', customer_id=customer.id) }}" class="text-decoration-none fw-bold text-dark">
                                         {{ customer.name }}
                                     </a>
+                                    {% if customer.business_name %}
+                                        <br><small class="text-muted">{{ customer.business_name }}</small>
+                                    {% endif %}
                                 </td>
-                                <td>{{ customer.phone }}</td>
+                                <td>
+                                    <small>{{ customer.phone }}</small>
+                                </td>
                                 <td>
                                     {% if customer.email %}
                                         <small class="text-muted">{{ customer.email }}</small>
@@ -64,30 +90,40 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <small class="badge bg-light text-dark">{{ customer.customer_type }}</small>
+                                    <span class="badge bg-light text-dark border border-secondary">{{ customer.customer_type }}</span>
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     {% set repair_count = customer.devices|length %}
                                     {% if repair_count > 0 %}
-                                        <span class="badge bg-info">{{ repair_count }}</span>
+                                        <span class="badge bg-primary rounded-pill">{{ repair_count }}</span>
                                     {% else %}
                                         <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
-                                <td>
-                                    <a href="{{ url_for('customers.customer_detail', customer_id=customer.id) }}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye"></i> View
-                                    </a>
-                                    <a href="{{ url_for('customers.edit_customer', customer_id=customer.id) }}" class="btn btn-sm btn-outline-secondary">
-                                        <i class="bi bi-pencil"></i> Edit
-                                    </a>
+                                <td class="text-end">
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('customers.customer_detail', customer_id=customer.id) }}" class="btn btn-sm btn-outline-primary" title="View customer details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('customers.edit_customer', customer_id=customer.id) }}" class="btn btn-sm btn-outline-secondary" title="Edit customer">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{{ url_for('repairs.add_repair', customer_id=customer.id) }}" class="btn btn-sm btn-outline-success" title="Add repair">
+                                            <i class="bi bi-tools"></i>
+                                        </a>
+                                        <a href="{{ url_for('sales.pos', customer_id=customer.id) }}" class="btn btn-sm btn-outline-info" title="Add sale">
+                                            <i class="bi bi-cart-plus"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
-                                    <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
-                                    No customers found
+                                <td colspan="7" class="text-center text-muted py-5">
+                                    <div>
+                                        <i class="bi bi-inbox" style="font-size: 2.5rem; opacity: 0.5;"></i><br>
+                                        <p class="mt-3 mb-0">No customers found</p>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -103,4 +139,220 @@
     {% set pagination = customers %}
     {% include 'layouts/pagination.html' %}
 {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Search wrapper positioning - anchor for absolute dropdown */
+    .search-wrapper {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    /* Search input styling */
+    .input-group-lg .form-control {
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+    }
+    
+    .input-group-lg .input-group-text {
+        padding: 0.75rem 1rem;
+        background-color: #fff;
+    }
+    
+    .input-group-lg .btn {
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+    }
+    
+    #customers-search:focus {
+        box-shadow: none;
+        border-color: #dee2e6;
+    }
+    
+    /* Search dropdown - use absolute positioning anchored to search-wrapper */
+    .search-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        display: none;
+        background-color: white;
+        border-radius: 0 0 0.375rem 0.375rem;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        z-index: 2000;
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        margin-top: 0;
+    }
+
+    .search-dropdown.show {
+        display: block;
+    }
+    
+    .search-dropdown .list-group-item {
+        cursor: pointer;
+        border: none;
+        padding: 0.75rem 1rem;
+        transition: all 0.15s ease;
+        border-bottom: 1px solid #f0f0f0;
+        background-color: white;
+        font-size: 0.95rem;
+    }
+    
+    .search-dropdown .list-group-item:last-child {
+        border-bottom: none;
+    }
+    
+    .search-dropdown .list-group-item:hover {
+        background-color: #f8f9fa;
+        border-left: 3px solid #198754;
+        padding-left: calc(1rem - 3px);
+    }
+    
+    .search-dropdown .list-group-item:focus {
+        background-color: #e8f5e9;
+        outline: none;
+        border-left: 3px solid #198754;
+        padding-left: calc(1rem - 3px);
+    }
+
+    /* Table improvements */
+    .table thead {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .table tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(25, 135, 84, 0.03);
+    }
+
+    .btn-group .btn {
+        border-radius: 0.25rem;
+        margin-right: 2px;
+    }
+
+    .btn-group .btn:last-child {
+        margin-right: 0;
+    }
+
+    /* Card improvements */
+    .card {
+        border: none !important;
+        background-color: #fff;
+        transition: box-shadow 0.15s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08) !important;
+    }
+
+    /* Search card - ensure it appears above table */
+    .row:nth-child(2) .card {
+        position: relative;
+        z-index: 100;
+    }
+
+    /* Table container */
+    .customers-table-container {
+        overflow: visible;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        overflow-y: visible;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .table {
+            font-size: 0.9rem;
+        }
+
+        .btn-group .btn {
+            padding: 0.375rem 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .table thead th {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .table tbody td {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .search-dropdown {
+            min-width: calc(100% - 20px);
+            max-width: 90vw;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/customers_autocomplete.js') }}"></script>
+<script>
+// Search dropdown management - simplified with CSS-anchored positioning
+const searchInput = document.getElementById('customers-search');
+const searchResults = document.getElementById('customers-search-results');
+
+// Show dropdown when it has results
+function showSearchDropdown() {
+    if (searchResults.children.length > 0) {
+        searchResults.classList.add('show');
+    }
+}
+
+// Hide dropdown
+function hideSearchDropdown() {
+    searchResults.classList.remove('show');
+}
+
+// Handle clicks on dropdown items
+searchResults.addEventListener('click', (e) => {
+    const item = e.target.closest('.list-group-item');
+    if (item && item.href) {
+        window.location.href = item.href;
+    }
+});
+
+// Show dropdown when search input is focused and has results
+searchInput.addEventListener('focus', showSearchDropdown);
+
+// Observe when autocomplete.js adds/removes results
+const resultObserver = new MutationObserver(() => {
+    if (searchResults.children.length > 0) {
+        showSearchDropdown();
+    } else {
+        hideSearchDropdown();
+    }
+});
+
+resultObserver.observe(searchResults, { childList: true });
+
+// Hide dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    const isClickInsideInput = searchInput.contains(e.target);
+    const isClickInsideResults = searchResults.contains(e.target);
+    
+    if (!isClickInsideInput && !isClickInsideResults) {
+        hideSearchDropdown();
+    }
+});
+
+// Hide dropdown on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        hideSearchDropdown();
+    }
+});
+</script>
 {% endblock %}

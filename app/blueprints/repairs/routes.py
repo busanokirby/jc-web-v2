@@ -50,6 +50,7 @@ def repairs():
                 or_(
                     Device.ticket_number.ilike(pattern),
                     Customer.name.ilike(pattern),
+                    Customer.business_name.ilike(pattern),
                     Device.model.ilike(pattern),
                     Device.brand.ilike(pattern),
                     Device.device_type.ilike(pattern),
@@ -114,7 +115,8 @@ def repairs_search_api():
         base
         .filter(
             (Device.ticket_number.ilike(f"%{q}%")) |
-            (Customer.name.ilike(f"%{q}%"))
+            (Customer.name.ilike(f"%{q}%")) |
+            (Customer.business_name.ilike(f"%{q}%"))
         )
         .order_by(Device.id.desc())
         .limit(limit)
@@ -297,8 +299,18 @@ def add_repair():
             customer = Customer.query.get_or_404(int(customer_id))
         else:
             # Create or update customer
+            customer_type = request.form.get("customer_type", "Individual").strip()
             skip_phone = request.form.get("skip_phone", "no") == "yes"
             phone = (request.form.get("customer_phone") or "").strip()
+            
+            # Get name based on customer type
+            if customer_type == "Individual":
+                customer_name = (request.form.get("customer_name") or "").strip()
+                business_name = None
+            else:
+                # For Business/Government, use company_name
+                customer_name = (request.form.get("company_name") or request.form.get("customer_name") or "").strip()
+                business_name = (request.form.get("company_name") or "").strip() or None
             
             # Validate phone if provided
             if phone:
@@ -320,21 +332,24 @@ def add_repair():
                 # Update existing customer if requested
                 update_customer = request.form.get("update_customer_details", "no") == "yes"
                 if update_customer:
-                    customer.name = (request.form.get("customer_name") or "").strip() or customer.name
+                    if customer_type == "Individual":
+                        customer.name = (request.form.get("customer_name") or "").strip() or customer.name
+                    else:
+                        customer.name = customer_name
+                        customer.business_name = business_name
                     customer.email = (request.form.get("customer_email") or "").strip() or customer.email
                     customer.address = (request.form.get("customer_address") or "").strip() or customer.address
-                    customer.business_name = (request.form.get("business_name") or "").strip() or customer.business_name
-                    customer.customer_type = request.form.get("customer_type", customer.customer_type)
+                    customer.customer_type = customer_type
             else:
                 # Create new customer
                 customer = Customer(
                     customer_code=generate_customer_code(),
-                    name=(request.form.get("customer_name") or "").strip() or "Unknown",
+                    name=customer_name or "Unknown",
                     email=(request.form.get("customer_email") or "").strip() or None,
                     phone=phone,
                     address=(request.form.get("customer_address") or "").strip() or None,
-                    business_name=(request.form.get("business_name") or "").strip() or None,
-                    customer_type=request.form.get("customer_type", "Individual"),
+                    business_name=business_name,
+                    customer_type=customer_type,
                     created_by_user_id=current_user.id,
                 )
                 db.session.add(customer)
@@ -359,6 +374,56 @@ def add_repair():
                     # exhausted retries
                     flash('Could not create customer due to a code conflict. Please try again.', 'danger')
                     return redirect(url_for('repairs.add_repair'))
+
+        # Handle department selection for Business/Government customers
+        department_id = None
+        if customer.customer_type != "Individual":
+            # Check if this is a newly created customer from the form and we need to create department
+            if customer_mode == "new":
+                # Check for department details from new customer form
+                dept_name = (request.form.get("department_name_new") or "").strip()
+                if dept_name:
+                    from app.models.customer import Department
+                    department = Department(
+                        customer_id=customer.id,
+                        name=dept_name,
+                        contact_person=(request.form.get("department_contact_new") or "").strip() or None,
+                        phone=(request.form.get("department_phone_new") or "").strip() or None,
+                        email=(request.form.get("department_email_new") or "").strip() or None,
+                        is_active=True
+                    )
+                    db.session.add(department)
+                    db.session.flush()
+                    department_id = department.id
+            
+            # Handle department selection for existing customers or secondary department selection
+            department_choice = request.form.get("department_id", "").strip()
+            
+            if department_choice == "__new__":
+                # Create new department
+                from app.models.customer import Department
+                dept_name = (request.form.get("new_department_name") or "").strip()
+                dept_contact = (request.form.get("new_department_contact") or "").strip()
+                
+                if not dept_name:
+                    flash("Department name is required when creating a new department.", "danger")
+                    return redirect(url_for("repairs.add_repair"))
+                
+                department = Department(
+                    customer_id=customer.id,
+                    name=dept_name,
+                    contact_person=dept_contact or None,
+                    is_active=True
+                )
+                db.session.add(department)
+                db.session.flush()
+                department_id = department.id
+            elif department_choice and department_choice != "__new__":
+                # Use existing department
+                try:
+                    department_id = int(department_choice)
+                except (ValueError, TypeError):
+                    pass
 
         device_type = request.form.get("device_type")
         if not device_type:
@@ -386,12 +451,14 @@ def add_repair():
                 flash("A similar repair ticket was created recently for this customer.", "warning")
                 return redirect(url_for("repairs.add_repair"))
 
+
         # capture original deposit input to detect overpayment attempts
         orig_deposit = safe_decimal(request.form.get("deposit_paid"), "0.00")
 
         d = Device(
             ticket_number=generate_ticket_number(),
             customer_id=customer.id,
+            department_id=department_id,
             device_type=device_type,
             brand=(request.form.get("brand") or "").strip() or None,
             model=(request.form.get("model") or "").strip() or None,
@@ -447,7 +514,13 @@ def add_repair():
         # Redirect to print ticket with option to add receipt
         return redirect(url_for("repairs.print_ticket", device_id=d.id))
 
-    return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians)
+    # Check for preselected customer from query parameter
+    preselected_customer = None
+    preselected_customer_id = request.args.get("customer_id", type=int)
+    if preselected_customer_id:
+        preselected_customer = Customer.query.get(preselected_customer_id)
+
+    return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=preselected_customer)
 
 
 @repairs_bp.route("/<int:device_id>")
@@ -459,7 +532,8 @@ def repair_detail(device_id: int):
     days_in_shop = (date.today() - device.received_date).days if device.received_date else 0
     products = Product.query.filter_by(is_active=True, is_service=False).order_by(Product.name).all()
     technicians = Technician.query.filter_by(status="Available").order_by(Technician.name).all()
-    return render_template("repairs/repair_detail.html", device=device, days_in_shop=days_in_shop, products=products, technicians=technicians)
+    back_url = request.args.get('back_url', None)
+    return render_template("repairs/repair_detail.html", device=device, days_in_shop=days_in_shop, products=products, technicians=technicians, back_url=back_url)
 
 
 @repairs_bp.route("/<int:device_id>/status", methods=["POST"])
@@ -765,8 +839,10 @@ def add_payment(device_id: int):
 def print_receipt(device_id: int):
     """Print payment receipt for a repair"""
     device = Device.query.get_or_404(device_id)
+    # Get redirect_to parameter (defaults to repair_detail)
+    redirect_to = request.args.get('redirect_to', 'repairs.repair_detail')
     
-    return render_template("repairs/receipt.html", device=device, now=datetime.now())
+    return render_template("repairs/receipt.html", device=device, now=datetime.now(), redirect_to=redirect_to)
 
 
 @repairs_bp.route("/<int:device_id>/parts/<int:part_id>/update-qty", methods=["POST"])
@@ -881,6 +957,7 @@ def update_part_price(device_id: int, part_id: int):
 @roles_required("ADMIN")
 def delete_repair(device_id: int):
     """Delete a repair ticket (ADMIN only). Restores stock for used parts."""
+    from app.models.repair import DeviceAssignment
     device = Device.query.get_or_404(device_id)
 
     try:
@@ -893,6 +970,10 @@ def delete_repair(device_id: int):
                 # if stock_in fails, continue to attempt deletion but log/rollback if necessary
                 pass
 
+        # Delete device assignments first (they have NOT NULL constraint on device_id)
+        DeviceAssignment.query.filter_by(device_id=device_id).delete()
+        
+        # Now delete the device (parts_used_rows will cascade delete via relationship config)
         db.session.delete(device)
         db.session.commit()
         flash(f"Repair {device.ticket_number} deleted.", "success")

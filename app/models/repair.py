@@ -2,17 +2,22 @@ from __future__ import annotations
 
 from datetime import datetime, date
 from decimal import Decimal
-from typing import Optional, List, Any
+from typing import Optional, List, Any, TYPE_CHECKING
 from app.extensions import db
 from app.models.base import BaseModel
+
+if TYPE_CHECKING:
+    from app.models.customer import Customer, Department
+    from app.models.user import User
 
 
 class Device(BaseModel, db.Model):
     __tablename__ = "device"
 
     id = db.Column(db.Integer, primary_key=True)
-    ticket_number = db.Column(db.String(20), unique=True, nullable=False)  # JC-2026-001
+    ticket_number = db.Column(db.String(20), unique=True, nullable=False, index=True)  # JC-2026-001
     customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey("department.id"), nullable=True)  # Department within customer
 
     device_type = db.Column(db.String(50), nullable=False)  # printer/laptop/desktop
     brand = db.Column(db.String(100))
@@ -27,9 +32,9 @@ class Device(BaseModel, db.Model):
     device_age = db.Column(db.String(100))  # e.g., "2 years", "1-3 years"
     accessories = db.Column(db.Text)  # What accessories came with the device
 
-    status = db.Column(db.String(50), default="Received")
+    status = db.Column(db.String(50), default="Received", index=True)
     priority = db.Column(db.String(20), default="Normal")
-    received_date = db.Column(db.Date, default=date.today)
+    received_date = db.Column(db.Date, default=date.today, index=True)
     estimated_completion = db.Column(db.Date)
     actual_completion = db.Column(db.Date)
     warranty_expiry = db.Column(db.Date)
@@ -80,12 +85,9 @@ class Device(BaseModel, db.Model):
     technician_name_override = db.Column(db.String(100), nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    # hints for static analysis
-    owner: "Customer"    # populated via backref from Customer.devices
-    created_by_user: "User"
-    # parts_used_rows is an InstrumentedList with query helpers like .any()
-    parts_used_rows: Any  # type: ignore
 
+    # Relationships
+    department = db.relationship("Department", back_populates="devices")
     created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
     # Parts used with cascade delete to orphaned repair parts
     parts_used_rows = db.relationship("RepairPartUsed", cascade="all, delete-orphan", lazy=True)

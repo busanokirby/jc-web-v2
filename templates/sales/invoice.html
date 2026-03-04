@@ -13,10 +13,15 @@
             <button onclick="window.print()" class="btn btn-light me-2">
                 <i class="bi bi-printer"></i> Print
             </button>
-            <a href="{{ url_for('sales.sales_list') }}" class="btn btn-light">
+            <a href="{% if back_url %}{{ back_url }}{% else %}{{ url_for(redirect_to or 'sales.sales_list') }}{% endif %}" class="btn btn-light">
                 <i class="bi bi-list"></i> Back
             </a>
             {% if current_user.role == 'ADMIN' %}
+            {% if sale.revoked_items %}
+            <a href="{{ url_for('sales.revocation_history', sale_id=sale.id) }}" class="btn btn-outline-warning ms-1">
+                <i class="bi bi-clock-history"></i> Revocation History ({{ sale.revoked_items|length }})
+            </a>
+            {% endif %}
             <form method="POST" action="{{ url_for('sales.delete_sale', sale_id=sale.id) }}" style="display:inline; margin-left:8px;" onsubmit="return confirm('Delete this sale? This will restore stock for sold items.')">
                 <button type="submit" class="btn btn-outline-danger">
                     <i class="bi bi-trash"></i> Delete Sale
@@ -118,10 +123,13 @@
                         <th class="text-center" style="font-size: 0.85rem;">Qty</th>
                         <th class="text-end" style="font-size: 0.85rem;">Unit Price</th>
                         <th class="text-end">Total</th>
+                        {% if current_user.role in ['ADMIN', 'SALES'] and sale.active_items %}
+                        <th class="text-center d-print-none" style="font-size: 0.85rem;">Action</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in sale.items %}
+                    {% for item in sale.active_items %}
                     <tr>
                         <td>
                             <div class="small"><strong>{{ item.product.name }}</strong></div>
@@ -130,11 +138,58 @@
                         <td class="text-center" style="font-size: 0.9rem;">{{ item.qty }}</td>
                         <td class="text-end" style="font-size: 0.9rem;">₱{{ "%.2f"|format(item.unit_price) }}</td>
                         <td class="text-end" style="font-size: 0.9rem;"><strong>₱{{ "%.2f"|format(item.line_total) }}</strong></td>
+                        {% if current_user.role in ['ADMIN', 'SALES'] %}
+                        <td class="text-center d-print-none">
+                            <button type="button" class="btn btn-sm btn-outline-danger revoke-item-btn" 
+                                    data-item-id="{{ item.id }}" 
+                                    title="Revoke this item from the sale">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        {% if sale.revoked_items %}
+        <!-- Revoked Items Section -->
+        <div class="alert alert-warning mt-3">
+            <h6 class="mb-2"><i class="bi bi-exclamation-triangle"></i> Revoked Items</h6>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 table-light">
+                    <thead>
+                        <tr>
+                            <th style="font-size: 0.85rem;">Product</th>
+                            <th class="text-center" style="font-size: 0.85rem;">Qty</th>
+                            <th class="text-end" style="font-size: 0.85rem;">Unit Price</th>
+                            <th class="text-end">Total</th>
+                            <th style="font-size: 0.85rem;">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in sale.revoked_items %}
+                        <tr class="text-muted" style="opacity: 0.7;">
+                            <td>
+                                <div class="small"><strong>{{ item.product.name }}</strong></div>
+                                {% if item.product.sku %}<div class="text-muted" style="font-size: 0.75rem;">SKU: {{ item.product.sku }}</div>{% endif %}
+                            </td>
+                            <td class="text-center" style="font-size: 0.9rem;">{{ item.qty }}</td>
+                            <td class="text-end" style="font-size: 0.9rem;">₱{{ "%.2f"|format(item.unit_price) }}</td>
+                            <td class="text-end" style="font-size: 0.9rem;"><strong>₱{{ "%.2f"|format(item.line_total) }}</strong></td>
+                            <td>
+                                <small class="text-muted">{{ item.revoke_reason or 'No reason provided' }}</small>
+                                <br><small class="text-muted">Revoked by: {{ item.revoked_by or 'Unknown' }}</small>
+                                <br><small class="text-muted">{{ item.revoked_at.strftime('%Y-%m-%d %H:%M') if item.revoked_at }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Summary Box -->
         <div style="background-color: #f8f9fa; padding: 0.5rem; margin-top: 0.5rem; border-radius: 4px; width: 100%; max-width: 200px; margin-left: auto;">
@@ -462,4 +517,134 @@
         }
     }
 </style>
+
+<!-- Modal for Revoking Items -->
+<div class="modal fade" id="revokeItemModal" tabindex="-1" aria-labelledby="revokeItemModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="revokeItemModalLabel">Revoke Item from Sale</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          <strong id="revokeProductName"></strong> (Qty: <span id="revokeQty"></span>)
+          <br>
+          <small class="text-muted">Line Total: ₱<span id="revokeLineTotal"></span></small>
+        </div>
+        
+        <form id="revokeItemForm">
+          <div class="mb-3">
+            <label for="revokeReason" class="form-label">Reason for Revocation *</label>
+            <textarea class="form-control" id="revokeReason" name="reason" rows="3" 
+                      placeholder="e.g., Customer rejected product, damaged item, etc." required></textarea>
+            <small class="form-text text-muted">This will be recorded in the audit trail.</small>
+          </div>
+          
+          <div class="alert alert-info">
+            <small>
+              <strong>Impact:</strong>
+              <ul class="mb-0">
+                <li>Stock will be restored for this item</li>
+                <li>Sale total will be recalculated</li>
+                <li>Item history will be preserved</li>
+              </ul>
+            </small>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmRevokeBtn">
+          <i class="bi bi-trash"></i> Revoke Item
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let revokeModal = new bootstrap.Modal(document.getElementById('revokeItemModal'), {});
+    let currentItemId = null;
+    
+    // Handle revoke button clicks
+    document.querySelectorAll('.revoke-item-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            currentItemId = this.dataset.itemId;
+            const row = this.closest('tr');
+            const productName = row.querySelector('td:first-child strong').textContent;
+            const qty = row.querySelector('td:nth-child(2)').textContent;
+            const lineTotal = row.querySelector('td:nth-child(4) strong').textContent;
+            
+            document.getElementById('revokeProductName').textContent = productName;
+            document.getElementById('revokeQty').textContent = qty;
+            document.getElementById('revokeLineTotal').textContent = lineTotal.replace('₱', '');
+            document.getElementById('revokeReason').value = '';
+            
+            revokeModal.show();
+        });
+    });
+    
+    // Confirm revoke
+    document.getElementById('confirmRevokeBtn').addEventListener('click', function() {
+        const reason = document.getElementById('revokeReason').value.trim();
+        
+        if (!reason) {
+            alert('Please provide a reason for revoking this item.');
+            return;
+        }
+        
+        if (!currentItemId) {
+            alert('No item selected.');
+            return;
+        }
+        
+        // Disable button and show loading state
+        this.disabled = true;
+        const originalText = this.innerHTML;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+        
+        // Send revocation request
+        fetch(`/sales/{{ sale.id }}/item/${currentItemId}/revoke`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'reason=' + encodeURIComponent(reason)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.role = 'alert';
+                alert.innerHTML = `
+                    <strong>Item Revoked!</strong> ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.insertBefore(alert, document.body.firstChild);
+                
+                // Reload page after brief delay
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                alert('Error: ' + (data.message || 'Failed to revoke item'));
+                this.disabled = false;
+                this.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Network error: ' + error);
+            this.disabled = false;
+            this.innerHTML = originalText;
+        });
+        
+        revokeModal.hide();
+    });
+});
+</script>
 {% endblock %}

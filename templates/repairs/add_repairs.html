@@ -9,6 +9,27 @@
     position: relative;
     z-index: 10;
 }
+
+#customer_suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    display: none;
+    max-height: 300px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 0.375rem 0.375rem;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    margin-top: 0;
+}
+
+#customer_suggestions.show {
+    display: block;
+}
 </style>
 <h1 class="mb-4"><i class="bi bi-plus-circle"></i> Create New Repair Ticket</h1>
 
@@ -46,8 +67,7 @@
                         placeholder="Type customer name or phone number..."
                         autocomplete="off"
                     >
-                    <ul id="customer_suggestions" class="list-group position-absolute w-100" style="display: none; max-height: 300px; overflow-y: auto; z-index: 1000; top: 100%; margin-top: 5px;">
-                    </ul>
+                    <ul id="customer_suggestions" class="list-group"></ul>
                 </div>
                 <div id="selected_customer_display" class="mt-2" style="display: none;">
                     <div class="alert alert-info mb-0" role="alert">
@@ -67,6 +87,18 @@
             <div id="new-customer-section" style="display: none;">
                 <div class="row mb-3">
                     <div class="col-md-6">
+                        <label for="customer_type" class="form-label">Customer Type *</label>
+                        <select class="form-select" id="customer_type" name="customer_type" onchange="updateNewCustomerFields()">
+                            <option value="Individual" selected>Individual</option>
+                            <option value="Business">Business</option>
+                            <option value="Government">Government</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Full Name (for Individual) -->
+                <div class="row mb-3" id="individual-name-section">
+                    <div class="col-md-6">
                         <label for="customer_name" class="form-label">Full Name *</label>
                         <input type="text" class="form-control" id="customer_name" name="customer_name">
                     </div>
@@ -75,6 +107,15 @@
                         <input type="text" class="form-control" id="business_name" name="business_name">
                     </div>
                 </div>
+
+                <!-- Company Name (for Business/Government) -->
+                <div class="row mb-3" id="company-name-section" style="display: none;">
+                    <div class="col-md-6">
+                        <label for="company_name" class="form-label">Company/Organization Name *</label>
+                        <input type="text" class="form-control" id="company_name" name="company_name" placeholder="Company or organization name">
+                    </div>
+                </div>
+
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <label for="customer_phone" class="form-label">Phone Number *</label>
@@ -99,13 +140,30 @@
                         <label for="customer_address" class="form-label">Address</label>
                         <textarea class="form-control" id="customer_address" name="customer_address" rows="2"></textarea>
                     </div>
-                    <div class="col-md-6">
-                        <label for="customer_type" class="form-label">Customer Type</label>
-                        <select class="form-select" id="customer_type" name="customer_type">
-                            <option value="Individual">Individual</option>
-                            <option value="Business">Business</option>
-                            <option value="Government">Government</option>
-                        </select>
+                </div>
+
+                <!-- Department Details (for Business/Government) -->
+                <div id="new-department-details-section" style="display: none;" class="border-top pt-3">
+                    <h6 class="mb-3"><i class="bi bi-building"></i> Department/Location Details</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="department_name_new" class="form-label">Department Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="department_name_new" name="department_name_new" placeholder="e.g., Main Office, Branch Location" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="department_contact_new" class="form-label">Contact Person</label>
+                            <input type="text" class="form-control" id="department_contact_new" name="department_contact_new" placeholder="Name of department contact person">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="department_phone_new" class="form-label">Contact Person's Phone Number</label>
+                            <input type="tel" class="form-control" id="department_phone_new" name="department_phone_new" placeholder="Contact person's phone number">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="department_email_new" class="form-label">Contact Person's Email</label>
+                            <input type="email" class="form-control" id="department_email_new" name="department_email_new" placeholder="Contact person's email address">
+                        </div>
                     </div>
                 </div>
                     
@@ -114,6 +172,49 @@
                     <label class="form-check-label" for="update_customer_details">
                         If customer already exists, update their information with the details above
                     </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEPARTMENT SELECTION (for Business/Government customers) -->
+    <div class="card mb-4" id="department_card" style="display: none;">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="bi bi-building"></i> Department / Location <span id="dept_required_badge" class="badge bg-danger" style="display: none;">*</span></h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="department_id" class="form-label">
+                    Select or Create Department
+                </label>
+                <select class="form-select" id="department_id" name="department_id" onchange="toggleNewDepartmentSection()">
+                    <option value="">-- No Department (main customer record) --</option>
+                    <option value="__new__">+ Create New Department</option>
+                </select>
+                <small class="text-muted d-block mt-1">Departments help organize repairs/sales by location or branch within the same company.</small>
+            </div>
+            
+            <div id="new_department_section" style="display: none;" class="p-3 bg-light border rounded">
+                <h6 class="mb-3">Create New Department</h6>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="new_department_name" class="form-label">Department Name *</label>
+                        <input type="text" class="form-control" id="new_department_name" name="new_department_name" placeholder="e.g., IT Department, Makati Branch" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="new_department_contact" class="form-label">Contact Person</label>
+                        <input type="text" class="form-control" id="new_department_contact" name="new_department_contact" placeholder="Name of contact">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="new_department_phone" class="form-label">Contact Person's Phone Number</label>
+                        <input type="tel" class="form-control" id="new_department_phone" name="new_department_phone" placeholder="Contact person's phone number">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="new_department_email" class="form-label">Contact Person's Email</label>
+                        <input type="email" class="form-control" id="new_department_email" name="new_department_email" placeholder="Contact person's email address">
+                    </div>
                 </div>
             </div>
         </div>
@@ -405,7 +506,7 @@ function initializeCustomerSearch() {
         const query = this.value.toLowerCase().trim();
         
         if (query.length === 0) {
-            suggestionsList.style.display = 'none';
+            suggestionsList.classList.remove('show');
             return;
         }
 
@@ -429,13 +530,13 @@ function initializeCustomerSearch() {
                 suggestionsList.appendChild(li);
             });
         }
-        suggestionsList.style.display = 'block';
+        suggestionsList.classList.add('show');
     });
 
     // Hide suggestions when clicking outside
     document.addEventListener('click', function(event) {
         if (!event.target.closest('#existing-customer-section')) {
-            suggestionsList.style.display = 'none';
+            suggestionsList.classList.remove('show');
         }
     });
 
@@ -443,10 +544,13 @@ function initializeCustomerSearch() {
     window.selectCustomer = function(customer) {
         hiddenSelect.value = customer.id;
         searchInput.value = `${customer.name} (${customer.phone})`;
-        suggestionsList.style.display = 'none';
+        suggestionsList.classList.remove('show');
         selectedName.textContent = `${customer.name} (${customer.phone})`;
         selectedDisplay.style.display = 'block';
         searchInput.classList.add('is-valid');
+        
+        // Update department options for the selected customer
+        updateDepartmentOptions(customer.id);
     };
 
     // Clear selection when user starts typing after selection
@@ -461,7 +565,7 @@ function initializeCustomerSearch() {
         if (event.key === 'Escape') {
             hiddenSelect.value = '';
             this.value = '';
-            suggestionsList.style.display = 'none';
+            suggestionsList.classList.remove('show');
             selectedDisplay.style.display = 'none';
             this.classList.remove('is-valid');
         }
@@ -472,6 +576,7 @@ function toggleCustomerMode() {
     const modeExisting = document.getElementById('customer_mode_existing').checked;
     const existingSection = document.getElementById('existing-customer-section');
     const newSection = document.getElementById('new-customer-section');
+    const departmentCard = document.getElementById('department_card');
     
     if (modeExisting) {
         existingSection.style.display = 'block';
@@ -479,14 +584,68 @@ function toggleCustomerMode() {
         document.getElementById('existing_customer_id').required = true;
         document.getElementById('customer_phone').required = false;
         document.getElementById('customer_name').required = false;
+        // Show department card for selected customer (will be populated from server)
+        setTimeout(() => {
+            const customerId = document.getElementById('existing_customer_id').value;
+            if (customerId) {
+                updateDepartmentOptions(customerId);
+            }
+        }, 100);
     } else {
         existingSection.style.display = 'none';
         newSection.style.display = 'block';
+        departmentCard.style.display = 'none';
         document.getElementById('existing_customer_id').required = false;
         togglePhoneRequirement();
         document.getElementById('customer_name').required = true;
     }
 }
+
+function updateDepartmentOptions(customerId) {
+    const departmentCard = document.getElementById('department_card');
+    const departmentSelect = document.getElementById('department_id');
+    const deptRequiredBadge = document.getElementById('dept_required_badge');
+    
+    if (!customerId) {
+        departmentCard.style.display = 'none';
+        departmentSelect.required = false;
+        deptRequiredBadge.style.display = 'none';
+        return;
+    }
+    
+    // Fetch departments for the selected customer
+    fetch(`/customers/${customerId}/departments-api`)
+        .then(r => r.json())
+        .then(data => {
+            const customerType = data.customer_type || 'Individual';
+            
+            if (customerType === 'Individual') {
+                departmentCard.style.display = 'none';
+                departmentSelect.required = false;
+                deptRequiredBadge.style.display = 'none';
+            } else {
+                // Business or Government customer - department is required
+                departmentCard.style.display = 'block';
+                departmentSelect.required = true;
+                deptRequiredBadge.style.display = 'inline';
+                
+                // Reset and populate department options
+                departmentSelect.innerHTML = '<option value="">-- Select a Department --</option>';
+                departmentSelect.innerHTML += '<option value="__new__">+ Create New Department</option>';
+                
+                if (data.departments && data.departments.length > 0) {
+                    data.departments.forEach(dept => {
+                        const opt = document.createElement('option');
+                        opt.value = dept.id;
+                        opt.textContent = dept.name + (dept.contact_person ? ` (${dept.contact_person})` : '');
+                        departmentSelect.appendChild(opt);
+                    });
+                }
+            }
+        })
+        .catch(err => console.error('Error fetching departments:', err));
+}
+
 
 function togglePhoneRequirement() {
     const skipPhoneCheckbox = document.getElementById('skip_phone');
@@ -516,10 +675,93 @@ function toggleCustomDeviceType() {
     }
 }
 
+function updateNewCustomerFields() {
+    const customerType = document.getElementById('customer_type').value;
+    const individualNameSection = document.getElementById('individual-name-section');
+    const companyNameSection = document.getElementById('company-name-section');
+    const departmentSection = document.getElementById('new-department-details-section');
+    const customerName = document.getElementById('customer_name');
+    const companyName = document.getElementById('company_name');
+    const departmentNameNew = document.getElementById('department_name_new');
+    
+    if (customerType === 'Individual') {
+        individualNameSection.style.display = 'block';
+        companyNameSection.style.display = 'none';
+        departmentSection.style.display = 'none';
+        customerName.required = true;
+        companyName.required = false;
+        departmentNameNew.required = false;
+    } else {
+        // Business or Government customer - require department details
+        individualNameSection.style.display = 'none';
+        companyNameSection.style.display = 'block';
+        departmentSection.style.display = 'block';
+        customerName.required = false;
+        companyName.required = true;
+        departmentNameNew.required = true;
+    }
+}
+
+function toggleNewDepartmentSection() {
+    const departmentSelect = document.getElementById('department_id');
+    const newDepartmentSection = document.getElementById('new_department_section');
+    const newDeptName = document.getElementById('new_department_name');
+    const newDeptContact = document.getElementById('new_department_contact');
+    const newDeptPhone = document.getElementById('new_department_phone');
+    const newDeptEmail = document.getElementById('new_department_email');
+    
+    if (departmentSelect.value === '__new__') {
+        newDepartmentSection.style.display = 'block';
+        newDeptName.required = true;
+        newDeptName.focus();
+    } else {
+        newDepartmentSection.style.display = 'none';
+        newDeptName.required = false;
+        newDeptName.value = '';
+        newDeptContact.value = '';
+        newDeptPhone.value = '';
+        newDeptEmail.value = '';
+    }
+}
+
+
 // Toggle deposit input when include_deposit checkbox changes
 document.addEventListener('DOMContentLoaded', function(){
     // Initialize customer search
     initializeCustomerSearch();
+
+    // Auto-select customer if passed via URL parameter
+    {% if preselected_customer %}
+    const preselectedCustomerId = {{ preselected_customer.id }};
+    const preselectedCustomerName = "{{ preselected_customer.name }} ({{ preselected_customer.phone }})";
+    const hiddenSelect = document.getElementById('existing_customer_id');
+    const searchInput = document.getElementById('customer_search');
+    const selectedDisplay = document.getElementById('selected_customer_display');
+    const selectedName = document.getElementById('selected_customer_name');
+    
+    // Trigger customer selection
+    hiddenSelect.value = preselectedCustomerId;
+    searchInput.value = preselectedCustomerName;
+    selectedName.textContent = preselectedCustomerName;
+    selectedDisplay.style.display = 'block';
+    searchInput.classList.add('is-valid');
+    document.getElementById('customer_mode_existing').checked = true;
+    document.getElementById('customer_mode_new').checked = false;
+    toggleCustomerMode();
+    
+    // Load departments for preselected customer
+    updateDepartmentOptions(preselectedCustomerId);
+    {% endif %}
+
+    // Handle customer selection change to load departments
+    const existingCustomerSelect = document.getElementById('existing_customer_id');
+    if (existingCustomerSelect) {
+        existingCustomerSelect.addEventListener('change', function() {
+            if (this.value) {
+                updateDepartmentOptions(this.value);
+            }
+        });
+    }
 
     const includeDeposit = document.getElementById('include_deposit');
     const depositInput = document.getElementById('deposit_paid');

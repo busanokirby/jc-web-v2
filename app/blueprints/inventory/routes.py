@@ -250,6 +250,7 @@ def add_category_quick():
 @require_inventory_edit_enabled
 def delete_product(product_id: int):
     from app.models.inventory import StockMovement
+    from app.models.repair import RepairPartUsed
     from flask import current_app, session, abort
 
     # CSRF Check: Crucial for security
@@ -261,17 +262,21 @@ def delete_product(product_id: int):
     p = Product.query.get_or_404(product_id)
     
     try:
-        # PERMANENT DESTRUCTION: Purge history first
+        # PERMANENT DESTRUCTION: Delete all related records first
+        # 1. Delete repair parts that used this product
+        RepairPartUsed.query.filter_by(product_id=product_id).delete()
+        
+        # 2. Delete stock movement history
         StockMovement.query.filter_by(product_id=product_id).delete()
         
-        # Now delete the product record
+        # 3. Now delete the product record
         db.session.delete(p)
         db.session.commit()
         
         if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': True, 'message': 'Product and history permanently deleted.'}), 200
+            return jsonify({'success': True, 'message': 'Product and all related records permanently deleted.'}), 200
         
-        flash('Product and history destroyed.', 'success')
+        flash('Product and all related records permanently deleted.', 'success')
     except Exception as e:
         db.session.rollback()
         msg = f'Error deleting product: {str(e)}'
@@ -323,16 +328,22 @@ def bulk_delete_products():
         return jsonify({'success': False, 'message': 'Invalid product IDs'}), 400
 
     try:
-        # Delete stock movements for all products first
+        from app.models.repair import RepairPartUsed
+        
+        # Delete all related records first
+        # 1. Delete repair parts that used these products
+        RepairPartUsed.query.filter(RepairPartUsed.product_id.in_(product_ids)).delete(synchronize_session=False)
+        
+        # 2. Delete stock movements for all products
         StockMovement.query.filter(StockMovement.product_id.in_(product_ids)).delete(synchronize_session=False)
         
-        # Delete all specified products
+        # 3. Delete all specified products
         deleted_count = Product.query.filter(Product.id.in_(product_ids)).delete(synchronize_session=False)
         db.session.commit()
 
         return jsonify({
             'success': True, 
-            'message': f'Successfully deleted {deleted_count} product(s).',
+            'message': f'Successfully deleted {deleted_count} product(s) and all related records.',
             'deleted_count': deleted_count
         }), 200
         
@@ -508,7 +519,7 @@ def adjust_stock_page():
             except StockError as e:
                 db.session.rollback()
                 flash(str(e), "danger")
-                return redirect(url_for("inventory.adjust_stock_page"))
+                return redirect(url_for("inventory.adjust_stock_page", product_id=product_id))
 
         # Adjust price if provided (allow price-only updates)
         new_price = (request.form.get("sell_price") or "").strip()
@@ -518,7 +529,7 @@ def adjust_stock_page():
             except Exception:
                 db.session.rollback()
                 flash("Invalid price format.", "danger")
-                return redirect(url_for("inventory.adjust_stock_page"))
+                return redirect(url_for("inventory.adjust_stock_page", product_id=product_id))
 
         try:
             db.session.commit()
@@ -527,7 +538,7 @@ def adjust_stock_page():
             db.session.rollback()
             flash(f"Error updating product: {str(e)}", "danger")
 
-        return redirect(url_for("inventory.adjust_stock_page"))
+        return redirect(url_for("inventory.adjust_stock_page", product_id=product_id))
 
     return render_template("inventory/adjust_stock.html", products=products_list, selected_product_id=selected_product_id)
 

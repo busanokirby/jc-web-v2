@@ -110,24 +110,36 @@ class ReportService:
             - Repair transaction count
             
         Only includes:
-            - Status: Completed
-            - Payment received (deposit_paid > 0 or payment_status = Paid)
-            - Payment date within period
+            - Status: Completed (is_archived = True)
+            - Payment received within the period (deposit_paid_at or full_payment_at)
+            - Valid amounts (no waived or credit charges)
         """
         transactions = []
         total_revenue = Decimal("0.00")
         transaction_count = 0
         
-        # Query repairs completed with payments
+        # Query repairs completed with payments within the period
+        # Must filter by payment dates (when money was received), not completion date
         repairs = (
             Device.query
             .filter(
                 Device.is_archived == True,  # Completed repairs are archived
                 Device.actual_completion.isnot(None),
-                Device.actual_completion >= start_date,
-                Device.actual_completion <= end_date,
                 ~Device.claimed_on_credit,  # Exclude credits
                 ~Device.charge_waived,  # Exclude waived charges
+                # Filter by payment dates: deposit_paid_at or full_payment_at within period
+                db.or_(
+                    db.and_(
+                        Device.deposit_paid_at.isnot(None),
+                        db.func.date(Device.deposit_paid_at) >= start_date,
+                        db.func.date(Device.deposit_paid_at) <= end_date
+                    ),
+                    db.and_(
+                        Device.full_payment_at.isnot(None),
+                        db.func.date(Device.full_payment_at) >= start_date,
+                        db.func.date(Device.full_payment_at) <= end_date
+                    )
+                )
             )
             .all()
         )
@@ -141,15 +153,13 @@ class ReportService:
                     continue
                 amount_paid = Decimal(repair.total_cost or 0)
             
-            # Determine payment date (prioritize deposit_paid_at, fallback to actual_completion)
+            # Determine payment date (prioritize deposit_paid_at, then full_payment_at, fallback to actual_completion)
             if repair.deposit_paid_at:
                 payment_date = repair.deposit_paid_at.date() if hasattr(repair.deposit_paid_at, 'date') else repair.deposit_paid_at
+            elif repair.full_payment_at:
+                payment_date = repair.full_payment_at.date() if hasattr(repair.full_payment_at, 'date') else repair.full_payment_at
             else:
                 payment_date = repair.actual_completion
-            
-            # Check if payment date is in period
-            if not (start_date <= payment_date <= end_date):
-                continue
             
             customer = repair.owner if hasattr(repair, 'owner') else None
             

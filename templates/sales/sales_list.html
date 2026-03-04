@@ -134,7 +134,20 @@
             </td>
 
             <td>
-              <span class="badge bg-info">{{ entry.items_count }}</span>
+              <span class="badge bg-info items-badge" data-bs-toggle="tooltip" title="Items in this sale">{{ entry.items_count }}</span>
+              {% if entry.revoked_items_count|default(0) > 0 %}
+              <span class="badge bg-warning" data-bs-toggle="tooltip" title="Revoked items"><i class="bi bi-trash"></i> {{ entry.revoked_items_count }}</span>
+              {% endif %}
+              {% if entry.itemized_products|default(None) %}
+              <div class="small text-muted mt-1" style="font-size: 0.75rem; max-width: 200px;">
+                {% for prod in entry.itemized_products[:3] %}
+                  <div><strong>{{ prod.qty }}×</strong> {{ prod.name }}</div>
+                {% endfor %}
+                {% if entry.itemized_products|length > 3 %}
+                  <div><em>+{{ entry.itemized_products|length - 3 }} more</em></div>
+                {% endif %}
+              </div>
+              {% endif %}
             </td>
 
             <td>
@@ -164,7 +177,7 @@
             <td>
               {% if entry.type == 'sale' %}
                 {# View Invoice #}
-                <a href="{{ url_for('sales.invoice', sale_id=entry.id) }}"
+                <a href="{{ url_for('sales.invoice', sale_id=entry.id, redirect_to='sales.sales_list') }}"
                    class="btn btn-sm btn-outline-primary"
                    title="View Invoice">
                   <i class="bi bi-file-earmark-pdf"></i>
@@ -200,7 +213,7 @@
 
               {% else %}
                 {# View Repair Receipt #}
-                <a href="{{ url_for('repairs.print_receipt', device_id=entry.id) }}"
+                <a href="{{ url_for('repairs.print_receipt', device_id=entry.id, redirect_to='sales.sales_list') }}"
                    class="btn btn-sm btn-outline-primary"
                    title="View Repair Receipt">
                   <i class="bi bi-file-earmark-pdf"></i>

@@ -1,0 +1,211 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Revocation History - Invoice {{ sale.invoice_no }} - JC Icons{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="mb-0">
+                <i class="bi bi-clock-history"></i>
+                Revocation Audit Trail
+            </h1>
+            <p class="mb-0 small text-muted">Invoice #{{ sale.invoice_no }}</p>
+        </div>
+        <div>
+            <a href="{{ url_for('sales.invoice', sale_id=sale.id) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-file-earmark-pdf"></i> View Invoice
+            </a>
+            <a href="{{ url_for('sales.sales_list') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-list"></i> Back to Sales
+            </a>
+        </div>
+    </div>
+
+    {% if has_revocations %}
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted mb-2">
+                            <i class="bi bi-info-circle"></i> Revocation Summary
+                        </h6>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="small text-muted">Revoked Items</div>
+                                <div class="h5 mb-0">{{ revocation_count }}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-muted">Amount Revoked</div>
+                                <div class="h5 mb-0 text-danger">₱{{ "%.2f"|format(revoked_subtotal) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted mb-2">
+                            <i class="bi bi-receipt"></i> Current Invoice Status
+                        </h6>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="small text-muted">Original Total</div>
+                                <div class="h6 mb-0">₱{{ "%.2f"|format(original_invoice_total) }}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-muted">Current Total</div>
+                                <div class="h6 mb-0 text-success">₱{{ "%.2f"|format(active_items_total) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revocations Table -->
+        <div class="card">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">
+                    <i class="bi bi-trash"></i>
+                    Revoked Items Timeline
+                </h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date/Time</th>
+                            <th>Product</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Total</th>
+                            <th>Reason</th>
+                            <th>Revoked By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for revocation in revoked_items %}
+                        <tr class="text-muted">
+                            <td>
+                                <small class="text-monospace">{{ revocation.revoked_at.strftime('%Y-%m-%d %H:%M:%S') if revocation.revoked_at }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ revocation.product_name }}</strong>
+                                <br>
+                                <small class="text-muted">SKU: {{ revocation.product_sku }}</small>
+                            </td>
+                            <td class="text-center">{{ revocation.qty }}</td>
+                            <td class="text-end">₱{{ "%.2f"|format(revocation.unit_price) }}</td>
+                            <td class="text-end"><strong class="text-danger">-₱{{ "%.2f"|format(revocation.line_total) }}</strong></td>
+                            <td>
+                                <small>{{ revocation.revoke_reason or 'No reason provided' }}</small>
+                            </td>
+                            <td>
+                                <small class="badge bg-info">{{ revocation.revoked_by or 'Unknown' }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-light">
+                <div class="row">
+                    <div class="col-12 text-end">
+                        <strong>Total Revoked Amount:</strong>
+                        <span class="text-danger h6 mb-0">₱{{ "%.2f"|format(revoked_subtotal) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline View (Optional) -->
+        <div class="card mt-4">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">
+                    <i class="bi bi-clock"></i>
+                    Activity Timeline
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    {% for revocation in revoked_items %}
+                    <div class="timeline-item mb-3">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <div class="small text-muted">{{ revocation.revoked_at.strftime('%I:%M %p') if revocation.revoked_at }}</div>
+                            <p class="mb-1">
+                                <strong>{{ revocation.qty }}×</strong> {{ revocation.product_name }}
+                                <span class="badge bg-danger ms-2">-₱{{ "%.2f"|format(revocation.line_total) }}</span>
+                            </p>
+                            <small class="text-muted">
+                                <i class="bi bi-quote"></i>
+                                {{ revocation.revoke_reason or 'No reason provided' }}
+                            </small>
+                            <br>
+                            <small class="text-muted">By: {{ revocation.revoked_by or 'Unknown' }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>No Revocations</strong><br>
+            This invoice has no revoked items. All original items are still active.
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding: 20px 0;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 40px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #dc3545;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #dee2e6;
+}
+
+.timeline-item:not(:last-child) .timeline-marker::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    width: 2px;
+    height: 30px;
+    background-color: #dee2e6;
+    transform: translateX(-50%);
+}
+
+.timeline-content {
+    background-color: #f8f9fa;
+    padding: 12px;
+    border-radius: 4px;
+    border-left: 3px solid #dc3545;
+}
+
+.text-monospace {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+}
+</style>
+{% endblock %}

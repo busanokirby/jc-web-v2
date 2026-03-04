@@ -20,38 +20,49 @@
         <form method="POST" id="adjust-form">
             <!-- CSRF Token -->
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="product_id" id="product-id-hidden" value="{{ selected_product_id }}">
             
-            <!-- Product Selection -->
+            <!-- Product Information Display (Fixed/Read-Only) -->
+            {% if selected_product_id %}
             <div class="card mb-4">
                 <div class="card-header bg-light">
                     <h5 class="mb-0">
-                        <i class="bi bi-box-seam"></i> Select Product
+                        <i class="bi bi-box-seam"></i> Product Information
                     </h5>
                 </div>
                 <div class="card-body">
-                    <label class="form-label fw-bold">Product <span class="text-danger">*</span></label>
-                    <select name="product_id" id="adjust-product-select" class="form-select form-select-lg" required>
-                        <option value="">-- Choose a Product --</option>
-                        {% for p in products %}
-                        <option value="{{ p.id }}" {% if p.id == selected_product_id %}selected{% endif %}>
-                            {{ p.name }}
-                            <span class="text-muted"> (Stock: {{ p.stock_on_hand }} | Price: ₱{{ "%.2f"|format(p.sell_price) }})</span>
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <small class="form-text text-muted d-block mt-2">
-                        <i class="bi bi-info-circle"></i> Current stock and pricing shown in list
-                    </small>
-                    <!-- Hidden: Product data for JavaScript -->
-                    <script type="application/json" id="product-data-store">
-                    {% set product_list = [] %}
+                    {% set product = products|first %}
                     {% for p in products %}
-                        {% set _ = product_list.append({"id": p.id|string, "name": p.name, "stock": p.stock_on_hand, "price": p.sell_price, "category": p.category.name if p.category else ""}) %}
+                        {% if p.id == selected_product_id %}
+                        {% set product = p %}
+                        {% endif %}
                     {% endfor %}
-                    {{ {"products": product_list} | tojson }}
-                    </script>
+                    <div class="mb-3">
+                        <small class="text-muted">Product Name</small>
+                        <p class="mb-0"><strong class="fs-5">{{ product.name }}</strong></p>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <small class="text-muted">Current Stock</small>
+                            <p class="mb-0"><strong class="fs-5" id="display-stock">{{ product.stock_on_hand }}</strong> units</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <small class="text-muted">Current Price</small>
+                            <p class="mb-0"><strong class="fs-5">₱{{ "%.2f"|format(product.sell_price) }}</strong></p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <small class="text-muted">Category</small>
+                            <p class="mb-0"><span>{{ product.category.name if product.category else "(Uncategorized)" }}</span></p>
+                        </div>
+                    </div>
                 </div>
             </div>
+            {% else %}
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>No product selected.</strong> Please go back and click the adjust button on a specific product.
+            </div>
+            {% endif %}
 
             <!-- Stock Adjustment Section -->
             <div class="card mb-4">
@@ -116,32 +127,7 @@
     <!-- Sidebar: Quick Info & Danger Zone -->
     <div class="col-lg-4">
         <div class="card position-sticky mb-4" style="top: 1rem;">
-            <div class="card-header bg-light">
-                <h5 class="mb-0">
-                    <i class="bi bi-info-circle"></i> Current Product Info
-                </h5>
-            </div>
-            <div class="card-body">
-                <div id="product-info-empty" class="text-muted text-center py-4">
-                    <p class="mb-0">Select a product to see details</p>
-                </div>
-                <div id="product-info" style="display: none;">
-                    <div class="mb-3">
-                        <small class="text-muted">Stock on Hand</small>
-                        <p class="mb-0"><strong id="info-stock" class="fs-5">—</strong></p>
-                    </div>
-                    <div class="mb-3">
-                        <small class="text-muted">Current Price</small>
-                        <p class="mb-0"><strong id="info-price" class="fs-5">—</strong></p>
-                    </div>
-                    <div class="mb-3">
-                        <small class="text-muted">Category</small>
-                        <p class="mb-0"><span id="info-category">—</span></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+            <!-- Danger Zone Section -->
         {% if current_user.role == 'ADMIN' %}
         <div class="card border-danger">
             <div class="card-header bg-danger bg-opacity-10 border-danger">
@@ -208,56 +194,19 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-    const select = document.getElementById('adjust-product-select');
     const deltaInput = document.getElementById('delta-input');
     const priceInput = document.getElementById('price-input');
     const deltaWarning = document.getElementById('delta-warning');
     const priceWarning = document.getElementById('price-warning');
     const deleteBtn = document.getElementById('delete-product-btn');
-    const productInfo = document.getElementById('product-info');
-    const productInfoEmpty = document.getElementById('product-info-empty');
+    const productIdHidden = document.getElementById('product-id-hidden');
+    const adjustForm = document.getElementById('adjust-form');
     
-    // Product data for quick reference - loaded from hidden script tag
-    let productData = {};
-    const productDataStore = document.getElementById('product-data-store');
-    if (productDataStore) {
-        try {
-            const dataText = productDataStore.textContent.trim();
-            if (dataText) {
-                const parsedData = JSON.parse(dataText);
-                if (parsedData.products && Array.isArray(parsedData.products)) {
-                    parsedData.products.forEach(function(p) {
-                        productData[p.id] = {
-                            "name": p.name,
-                            "stock": p.stock,
-                            "price": p.price,
-                            "category": p.category
-                        };
-                    });
-                    console.log('Product data loaded successfully:', Object.keys(productData).length, 'products');
-                }
-            }
-        } catch(e) {
-            console.error('Error parsing product data:', e);
-            console.error('Raw data:', productDataStore.textContent);
-        }
+    // Validate that a product is selected (via hidden field)
+    if (!productIdHidden || !productIdHidden.value) {
+        console.error('No product selected. This should not happen when accessing from product adjust button.');
     }
-
-    function updateProductInfo() {
-        const pid = select.value;
-        if (pid && productData[pid]) {
-            const data = productData[pid];
-            productInfoEmpty.style.display = 'none';
-            productInfo.style.display = 'block';
-            document.getElementById('info-stock').textContent = data.stock;
-            document.getElementById('info-price').textContent = '₱' + data.price.toFixed(2);
-            document.getElementById('info-category').textContent = data.category || '(Uncategorized)';
-        } else {
-            productInfoEmpty.style.display = 'block';
-            productInfo.style.display = 'none';
-        }
-    }
-
+    
     function updateWarnings() {
         const delta = parseInt(deltaInput.value) || 0;
         const price = parseFloat(priceInput.value) || null;
@@ -279,9 +228,9 @@ document.addEventListener('DOMContentLoaded', function(){
         }
     }
 
-    select.addEventListener('change', updateProductInfo);
-    deltaInput.addEventListener('input', updateWarnings);
-    priceInput.addEventListener('input', updateWarnings);
+    // Update warnings on input changes
+    if (deltaInput) deltaInput.addEventListener('input', updateWarnings);
+    if (priceInput) priceInput.addEventListener('input', updateWarnings);
 
     // Delete functionality
     if (deleteBtn) {
@@ -308,25 +257,18 @@ document.addEventListener('DOMContentLoaded', function(){
         
         deleteBtn.addEventListener('click', function(e){
             e.preventDefault();
-            console.log('Delete button clicked');
-            console.log('Selected product ID:', select.value);
-            console.log('Available product IDs:', Object.keys(productData));
             
-            const pid = select.value;
+            const pid = productIdHidden.value;
             if (!pid) {
-                alert('Please select a product first');
+                alert('No product selected');
                 return;
             }
             
-            const data = productData[pid];
-            if (!data) {
-                console.error('Product not found in productData:', pid, productData);
-                alert(`Product data not found. Available: ${Object.keys(productData).join(', ')}`);
-                return;
-            }
+            // Get product name from displayed heading
+            const productNameElement = document.querySelector('.card-body strong.fs-5');
+            const productName = productNameElement ? productNameElement.textContent : 'Product';
             
-            console.log('Product found:', data);
-            document.getElementById('delete-product-name').textContent = data.name;
+            document.getElementById('delete-product-name').textContent = productName;
             isDeleting = false;
             if (confirmBtn) {
                 confirmBtn.disabled = false;
@@ -337,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 deleteModal.show();
             } else {
                 // Fallback: show simple confirmation without modal
-                if (confirm(`Delete "${data.name}"? This cannot be undone.`)) {
+                if (confirm(`Delete "${productName}"? This cannot be undone.`)) {
                     performDelete(pid);
                 }
             }
@@ -360,8 +302,6 @@ document.addEventListener('DOMContentLoaded', function(){
                     throw new Error('CSRF token not found on page');
                 }
                 
-                console.log('Sending delete request for product:', pid);
-                
                 const res = fetch(`/inventory/products/${pid}/delete`, { 
                     method: 'POST',
                     headers: {
@@ -372,8 +312,6 @@ document.addEventListener('DOMContentLoaded', function(){
                 });
                 
                 return res.then(response => {
-                    console.log('Delete response status:', response.status);
-                    
                     if (!response.ok) {
                         return response.json().then(errorData => {
                             throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -382,7 +320,6 @@ document.addEventListener('DOMContentLoaded', function(){
                     
                     return response.json().then(responseData => {
                         if (responseData.success) {
-                            console.log('Product deleted successfully');
                             if (deleteModal) {
                                 deleteModal.hide();
                             }
@@ -392,7 +329,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                     });
                 }).catch(err => {
-                    console.error('Delete error:', err);
                     alert('Error deleting product:\n' + (err.message || err.toString()));
                     isDeleting = false;
                     if (confirmBtn) {
@@ -401,7 +337,6 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                 });
             } catch (err) {
-                console.error('Delete setup error:', err);
                 alert('Error deleting product:\n' + (err.message || err.toString()));
                 isDeleting = false;
                 if (confirmBtn) {
@@ -418,9 +353,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 
                 if (isDeleting) return;
                 
-                const pid = select.value;
+                const pid = productIdHidden.value;
                 if (!pid) {
-                    alert('Please select a product first');
+                    alert('No product selected');
                     return;
                 }
                 
@@ -431,8 +366,7 @@ document.addEventListener('DOMContentLoaded', function(){
         console.warn('Delete button not found on page');
     }
 
-    // Initial state
-    updateProductInfo();
+    // Initial state - update warnings
     updateWarnings();
 });
 </script>

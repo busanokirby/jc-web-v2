@@ -186,7 +186,13 @@ def pos():
         "is_service": p.is_service
     } for p in products_list]
     
-    return render_template("sales/pos.html", products=products_json, customers=customers)
+    # Check for preselected customer from query parameter
+    preselected_customer = None
+    preselected_customer_id = request.args.get("customer_id", type=int)
+    if preselected_customer_id:
+        preselected_customer = Customer.query.get(preselected_customer_id)
+    
+    return render_template("sales/pos.html", products=products_json, customers=customers, preselected_customer=preselected_customer)
 
 
 @sales_bp.route("/list")
@@ -360,10 +366,24 @@ def sales_list():
     try:
         for s in sales:
             try:
-                items_count = sum(item.qty for item in (s.items or [])) if s.items else 0
+                items_count = sum(item.qty for item in (s.items or []) if not item.is_revoked) if s.items else 0
+                revoked_items_count = sum(item.qty for item in (s.items or []) if item.is_revoked) if s.items else 0
+                
+                # Build itemized product list (only active items)
+                itemized_products = []
+                for item in (s.items or []):
+                    if not item.is_revoked:  # Only include active items
+                        itemized_products.append({
+                            'name': item.product.name if item.product else 'Unknown',
+                            'sku': item.product.sku if item.product else 'N/A',
+                            'qty': item.qty,
+                            'price': float(item.unit_price or 0),
+                            'total': float(item.line_total or 0),
+                        })
+                
                 # Build a searchable string containing invoice, customer name/code/phone and product SKUs/names
                 parts_text = ' '.join(
-                    f"{item.product.sku or ''} {item.product.name or ''}" for item in (s.items or []) if item.product
+                    f"{item.product.sku or ''} {item.product.name or ''}" for item in (s.items or []) if item.product and not item.is_revoked
                 )
                 customer_name = ''
                 company_name = ''
@@ -393,6 +413,8 @@ def sales_list():
                     'created_at': s.created_at,
                     'latest_payment_date': latest_payment_date,
                     'items_count': items_count,
+                    'revoked_items_count': revoked_items_count,
+                    'itemized_products': itemized_products,
                     'subtotal': float(s.subtotal or 0),
                     'discount': float(s.discount or 0),
                     'total': float(s.total or 0),
@@ -640,12 +662,18 @@ def invoice(sale_id: int):
     # compute payment totals and remaining balance
     payments_total = sum((p.amount or 0) for p in (sale.payments or []))
     balance_due = float((sale.total or 0) - payments_total)
+    # Get redirect_to parameter (defaults to sales_list)
+    # Check for back_url first (new parameter), then fallback to redirect_to (legacy)
+    back_url = request.args.get('back_url')
+    redirect_to = back_url or request.args.get('redirect_to', 'sales.sales_list')
     return render_template(
         "sales/invoice.html",
         sale=sale,
         payments_total=payments_total,
         balance_due=balance_due,
         credit_claim=False,
+        redirect_to=redirect_to,
+        back_url=back_url,
     )
 
 
@@ -665,12 +693,15 @@ def credit_claim(sale_id: int):
         return redirect(url_for('sales.sales_list'))
     payments_total = sum((p.amount or 0) for p in (sale.payments or []))
     balance_due = float((sale.total or 0) - payments_total)
+    # Get redirect_to parameter (defaults to sales_list)
+    redirect_to = request.args.get('redirect_to', 'sales.sales_list')
     return render_template(
         "sales/invoice.html",
         sale=sale,
         payments_total=payments_total,
         balance_due=balance_due,
         credit_claim=True,
+        redirect_to=redirect_to,
     )
 
 
@@ -1274,3 +1305,189 @@ def bulk_delete_sales():
     except Exception as e:
         db.session.rollback()
         return jsonify(success=False, message=str(e)), 500
+
+
+@sales_bp.route('/<int:sale_id>/item/<int:item_id>/revoke', methods=['POST'])
+@login_required
+@roles_required('ADMIN', 'SALES')
+def revoke_sale_item(sale_id: int, item_id: int):
+    """Revoke a single item from a sale and restore its stock.
+    
+    This allows users to remove individual products from a processed sale
+    without deleting the entire invoice. The sale totals are automatically
+    recalculated.
+    """
+    from flask_login import current_user
+    
+    sale = Sale.query.get_or_404(sale_id)
+    item = SaleItem.query.filter_by(id=item_id, sale_id=sale_id).first_or_404()
+    
+    # Prevent revoking already-revoked items
+    if item.is_revoked:
+        return jsonify(success=False, message="This item has already been revoked."), 400
+    
+    try:
+        reason = request.form.get('reason', '') or request.get_json(silent=True, force=True).get('reason', '')
+        reason = reason.strip() if reason else "No reason provided"
+        
+        product = item.product
+        qty_revoked = item.qty
+        
+        # Revoke the item (soft delete with audit trail)
+        item.revoke(reason=reason, revoked_by=current_user.username)
+        
+        # Restore stock if not a service
+        if product and not product.is_service:
+            try:
+                from app.services.stock import stock_in
+                stock_in(
+                    product,
+                    qty_revoked,
+                    reference_type="REVOCATION",
+                    reference_id=sale.id,
+                    notes=f"Item revoked from invoice {sale.invoice_no} - {reason}"
+                )
+            except Exception as e:
+                logger.warning(f"Stock restoration warning for item {item.id}: {str(e)}")
+        
+        # Recalculate sale totals
+        new_subtotal, new_discount, new_total = sale.calculate_totals_excluding_revoked()
+        sold_this_line = item.line_total or Decimal("0.00")
+        saved_amount = sold_this_line
+        
+        # Update sale totals
+        sale.subtotal = new_subtotal
+        sale.total = new_total
+        
+        # Determine new status based on remaining balance
+        payments_total = sum((p.amount or 0) for p in (sale.payments or []))
+        if new_total <= 0:
+            sale.status = 'VOID'  # if all items revoked, mark as void
+        elif payments_total >= new_total:
+            sale.status = 'PAID'
+        else:
+            sale.status = 'PARTIAL'
+        
+        db.session.commit()
+        
+        return jsonify(
+            success=True,
+            message=f"Item revoked: {product.name if product else 'Unknown product'} (qty: {qty_revoked})",
+            data={
+                'item_id': item.id,
+                'product_name': product.name if product else 'Unknown',
+                'qty_revoked': qty_revoked,
+                'amount_saved': float(saved_amount),
+                'new_sale_total': float(new_total),
+                'new_sale_status': sale.status
+            }
+        ), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error revoking sale item {item_id}: {str(e)}")
+        return jsonify(success=False, message=f"Error revoking item: {str(e)}"), 500
+
+
+@sales_bp.route('/<int:sale_id>/items-summary', methods=['GET'])
+@login_required
+@roles_required('ADMIN', 'SALES')
+def get_sale_items_summary(sale_id: int):
+    """Get itemized summary of a sale including active and revoked items.
+    
+    Used for the sales management UI to display detailed item listings.
+    """
+    sale = Sale.query.get_or_404(sale_id)
+    
+    active_items = []
+    revoked_items = []
+    
+    for item in (sale.items or []):
+        item_data = {
+            'id': item.id,
+            'product_name': item.product.name if item.product else 'Unknown',
+            'product_sku': item.product.sku if item.product else 'N/A',
+            'qty': item.qty,
+            'unit_price': float(item.unit_price or 0),
+            'line_total': float(item.line_total or 0),
+            'is_service': item.product.is_service if item.product else False,
+        }
+        
+        if item.is_revoked:
+            item_data['revoked_at'] = item.revoked_at.isoformat() if item.revoked_at else None
+            item_data['revoke_reason'] = item.revoke_reason
+            item_data['revoked_by'] = item.revoked_by
+            revoked_items.append(item_data)
+        else:
+            active_items.append(item_data)
+    
+    # Calculate totals
+    active_subtotal = sum(item['line_total'] for item in active_items)
+    revoked_subtotal = sum(item['line_total'] for item in revoked_items)
+    
+    return jsonify({
+        'invoice_no': sale.invoice_no,
+        'active_items': active_items,
+        'revoked_items': revoked_items,
+        'active_count': len(active_items),
+        'revoked_count': len(revoked_items),
+        'active_subtotal': float(active_subtotal),
+        'revoked_subtotal': float(revoked_subtotal),
+        'original_total': float(sale.subtotal or 0),
+        'current_total': float(sale.total or 0),
+        'sale_status': sale.status,
+    }), 200
+
+
+@sales_bp.route('/<int:sale_id>/revocation-history')
+@login_required
+@roles_required('ADMIN', 'SALES')
+def revocation_history(sale_id: int):
+    """Display revocation audit trail for a sale.
+    
+    Shows all revoked items with timestamps, reasons, and who revoked them.
+    """
+    sale = Sale.query.get_or_404(sale_id)
+    revoked_items = sale.revoked_items
+    
+    if not revoked_items:
+        return render_template(
+            'sales/revocation_history.html',
+            sale=sale,
+            revoked_items=[],
+            has_revocations=False
+        )
+    
+    # Build revocation audit trail
+    revocations = []
+    for item in revoked_items:
+        revocations.append({
+            'id': item.id,
+            'product_name': item.product.name if item.product else 'Unknown',
+            'product_sku': item.product.sku if item.product else 'N/A',
+            'qty': item.qty,
+            'unit_price': float(item.unit_price or 0),
+            'line_total': float(item.line_total or 0),
+            'revoked_at': item.revoked_at,
+            'revoke_reason': item.revoke_reason,
+            'revoked_by': item.revoked_by,
+        })
+    
+    # Sort by revoked_at descending
+    revocations.sort(key=lambda x: x['revoked_at'], reverse=True)
+    
+    # Calculate totals
+    revoked_subtotal = sum(r['line_total'] for r in revocations)
+    active_items_total = float(sale.total or 0)  # Current sale total
+    original_invoice_total = float(sale.subtotal or 0) - float(sale.discount or 0)
+    
+    return render_template(
+        'sales/revocation_history.html',
+        sale=sale,
+        revoked_items=revocations,
+        has_revocations=len(revocations) > 0,
+        revoked_subtotal=revoked_subtotal,
+        active_items_total=active_items_total,
+        original_invoice_total=original_invoice_total,
+        revocation_count=len(revocations),
+    )

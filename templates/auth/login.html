@@ -80,6 +80,12 @@
         border-color: var(--jc-green);
     }
     
+    /* Hide browser's native password reveal button for consistency */
+    input[type="password"]::-webkit-outer-spin-button,
+    input[type="password"]::-webkit-inner-spin-button {
+        display: none;
+    }
+    
     .login-footer {
         text-align: center;
         margin-top: 1rem;
