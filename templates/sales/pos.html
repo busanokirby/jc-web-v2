@@ -405,6 +405,12 @@ document.addEventListener('DOMContentLoaded', function(){
     searchResults = document.getElementById('product-search-results');
     customerSelect = document.getElementById('customer-select');
     claimOnCreditCheckbox = document.getElementById('claim-on-credit-pos');
+
+    // Guarantee the results dropdown is inside the positioned wrapper.
+    const prodWrapper = document.querySelector('.product-search-wrapper');
+    if (prodWrapper && searchResults && !prodWrapper.contains(searchResults)) {
+        prodWrapper.appendChild(searchResults);
+    }
     
     // New fields for partial payments and notes
     const paymentAmountInput = document.getElementById('payment-amount');
