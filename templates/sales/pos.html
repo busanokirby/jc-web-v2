@@ -412,6 +412,29 @@ document.addEventListener('DOMContentLoaded', function(){
         prodWrapper.appendChild(searchResults);
     }
     
+    // dynamic positioning helper for product dropdown
+    function updateProductDropdownPosition() {
+        if (!searchInput || !searchResults) return;
+        const rect = searchInput.getBoundingClientRect();
+        // use fixed positioning to escape any parent overflow/clipping
+        searchResults.style.position = 'fixed';
+        searchResults.style.left = rect.left + 'px';
+        searchResults.style.top = (rect.bottom + window.scrollY) + 'px';
+        searchResults.style.width = rect.width + 'px';
+    }
+
+    // reposition when window changes
+    window.addEventListener('scroll', () => {
+        if (searchResults && searchResults.classList.contains('show')) {
+            updateProductDropdownPosition();
+        }
+    });
+    window.addEventListener('resize', () => {
+        if (searchResults && searchResults.classList.contains('show')) {
+            updateProductDropdownPosition();
+        }
+    });
+
     // New fields for partial payments and notes
     const paymentAmountInput = document.getElementById('payment-amount');
     const notesInput = document.getElementById('notes-input');
@@ -559,6 +582,8 @@ document.addEventListener('DOMContentLoaded', function(){
             </button>
         `).join('');
         searchResults.classList.add('show');
+        // dynamically position under the input in case wrapper context fails
+        updateProductDropdownPosition();
     });
 
     searchBtn.addEventListener('click', function(){
