@@ -7,10 +7,7 @@
 /* Ensure search dropdowns appear above and are not clipped */
 #customer-search-results,
 #product-search-results {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
+    position: fixed;          /* escape any container context */
     z-index: 1050;
     display: none !important;
     background: white;
@@ -18,12 +15,10 @@
     border-top: none;
     border-radius: 0 0 0.375rem 0.375rem;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-    margin-top: 0;
-    margin-bottom: 0;
+    margin: 0;
     padding: 0;
     max-height: 300px;
     overflow-y: auto;
-    min-width: 100%;
 }
 
 #customer-search-results.show,
@@ -406,20 +401,19 @@ document.addEventListener('DOMContentLoaded', function(){
     customerSelect = document.getElementById('customer-select');
     claimOnCreditCheckbox = document.getElementById('claim-on-credit-pos');
 
-    // Guarantee the results dropdown is inside the positioned wrapper.
-    const prodWrapper = document.querySelector('.product-search-wrapper');
-    if (prodWrapper && searchResults && !prodWrapper.contains(searchResults)) {
-        prodWrapper.appendChild(searchResults);
+    // ensure dropdown element lives under <body> when using fixed positioning
+    if (searchResults && searchResults.parentElement !== document.body) {
+        document.body.appendChild(searchResults);
     }
     
     // dynamic positioning helper for product dropdown
     function updateProductDropdownPosition() {
         if (!searchInput || !searchResults) return;
         const rect = searchInput.getBoundingClientRect();
-        // use fixed positioning to escape any parent overflow/clipping
+        // use fixed positioning (coordinates relative to viewport)
         searchResults.style.position = 'fixed';
         searchResults.style.left = rect.left + 'px';
-        searchResults.style.top = (rect.bottom + window.scrollY) + 'px';
+        searchResults.style.top = rect.bottom + 'px';
         searchResults.style.width = rect.width + 'px';
     }
 
@@ -554,10 +548,9 @@ document.addEventListener('DOMContentLoaded', function(){
     // Search functionality
     searchInput.addEventListener('input', function(){
         const q = this.value.trim().toLowerCase();
-        // ensure dropdown remains wrapped before any DOM changes
-        const wrapper = document.querySelector('.product-search-wrapper');
-        if (wrapper && searchResults && !wrapper.contains(searchResults)) {
-            wrapper.appendChild(searchResults);
+        // make sure dropdown is attached to body so it isn't clipped by containers
+        if (searchResults && searchResults.parentElement !== document.body) {
+            document.body.appendChild(searchResults);
         }
 
         if (q.length < 1) {
