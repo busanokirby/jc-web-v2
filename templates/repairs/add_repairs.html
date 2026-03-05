@@ -4,31 +4,57 @@
 
 {% block content %}
 <style>
-/* Ensure customer search dropdown appears above and is not clipped */
-#existing-customer-section {
+/* Ensure card and card-body don't clip dropdowns */
+.card {
+    overflow: visible !important;
+}
+
+.card-body {
+    overflow: visible !important;
+}
+
+/* Search dropdown containers with absolute positioning */
+.customer-search-wrapper {
     position: relative;
-    z-index: 10;
+    overflow: visible;
+    z-index: 1000;
 }
 
 #customer_suggestions {
     position: absolute;
     top: 100%;
     left: 0;
-    right: 0;
+    width: 100%;
     z-index: 1050;
     display: none;
-    max-height: 300px;
-    overflow-y: auto;
     background: white;
     border: 1px solid #dee2e6;
     border-top: none;
     border-radius: 0 0 0.375rem 0.375rem;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-    margin-top: 0;
+    margin: 0;
+    padding: 0;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 #customer_suggestions.show {
     display: block;
+}
+
+#customer_suggestions .list-group-item {
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+}
+
+#customer_suggestions .list-group-item:last-child {
+    border-bottom: none;
+}
+
+#customer_suggestions .list-group-item:hover {
+    background-color: #f8f9fa;
 }
 
 /* Prevent card from moving on hover/focus */
@@ -95,13 +121,14 @@
             <!-- Existing Customer Selection with Search -->
             <div id="existing-customer-section" class="mb-3">
                 <label for="customer_search" class="form-label">Search & Select Customer *</label>
-                <div class="position-relative">
+                <div class="position-relative customer-search-wrapper">
                     <input 
                         type="text" 
                         class="form-control" 
                         id="customer_search" 
                         placeholder="Type customer name or phone number..."
                         autocomplete="off"
+                        value="{{ form_data.customer_search if form_data and form_data.get('customer_search') else '' }}"
                     >
                     <ul id="customer_suggestions" class="list-group"></ul>
                 </div>
@@ -266,13 +293,12 @@
                 <div class="col-md-4">
                     <label for="device_type" class="form-label">Device Type *</label>
                     <select class="form-select" id="device_type" name="device_type" required onchange="toggleCustomDeviceType()">
-                        <option value="">-- Select device type --</option>
-                        <option value="printer">Printer</option>
-                        <option value="laptop">Laptop</option>
-                        <option value="desktop">Desktop</option>
-                        <option value="mobile">Mobile Phone</option>
-                        <option value="tablet">Tablet</option>
-                        <option value="other">Other</option>
+                        <option value="" {% if not form_data or not form_data.get('device_type') %}selected{% endif %}>-- Select device type --</option>
+                        <option value="printer" {% if form_data and form_data.get('device_type') == 'printer' %}selected{% endif %}>Printer</option>
+                        <option value="laptop" {% if form_data and form_data.get('device_type') == 'laptop' %}selected{% endif %}>Laptop</option>
+                        <option value="desktop" {% if form_data and form_data.get('device_type') == 'desktop' %}selected{% endif %}>Desktop</option>
+                        <option value="monitor" {% if form_data and form_data.get('device_type') == 'monitor' %}selected{% endif %}>Monitor</option>
+                        <option value="other" {% if form_data and form_data.get('device_type') == 'other' %}selected{% endif %}>Other</option>
                     </select>
                     <!-- Custom device type input (hidden by default) -->
                     <div id="custom_device_type_section" style="display: none; margin-top: 10px;">
@@ -282,27 +308,28 @@
                             id="custom_device_type" 
                             placeholder="Enter custom device type"
                             autocomplete="off"
+                            value="{{ form_data.custom_device_type if form_data and form_data.get('custom_device_type') else '' }}"
                         >
                         <small class="text-muted" style="display: block; margin-top: 5px;">This will be displayed but not saved as a preset option</small>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <label for="brand" class="form-label">Brand (Make)</label>
-                    <input type="text" class="form-control" id="brand" name="brand" placeholder="e.g., HP, Dell, Samsung">
+                    <input type="text" class="form-control" id="brand" name="brand" placeholder="e.g., HP, Dell, Samsung" value="{{ form_data.brand if form_data and form_data.get('brand') else '' }}">
                 </div>
                 <div class="col-md-4">
                     <label for="model" class="form-label">Model</label>
-                    <input type="text" class="form-control" id="model" name="model" placeholder="e.g., ProBook 450">
+                    <input type="text" class="form-control" id="model" name="model" placeholder="e.g., ProBook 450" value="{{ form_data.model if form_data and form_data.get('model') else '' }}">
                 </div>
             </div>
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="serial_number" class="form-label">Serial Number</label>
-                    <input type="text" class="form-control" id="serial_number" name="serial_number">
+                    <input type="text" class="form-control" id="serial_number" name="serial_number" value="{{ form_data.serial_number if form_data and form_data.get('serial_number') else '' }}">
                 </div>
                 <div class="col-md-6">
                     <label for="device_age" class="form-label">Approximate Age</label>
-                    <input type="text" class="form-control" id="device_age" name="device_age" placeholder="e.g., 2 years, 6 months">
+                    <input type="text" class="form-control" id="device_age" name="device_age" placeholder="e.g., 2 years, 6 months" value="{{ form_data.device_age if form_data and form_data.get('device_age') else '' }}">
                 </div>
             </div>
             <div class="row mb-3">
@@ -310,33 +337,33 @@
                     <label class="form-label">Is the device under warranty?</label>
                     <div>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" id="warranty_yes" name="is_warranty_repair" value="yes">
+                            <input class="form-check-input" type="radio" id="warranty_yes" name="is_warranty_repair" value="yes" {% if form_data and form_data.get('is_warranty_repair') == 'yes' %}checked{% endif %}>
                             <label class="form-check-label" for="warranty_yes">Yes</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" id="warranty_no" name="is_warranty_repair" value="no" checked>
+                            <input class="form-check-input" type="radio" id="warranty_no" name="is_warranty_repair" value="no" {% if not form_data or form_data.get('is_warranty_repair') == 'no' %}checked{% endif %}>
                             <label class="form-check-label" for="warranty_no">No</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" id="warranty_unsure" name="is_warranty_repair" value="unsure">
+                            <input class="form-check-input" type="radio" id="warranty_unsure" name="is_warranty_repair" value="unsure" {% if form_data and form_data.get('is_warranty_repair') == 'unsure' %}checked{% endif %}>
                             <label class="form-check-label" for="warranty_unsure">Unsure</label>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <label for="accessories" class="form-label">Included Accessories</label>
-                    <textarea class="form-control" id="accessories" name="accessories" rows="2" placeholder="e.g., Power cable, manual, charger"></textarea>
+                    <textarea class="form-control" id="accessories" name="accessories" rows="2" placeholder="e.g., Power cable, manual, charger">{{ form_data.accessories if form_data and form_data.get('accessories') else '' }}</textarea>
                 </div>
             </div>
 
             <div class="mb-3">
                 <label for="issue_description" class="form-label">Issue Description *</label>
-                <textarea class="form-control" id="issue_description" name="issue_description" rows="3" required placeholder="Describe the problem the customer is experiencing"></textarea>
+                <textarea class="form-control" id="issue_description" name="issue_description" rows="3" required placeholder="Describe the problem the customer is experiencing">{{ form_data.issue_description if form_data and form_data.get('issue_description') else '' }}</textarea>
             </div>
 
             <div class="mb-3">
                 <label for="symptoms" class="form-label">Symptoms Observed</label>
-                <textarea class="form-control" id="symptoms" name="symptoms" rows="2" placeholder="e.g., Device won't turn on, makes noise, overheats"></textarea>
+                <textarea class="form-control" id="symptoms" name="symptoms" rows="2" placeholder="e.g., Device won't turn on, makes noise, overheats">{{ form_data.symptoms if form_data and form_data.get('symptoms') else '' }}</textarea>
             </div>
         </div>
     </div>
@@ -351,37 +378,37 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_diagnostics" name="service_type" value="Diagnostics/Troubleshooting">
+                        <input class="form-check-input" type="checkbox" id="service_diagnostics" name="service_type" value="Diagnostics/Troubleshooting" {% if form_data and 'Diagnostics/Troubleshooting' in (form_data.get('service_type') or []) %}checked{% endif %}>
                         <label class="form-check-label" for="service_diagnostics">Diagnostics / Troubleshooting</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_repair" name="service_type" value="Hardware Repair">
+                        <input class="form-check-input" type="checkbox" id="service_repair" name="service_type" value="Hardware Repair" {% if form_data and 'Hardware Repair' in (form_data.get('service_type') or []) %}checked{% endif %}>
                         <label class="form-check-label" for="service_repair">Hardware Repair</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_software_repair" name="service_type" value="Software Repair">
+                        <input class="form-check-input" type="checkbox" id="service_software_repair" name="service_type" value="Software Repair" {% if form_data and 'Software Repair' in (form_data.get('service_type') or []) %}checked{% endif %}>
                         <label class="form-check-label" for="service_software_repair">Software Repair</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_os_install" name="service_type" value="OS Installation/Reinstallation">
+                        <input class="form-check-input" type="checkbox" id="service_os_install" name="service_type" value="OS Installation/Reinstallation" {% if form_data and 'OS Installation/Reinstallation' in (form_data.get('service_type') or []) %}checked{% endif %}>
                         <label class="form-check-label" for="service_os_install">OS Installation / Reinstallation</label>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_virus" name="service_type" value="Virus Removal">
+                        <input class="form-check-input" type="checkbox" id="service_virus" name="service_type" value="Virus Removal" {% if form_data and 'Virus Removal' in (form_data.get('service_type') or []) %}checked{% endif %}>
                         <label class="form-check-label" for="service_virus">Virus Removal</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_backup" name="service_type" value="Data Backup Recovery">
+                        <input class="form-check-input" type="checkbox" id="service_backup" name="service_type" value="Data Backup Recovery" {% if form_data and 'Data Backup Recovery' in (form_data.get('service_type') or []) %}checked{% endif %}>
                         <label class="form-check-label" for="service_backup">Data Backup Recovery</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_upgrade" name="service_type" value="Upgrade (RAM/SSD)">
+                        <input class="form-check-input" type="checkbox" id="service_upgrade" name="service_type" value="Upgrade (RAM/SSD)" {% if form_data and 'Upgrade (RAM/SSD)' in (form_data.get('service_type') or []) %}checked{% endif %}>
                         <label class="form-check-label" for="service_upgrade">Upgrade (RAM / SSD)</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="service_maintenance" name="service_type" value="Maintenance/Cleaning">
+                        <input class="form-check-input" type="checkbox" id="service_maintenance" name="service_type" value="Maintenance/Cleaning" {% if form_data and 'Maintenance/Cleaning' in (form_data.get('service_type') or []) %}checked{% endif %}>
                         <label class="form-check-label" for="service_maintenance">Maintenance / Cleaning</label>
                     </div>
                 </div>
@@ -398,19 +425,19 @@
             <div class="row">
                 <div class="col-md-4">
                     <label for="diagnostic_fee" class="form-label">Diagnostic Fee</label>
-                    <input type="number" class="form-control" id="diagnostic_fee" name="diagnostic_fee" step="0.01" value="0.00">
+                    <input type="number" class="form-control" id="diagnostic_fee" name="diagnostic_fee" step="0.01" value="{{ form_data.diagnostic_fee if form_data and form_data.get('diagnostic_fee') else '0.00' }}">
                 </div>
                 <div class="col-md-4">
                     <label for="repair_cost" class="form-label">Estimated Repair Cost</label>
-                    <input type="number" class="form-control" id="repair_cost" name="repair_cost" step="0.01" value="0.00">
+                    <input type="number" class="form-control" id="repair_cost" name="repair_cost" step="0.01" value="{{ form_data.repair_cost if form_data and form_data.get('repair_cost') else '0.00' }}">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Deposit (optional)</label>
                     <div class="input-group">
                         <span class="input-group-text">
-                            <input class="form-check-input mt-0" type="checkbox" id="include_deposit" name="include_deposit" value="yes" aria-label="Include deposit">
+                            <input class="form-check-input mt-0" type="checkbox" id="include_deposit" name="include_deposit" value="yes" aria-label="Include deposit" {% if form_data and form_data.get('include_deposit') %}checked{% endif %}>
                         </span>
-                        <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" step="0.01" placeholder="0.00" min="0" value="0.00">
+                        <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" step="0.01" placeholder="0.00" min="0" value="{{ form_data.deposit_paid if form_data and form_data.get('deposit_paid') else '0.00' }}">
                     </div>
                     <div class="form-text">Check to record a deposit. Field is optional unless checkbox is enabled.</div>
                 </div>
@@ -428,20 +455,20 @@
                 <div class="col-md-6">
                     <label for="priority" class="form-label">Priority Level</label>
                     <select class="form-select" id="priority" name="priority">
-                        <option value="Low">Low</option>
-                        <option value="Normal" selected>Normal</option>
-                        <option value="High">High</option>
-                        <option value="Emergency">Emergency</option>
+                        <option value="Low" {% if form_data and form_data.get('priority') == 'Low' %}selected{% endif %}>Low</option>
+                        <option value="Normal" {% if not form_data or form_data.get('priority') == 'Normal' %}selected{% endif %}>Normal</option>
+                        <option value="High" {% if form_data and form_data.get('priority') == 'High' %}selected{% endif %}>High</option>
+                        <option value="Emergency" {% if form_data and form_data.get('priority') == 'Emergency' %}selected{% endif %}>Emergency</option>
                     </select>
                 </div>
                 <div class="col-md-6">
                     <label for="status" class="form-label">Initial Status</label>
                     <select class="form-select" id="status" name="status">
-                        <option value="Received" selected>Received</option>
-                        <option value="Diagnosing">Diagnosing</option>
-                        <option value="Waiting Parts">Waiting Parts</option>
-                        <option value="Beyond repair">Beyond repair</option>
-                        <option value="Pulled out">Pulled out - Customer took device (no charge)</option>
+                        <option value="Received" {% if not form_data or form_data.get('status') == 'Received' %}selected{% endif %}>Received</option>
+                        <option value="Diagnosing" {% if form_data and form_data.get('status') == 'Diagnosing' %}selected{% endif %}>Diagnosing</option>
+                        <option value="Waiting Parts" {% if form_data and form_data.get('status') == 'Waiting Parts' %}selected{% endif %}>Waiting Parts</option>
+                        <option value="Beyond repair" {% if form_data and form_data.get('status') == 'Beyond repair' %}selected{% endif %}>Beyond repair</option>
+                        <option value="Pulled out" {% if form_data and form_data.get('status') == 'Pulled out' %}selected{% endif %}>Pulled out - Customer took device (no charge)</option>
                     </select>
                 </div>
             </div>
@@ -458,9 +485,9 @@
                 <div class="col-md-8">
                     <label for="technician_id" class="form-label">Assign Technician (optional)</label>
                     <select class="form-select" id="technician_id" name="technician_id">
-                        <option value="">-- No Technician Assigned --</option>
+                        <option value="" {% if not form_data or not form_data.get('technician_id') %}selected{% endif %}>-- No Technician Assigned --</option>
                         {% for tech in technicians %}
-                        <option value="{{ tech.id }}">{{ tech.name }}{% if tech.specialty %} ({{ tech.specialty }}){% endif %}</option>
+                        <option value="{{ tech.id }}" {% if form_data and form_data.get('technician_id') and form_data.get('technician_id')|int == tech.id %}selected{% endif %}>{{ tech.name }}{% if tech.specialty %} ({{ tech.specialty }}){% endif %}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -766,27 +793,51 @@ document.addEventListener('DOMContentLoaded', function(){
     // Initialize customer search
     initializeCustomerSearch();
 
+    // Function to restore customer selection from data
+    function restoreCustomerSelection(customerId, customerName) {
+        const hiddenSelect = document.getElementById('existing_customer_id');
+        const searchInput = document.getElementById('customer_search');
+        const selectedDisplay = document.getElementById('selected_customer_display');
+        const selectedName = document.getElementById('selected_customer_name');
+        
+        if (customerId && customerName) {
+            // Trigger customer selection
+            hiddenSelect.value = customerId;
+            searchInput.value = customerName;
+            selectedName.textContent = customerName;
+            selectedDisplay.style.display = 'block';
+            searchInput.classList.add('is-valid');
+            document.getElementById('customer_mode_existing').checked = true;
+            document.getElementById('customer_mode_new').checked = false;
+            toggleCustomerMode();
+            
+            // Load departments for selected customer
+            updateDepartmentOptions(customerId);
+        }
+    }
+
     // Auto-select customer if passed via URL parameter
     {% if preselected_customer %}
     const preselectedCustomerId = {{ preselected_customer.id }};
     const preselectedCustomerName = "{{ preselected_customer.name }} ({{ preselected_customer.phone }})";
-    const hiddenSelect = document.getElementById('existing_customer_id');
-    const searchInput = document.getElementById('customer_search');
-    const selectedDisplay = document.getElementById('selected_customer_display');
-    const selectedName = document.getElementById('selected_customer_name');
+    restoreCustomerSelection(preselectedCustomerId, preselectedCustomerName);
+    {% endif %}
+
+    // Restore customer selection if form_data.existing_customer_id is present (validation error case)
+    {% if form_data and form_data.get('existing_customer_id') %}
+    const restoredCustomerId = {{ form_data.get('existing_customer_id')|int }};
+    const restoredCustomerName = "{{ form_data.get('customer_search') if form_data.get('customer_search') else '' }}";
     
-    // Trigger customer selection
-    hiddenSelect.value = preselectedCustomerId;
-    searchInput.value = preselectedCustomerName;
-    selectedName.textContent = preselectedCustomerName;
-    selectedDisplay.style.display = 'block';
-    searchInput.classList.add('is-valid');
-    document.getElementById('customer_mode_existing').checked = true;
-    document.getElementById('customer_mode_new').checked = false;
-    toggleCustomerMode();
-    
-    // Load departments for preselected customer
-    updateDepartmentOptions(preselectedCustomerId);
+    if (restoredCustomerId && restoredCustomerName) {
+        restoreCustomerSelection(restoredCustomerId, restoredCustomerName);
+    } else if (restoredCustomerId) {
+        // If we have the ID but not the full name, find it from the allCustomers array
+        const customerInfo = allCustomers.find(c => c.id === restoredCustomerId);
+        if (customerInfo) {
+            const fullCustomerName = `${customerInfo.name} (${customerInfo.phone})`;
+            restoreCustomerSelection(restoredCustomerId, fullCustomerName);
+        }
+    }
     {% endif %}
 
     // Handle customer selection change to load departments

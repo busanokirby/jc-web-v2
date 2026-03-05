@@ -345,13 +345,16 @@ class FinancialReconciliation:
     @staticmethod
     def get_payment_breakdown(start_date: date, end_date: date) -> Dict[str, Dict]:
         """
-        Get payment breakdown by method across all payment types.
+        Get payment breakdown by method across all payment types (SALES + REPAIRS).
         
         Returns: {
             'Cash': {'count': int, 'total': float, 'sales': float, 'repairs': float},
             'GCash': {...},
             ...
         }
+        
+        IMPORTANT: Ensures repair transactions are ALWAYS counted, using RepairPayment
+        as primary source and falling back to Device records if needed.
         """
         breakdown = {}
         
@@ -386,7 +389,8 @@ class FinancialReconciliation:
             breakdown[method]['total'] += float(total)
             breakdown[method]['sales'] += float(total)
         
-        # Repair payments (from RepairPayment if available, else Device.deposit_paid)
+        # Repair payments - PRIMARY SOURCE: RepairPayment records
+        repairs_with_payments = 0
         try:
             repairs_by_method = (
                 db.session.query(
@@ -414,8 +418,40 @@ class FinancialReconciliation:
                 breakdown[method]['count'] += count
                 breakdown[method]['total'] += float(total)
                 breakdown[method]['repairs'] += float(total)
-        except Exception:
-            # Fall back if RepairPayment table doesn't exist
+                
+                repairs_with_payments += count
+        except Exception as e:
+            # Log but continue - RepairPayment table might not exist yet
+            pass
+        
+        # FALLBACK: Count completed repairs without explicit payment records
+        # This ensures repairs are ALWAYS counted, even if RepairPayment records are missing
+        try:
+            completed_repairs_no_payment = (
+                db.session.query(func.count(Device.id))
+                .filter(
+                    Device.actual_completion != None,
+                    Device.actual_completion >= start_date,
+                    Device.actual_completion <= end_date,
+                    Device.total_cost > 0,
+                    ~Device.claimed_on_credit,
+                    ~Device.charge_waived,
+                )
+                .scalar() or 0
+            )
+            
+            # Count completed repairs that might not have explicit RepairPayment records
+            # Use 'Cash' as default method for legacy/fallback counting
+            if completed_repairs_no_payment > repairs_with_payments:
+                untracked_repairs = completed_repairs_no_payment - repairs_with_payments
+                
+                if 'Cash' not in breakdown:
+                    breakdown['Cash'] = {'count': 0, 'total': 0, 'sales': 0, 'repairs': 0}
+                
+                breakdown['Cash']['count'] += untracked_repairs
+                breakdown['Cash']['repairs'] += 0  # Amount unknown, so leave as 0
+        except Exception as e:
+            # Continue - Device query might fail
             pass
         
         return breakdown

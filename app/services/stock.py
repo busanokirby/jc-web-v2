@@ -8,7 +8,7 @@ class StockError(Exception):
     pass
 
 
-def stock_in(product: Product, qty: int, notes: str = "") -> None:
+def stock_in(product: Product, qty: int, notes: str = "", reference_type: str = "MANUAL", reference_id: int = None) -> None:
     if qty <= 0:
         raise StockError("Quantity must be greater than 0.")
     if product.is_service:
@@ -19,8 +19,8 @@ def stock_in(product: Product, qty: int, notes: str = "") -> None:
         product_id=product.id,
         movement_type="IN",
         qty=qty,
-        reference_type="MANUAL",
-        reference_id=None,
+        reference_type=reference_type,
+        reference_id=reference_id,
         notes=notes,
     ))
 

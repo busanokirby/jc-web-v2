@@ -4,212 +4,273 @@
 
 {% block content %}
 <!-- Page Header -->
-<div class="d-flex justify-content-between align-items-center mb-3 margin-top:-10px;">
+<div class="mb-5">
+  <div class="d-flex justify-content-between align-items-start">
     <div>
-        <h1 style="margin-bottom: 0.3rem;">
-            <i class="bi bi-speedometer2"></i> Dashboard
-        </h1>
-        <p class="text-muted mb-0" style="font-size: 0.9rem;">{{ current_user.full_name }} • {{ current_user.role }}</p>
+      <h1 class="m-0 d-flex align-items-center gap-2 mb-2">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
+      </h1>
+      <p class="text-muted mb-0" style="font-size: 0.9rem;">
+        <i class="bi bi-person-circle"></i> <strong>{{ current_user.full_name }}</strong> • {{ current_user.role }}
+      </p>
     </div>
     <div class="d-none d-sm-block">
-        <span class="badge bg-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600;">
-            <i class="bi bi-shield-check" aria-hidden="true"></i> {{ current_user.role }}
-        </span>
+      <span class="badge" style="padding: 0.6rem 1.2rem; font-size: 0.85rem; font-weight: 600; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: white;">
+        <i class="bi bi-shield-check" aria-hidden="true"></i> {{ current_user.role }}
+      </span>
     </div>
+  </div>
 </div>
 
 <style>
-    /* Enhanced Dashboard Card Styling */
-    .dashboard-card {
-        transition: all 0.3s ease;
-        border: none;
-        border-left: 4px solid;
-        overflow: hidden;
-        box-shadow: var(--shadow-sm);
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    }
+  /* Enhanced Dashboard Card Styling */
+  .dashboard-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    position: relative;
+  }
 
-    .dashboard-card:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-md);
-    }
+  .dashboard-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: inherit;
+  }
 
+  .dashboard-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .dashboard-card .card-body {
+    padding: 1.75rem 1.25rem;
+    position: relative;
+  }
+
+  /* Circle Icon Background */
+  .icon-circle {
+    width: 75px;
+    height: 75px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    margin: 0 auto 1rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .dashboard-card:hover .icon-circle {
+    transform: scale(1.12) rotate(8deg);
+  }
+
+  /* Card Title and Text */
+  .dashboard-card .card-title {
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    font-size: 1.15rem;
+    line-height: 1.3;
+    letter-spacing: -0.3px;
+  }
+
+  .dashboard-card .card-text {
+    color: #6c757d;
+    font-size: 0.88rem;
+    margin-bottom: 1.2rem;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+
+  /* Button Styling in Cards */
+  .dashboard-card .btn {
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.875rem;
+  }
+
+  .dashboard-card .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .dashboard-card .d-grid {
+    gap: 0.75rem;
+  }
+
+  /* Link styling in cards */
+  .dashboard-card a.text-decoration-none {
+    color: inherit;
+  }
+
+  /* Keyboard Focus Indicators */
+  .dashboard-card:focus-within {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12), 0 0 0 3px rgba(102, 126, 234, 0.2);
+  }
+
+  .dashboard-card .btn:focus-visible,
+  .dashboard-card a:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+  }
+
+  /* Divider Styling */
+  .dashboard-divider {
+    border: none;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+    margin: 2rem 0;
+  }
+
+  /* Section spacing */
+  [role="region"] {
+    margin-bottom: 2rem;
+  }
+
+  /* Consistent row spacing */
+  .row.g-3 {
+    margin-bottom: 1rem;
+  }
+
+  /* Color-specific card styling */
+  .card-primary::before { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  .card-success::before { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+  .card-warning::before { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+  .card-info::before { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+  .card-danger::before { background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); }
+  .card-secondary::before { background: linear-gradient(135deg, #868e96 0%, #6c757d 100%); }
+
+  /* Responsive Grid */
+  @media (max-width: 1200px) {
     .dashboard-card .card-body {
-        padding: 1.25rem 1rem;
+      padding: 1.5rem 1rem;
     }
 
-    /* Circle Icon Background */
     .icon-circle {
-        width: 65px;
-        height: 65px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2rem;
-        margin: 0 auto 0.75rem;
-        transition: all 0.3s ease;
+      width: 70px;
+      height: 70px;
+      font-size: 2rem;
+      margin: 0 auto 0.75rem;
     }
 
-    .dashboard-card:hover .icon-circle {
-        transform: scale(1.08) rotate(5deg);
-    }
-
-    /* Card Title and Text */
     .dashboard-card .card-title {
-        font-weight: 700;
-        color: #212529;
-        margin-bottom: 0.25rem;
-        font-size: 1.1rem;
-        line-height: 1.2;
+      font-size: 1.05rem;
+    }
+  }
+
+  @media (max-width: 992px) {
+    .dashboard-card .card-body {
+      padding: 1.25rem 0.9rem;
+    }
+
+    .icon-circle {
+      width: 65px;
+      height: 65px;
+      font-size: 1.8rem;
+    }
+
+    .dashboard-card .card-title {
+      font-size: 1rem;
     }
 
     .dashboard-card .card-text {
-        color: #6c757d;
-        font-size: 0.85rem;
-        margin-bottom: 1rem;
-        line-height: 1.3;
+      font-size: 0.82rem;
+      margin-bottom: 0.9rem;
     }
 
-    /* Button Styling in Cards */
     .dashboard-card .btn {
-        border-radius: 6px;
-        font-weight: 600;
-        transition: all 0.2s ease;
-        margin: 0.125rem;
-        padding: 0.45rem 0.85rem;
-        font-size: 0.875rem;
+      padding: 0.45rem 0.8rem;
+      font-size: 0.8rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .dashboard-card .card-body {
+      padding: 1rem 0.8rem;
     }
 
-    .dashboard-card .btn:hover {
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-sm);
+    .icon-circle {
+      width: 55px;
+      height: 55px;
+      font-size: 1.5rem;
+      margin: 0 auto 0.5rem;
     }
 
-    .dashboard-card .d-grid {
-        gap: 0.5rem;
+    .dashboard-card .card-title {
+      font-size: 0.95rem;
     }
 
-    /* Link styling in cards */
-    .dashboard-card a.text-decoration-none {
-        color: inherit;
+    .dashboard-card .card-text {
+      font-size: 0.78rem;
+      margin-bottom: 0.7rem;
+      display: none;
     }
 
-    /* Keyboard Focus Indicators */
-    .dashboard-card:focus-within {
-        box-shadow: var(--shadow-md), 0 0 0 3px rgba(30, 127, 67, 0.2);
+    .dashboard-card .btn {
+      padding: 0.4rem 0.7rem;
+      font-size: 0.72rem;
+      width: 100%;
     }
 
-    .dashboard-card .btn:focus-visible,
-    .dashboard-card a:focus-visible {
-        outline: 2px solid var(--jc-green);
-        outline-offset: 2px;
-        border-radius: 4px;
+    .badge {
+      margin-top: 0.5rem;
     }
+  }
 
-    /* Divider Styling */
-    .dashboard-divider {
-        border: none;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(30, 127, 67, 0.15), transparent);
-        margin: 1.5rem 0;
+  /* Enhanced animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
     }
-
-    /* Color-specific card styling */
-    .card-primary { border-left-color: #0d6efd; }
-    .card-success { border-left-color: #198754; }
-    .card-warning { border-left-color: #ffc107; }
-    .card-info { border-left-color: #0dcaf0; }
-    .card-danger { border-left-color: #dc3545; }
-    .card-secondary { border-left-color: #6c757d; }
-
-    /* Responsive Grid */
-    @media (max-width: 1200px) {
-        .dashboard-card .card-body {
-            padding: 1rem 0.85rem;
-        }
-
-        .icon-circle {
-            width: 60px;
-            height: 60px;
-            font-size: 1.8rem;
-            margin: 0 auto 0.5rem;
-        }
-
-        .dashboard-card .card-title {
-            font-size: 1rem;
-        }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
+  }
 
-    @media (max-width: 992px) {
-        .dashboard-card .card-body {
-            padding: 1rem 0.75rem;
-        }
+  .dashboard-card {
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
 
-        .icon-circle {
-            width: 55px;
-            height: 55px;
-            font-size: 1.6rem;
-        }
+  .col-lg-4:nth-child(1) .dashboard-card { animation-delay: 0.1s; }
+  .col-lg-4:nth-child(2) .dashboard-card { animation-delay: 0.2s; }
+  .col-lg-4:nth-child(3) .dashboard-card { animation-delay: 0.3s; }
+  .col-lg-4:nth-child(4) .dashboard-card { animation-delay: 0.4s; }
+  .col-lg-4:nth-child(5) .dashboard-card { animation-delay: 0.5s; }
+  .col-lg-4:nth-child(6) .dashboard-card { animation-delay: 0.6s; }
 
-        .dashboard-card .card-title {
-            font-size: 0.95rem;
-        }
+  /* Badge improvements */
+  .badge {
+    font-weight: 600;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.3px;
+  }
 
-        .dashboard-card .card-text {
-            font-size: 0.8rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .dashboard-card .btn {
-            padding: 0.4rem 0.75rem;
-            font-size: 0.8rem;
-        }
-    }
-
-    @media (max-width: 576px) {
-        .dashboard-card .card-body {
-            padding: 0.9rem 0.7rem;
-        }
-
-        .icon-circle {
-            width: 50px;
-            height: 50px;
-            font-size: 1.4rem;
-            margin: 0 auto 0.4rem;
-        }
-
-        .dashboard-card .card-title {
-            font-size: 0.9rem;
-        }
-
-        .dashboard-card .card-text {
-            font-size: 0.75rem;
-            margin-bottom: 0.6rem;
-            display: none;
-        }
-
-        .dashboard-card .btn {
-            padding: 0.35rem 0.6rem;
-            font-size: 0.75rem;
-        }
-
-        .d-flex.justify-content-between.align-items-center {
-            flex-direction: column;
-            align-items: flex-start !important;
-        }
-
-        .badge {
-            margin-top: 0.5rem;
-        }
-    }
+  h1 {
+    color: #2c3e50;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
 </style>
 
 
 <!-- ADMIN DASHBOARD -->
 {% if current_user.role == 'ADMIN' %}
 <div role="region" aria-label="Admin Dashboard Controls">
-    <div class="row mt-3 g-2">
+    <div class="row g-3">
         <!-- Repairs Card -->
         <div class="col-lg-4 col-md-6">
             <div class="card dashboard-card card-primary h-100" role="link" tabindex="0">
@@ -273,7 +334,7 @@
 
     <hr class="dashboard-divider" aria-hidden="true">
 
-    <div class="row g-2">
+    <div class="row g-3">
         <!-- Users Management Card -->
         <div class="col-lg-4 col-md-6">
             <div class="card dashboard-card card-info h-100" role="link" tabindex="0">
@@ -378,7 +439,7 @@
 <!-- SALES DASHBOARD -->
 {% elif current_user.role in ['SALES', 'TECH'] %}
 <div role="region" aria-label="Sales/Tech Dashboard Controls">
-    <div class="row mt-3 g-2">
+    <div class="row g-3">
         <!-- POS Card (Primary) -->
         <div class="col-lg-6 col-md-6">
             <div class="card dashboard-card card-warning h-100" role="link" tabindex="0">
@@ -422,7 +483,7 @@
 
     <hr class="dashboard-divider" aria-hidden="true">
 
-    <div class="row g-2">
+    <div class="row g-3">
         <!-- Inventory Card -->
         <div class="col-lg-6 col-md-6">
             <div class="card dashboard-card card-success h-100" role="link" tabindex="0">
@@ -467,10 +528,17 @@
 
 
 {% else %}
-<div role="alert" class="alert alert-danger alert-dismissible fade show" style="margin-top: 2rem;">
-    <h5><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Access Denied</h5>
-    <p class="mb-0">Your user role does not have access to any dashboard modules. Please contact an administrator for assistance.</p>
+<div role="alert" class="alert alert-danger alert-dismissible fade show border-0 shadow-sm" style="background-color: #fff5f5; border-left: 4px solid #dc3545; margin-top: 2rem;">
+  <div class="d-flex align-items-start gap-3">
+    <div style="font-size: 1.5rem;">
+      <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+    </div>
+    <div>
+      <h5 class="alert-heading mb-2">Access Denied</h5>
+      <p class="mb-0 small">Your user role does not have access to any dashboard modules. Please contact an administrator for assistance.</p>
+    </div>
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close alert"></button>
+  </div>
 </div>
 {% endif %}
 {% endblock %}
