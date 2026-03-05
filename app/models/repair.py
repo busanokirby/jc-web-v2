@@ -19,7 +19,7 @@ class Device(BaseModel, db.Model):
     customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
     department_id = db.Column(db.Integer, db.ForeignKey("department.id"), nullable=True)  # Department within customer
 
-    device_type = db.Column(db.String(50), nullable=False)  # printer/laptop/desktop
+    device_type = db.Column(db.String(50), nullable=False)  # printer/laptop/system unit/monitor/other/or custom value
     brand = db.Column(db.String(100))
     model = db.Column(db.String(100))
     serial_number = db.Column(db.String(100))

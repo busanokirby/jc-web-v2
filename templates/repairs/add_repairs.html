@@ -296,7 +296,7 @@
                         <option value="" {% if not form_data or not form_data.get('device_type') %}selected{% endif %}>-- Select device type --</option>
                         <option value="printer" {% if form_data and form_data.get('device_type') == 'printer' %}selected{% endif %}>Printer</option>
                         <option value="laptop" {% if form_data and form_data.get('device_type') == 'laptop' %}selected{% endif %}>Laptop</option>
-                        <option value="desktop" {% if form_data and form_data.get('device_type') == 'desktop' %}selected{% endif %}>Desktop</option>
+                        <option value="system unit" {% if form_data and form_data.get('device_type') == 'system unit' %}selected{% endif %}>System Unit</option>
                         <option value="monitor" {% if form_data and form_data.get('device_type') == 'monitor' %}selected{% endif %}>Monitor</option>
                         <option value="other" {% if form_data and form_data.get('device_type') == 'other' %}selected{% endif %}>Other</option>
                     </select>
