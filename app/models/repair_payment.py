@@ -37,7 +37,7 @@ class RepairPayment(db.Model):
     recorded_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
 
     # Relationships
-    device = db.relationship("Device", backref="repair_payments", cascade="all")  # type: ignore[assignment]
+    device = db.relationship("Device")  # type: ignore[assignment]
     recorded_by = db.relationship("User")  # type: ignore[assignment]
 
     def __repr__(self) -> str:

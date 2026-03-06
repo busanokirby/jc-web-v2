@@ -545,6 +545,10 @@ def update_status(device_id: int):
     device = Device.query.get_or_404(device_id)
     new_status = request.form.get("status", device.status)
 
+    # Store original costs to detect if they changed
+    old_diagnostic_fee = safe_decimal(str(device.diagnostic_fee or "0.00"), "0.00")
+    old_repair_cost = safe_decimal(str(device.repair_cost or "0.00"), "0.00")
+
     device.status = new_status
     device.technician_notes = request.form.get("technician_notes", device.technician_notes)
     device.solution_applied = request.form.get("solution_applied", device.solution_applied)
@@ -569,7 +573,13 @@ def update_status(device_id: int):
         device.diagnostic_fee = safe_decimal(request.form.get("diagnostic_fee"), str(device.diagnostic_fee or "0.00"))
         device.repair_cost = safe_decimal(request.form.get("repair_cost"), str(device.repair_cost or "0.00"))
 
-    recompute_repair_financials(device)
+    # Only recompute financials if:
+    # 1. Status changed to "Pulled out" or "Beyond repair" (charge_waived scenario), OR
+    # 2. Diagnostic fee or repair cost actually changed
+    costs_changed = (device.diagnostic_fee != old_diagnostic_fee or device.repair_cost != old_repair_cost)
+    if new_status in ('Pulled out', 'Beyond repair') or costs_changed:
+        recompute_repair_financials(device)
+
     db.session.commit()
 
     flash("Repair updated.", "success")

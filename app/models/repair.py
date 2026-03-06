@@ -91,6 +91,8 @@ class Device(BaseModel, db.Model):
     created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
     # Parts used with cascade delete to orphaned repair parts
     parts_used_rows = db.relationship("RepairPartUsed", cascade="all, delete-orphan", lazy=True)
+    # Repair payments with cascade delete
+    repair_payments = db.relationship("RepairPayment", cascade="all, delete-orphan", lazy=True)
 
 
 class Technician(BaseModel, db.Model):
