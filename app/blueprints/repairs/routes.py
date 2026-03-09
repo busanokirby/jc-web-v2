@@ -11,6 +11,7 @@ from app.extensions import db
 from app.models.customer import Customer
 from app.models.inventory import Product
 from app.models.repair import Device, RepairPartUsed, Technician, DeviceAssignment
+from app.models.repair_payment import RepairPayment
 from app.services.authz import roles_required
 from app.services.codes import generate_customer_code, generate_ticket_number
 from app.services.financials import safe_decimal, recompute_repair_financials
@@ -285,6 +286,7 @@ def add_repair():
     customers = Customer.query.order_by(Customer.name).all()
     technicians = Technician.query.filter_by(status="Available").order_by(Technician.name).all()
     
+    form_data = request.form if request.method == "POST" else None
     if request.method == "POST":
         # Get customer selection mode
         customer_mode = request.form.get("customer_mode", "existing")
@@ -295,7 +297,7 @@ def add_repair():
             customer_id = request.form.get("existing_customer_id")
             if not customer_id:
                 flash("Please select a customer.", "danger")
-                return redirect(url_for("repairs.add_repair"))
+                return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=None, form_data=form_data)
             customer = Customer.query.get_or_404(int(customer_id))
         else:
             # Create or update customer
@@ -317,10 +319,10 @@ def add_repair():
                 # Check if phone is 11 digits
                 if not phone.isdigit() or len(phone) != 11:
                     flash("Phone number must be exactly 11 digits.", "danger")
-                    return redirect(url_for("repairs.add_repair"))
+                    return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=None, form_data=form_data)
             elif not skip_phone:
                 flash("Please provide a phone number or check 'Skip phone number entry'.", "danger")
-                return redirect(url_for("repairs.add_repair"))
+                return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=None, form_data=form_data)
             else:
                 # Generate a temporary phone placeholder when skipped
                 import uuid
@@ -407,7 +409,7 @@ def add_repair():
                 
                 if not dept_name:
                     flash("Department name is required when creating a new department.", "danger")
-                    return redirect(url_for("repairs.add_repair"))
+                    return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=None, form_data=form_data)
                 
                 department = Department(
                     customer_id=customer.id,
@@ -428,7 +430,7 @@ def add_repair():
         device_type = request.form.get("device_type")
         if not device_type:
             flash("Device type is required.", "danger")
-            return redirect(url_for("repairs.add_repair"))
+            return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=None, form_data=form_data)
 
         # Handle multiple service types (comma-separated)
         service_types = request.form.getlist("service_type")
@@ -440,7 +442,7 @@ def add_repair():
             existing_dev = Device.query.filter(Device.serial_number == serial_number, Device.customer_id == customer.id).filter(Device.status != 'Completed').first()
             if existing_dev:
                 flash("A repair ticket for this serial number already exists and is not completed.", "danger")
-                return redirect(url_for("repairs.add_repair"))
+                return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=None, form_data=form_data)
 
         # Also check recent similar tickets (same customer, same device_type and issue) in last 7 days
         issue_desc = (request.form.get("issue_description") or "").strip()
@@ -449,7 +451,7 @@ def add_repair():
             similar = Device.query.filter(Device.customer_id == customer.id, Device.device_type == request.form.get("device_type"), Device.issue_description == issue_desc, Device.created_at >= recent).first()
             if similar:
                 flash("A similar repair ticket was created recently for this customer.", "warning")
-                return redirect(url_for("repairs.add_repair"))
+                return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=None, form_data=form_data)
 
 
         # capture original deposit input to detect overpayment attempts
@@ -520,7 +522,7 @@ def add_repair():
     if preselected_customer_id:
         preselected_customer = Customer.query.get(preselected_customer_id)
 
-    return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=preselected_customer)
+    return render_template("repairs/add_repairs.html", customers=customers, technicians=technicians, preselected_customer=preselected_customer, form_data=form_data)
 
 
 @repairs_bp.route("/<int:device_id>")
@@ -542,6 +544,10 @@ def repair_detail(device_id: int):
 def update_status(device_id: int):
     device = Device.query.get_or_404(device_id)
     new_status = request.form.get("status", device.status)
+
+    # Store original costs to detect if they changed
+    old_diagnostic_fee = safe_decimal(str(device.diagnostic_fee or "0.00"), "0.00")
+    old_repair_cost = safe_decimal(str(device.repair_cost or "0.00"), "0.00")
 
     device.status = new_status
     device.technician_notes = request.form.get("technician_notes", device.technician_notes)
@@ -567,7 +573,13 @@ def update_status(device_id: int):
         device.diagnostic_fee = safe_decimal(request.form.get("diagnostic_fee"), str(device.diagnostic_fee or "0.00"))
         device.repair_cost = safe_decimal(request.form.get("repair_cost"), str(device.repair_cost or "0.00"))
 
-    recompute_repair_financials(device)
+    # Only recompute financials if:
+    # 1. Status changed to "Pulled out" or "Beyond repair" (charge_waived scenario), OR
+    # 2. Diagnostic fee or repair cost actually changed
+    costs_changed = (device.diagnostic_fee != old_diagnostic_fee or device.repair_cost != old_repair_cost)
+    if new_status in ('Pulled out', 'Beyond repair') or costs_changed:
+        recompute_repair_financials(device)
+
     db.session.commit()
 
     flash("Repair updated.", "success")
@@ -774,7 +786,7 @@ def print_ticket(device_id: int):
 @login_required
 @roles_required("ADMIN", "TECH")
 def add_payment(device_id: int):
-    """Record payment for a repair"""
+    """Record payment for a repair - creates RepairPayment record for financial tracking"""
     device = Device.query.get_or_404(device_id)
     
     amount = safe_decimal(request.form.get("amount"), "0.00")
@@ -804,6 +816,21 @@ def add_payment(device_id: int):
         if device.claimed_on_credit and device.payment_status == 'Paid':
             device.claimed_on_credit = False
 
+        # Create RepairPayment record for financial tracking
+        try:
+            repair_payment = RepairPayment(
+                device_id=device.id,
+                amount=accepted,
+                method=payment_method or "Unknown",
+                paid_at=datetime.utcnow(),
+                recorded_by_user_id=current_user.id if current_user else None
+            )
+            db.session.add(repair_payment)
+        except Exception as e:
+            import logging
+            logging.error(f"Error creating RepairPayment record: {str(e)}")
+            # Continue — payment to Device is still recorded even if RepairPayment fails
+
         db.session.commit()
 
         if accepted < amount:
@@ -826,6 +853,21 @@ def add_payment(device_id: int):
         # Clear claimed_on_credit when the outstanding credit is settled
         if device.claimed_on_credit:
             device.claimed_on_credit = False
+
+        # Create RepairPayment record for financial tracking
+        try:
+            repair_payment = RepairPayment(
+                device_id=device.id,
+                amount=amount,
+                method=payment_method or "Unknown",
+                paid_at=datetime.utcnow(),
+                recorded_by_user_id=current_user.id if current_user else None
+            )
+            db.session.add(repair_payment)
+        except Exception as e:
+            import logging
+            logging.error(f"Error creating RepairPayment record: {str(e)}")
+            # Continue — payment to Device is still recorded even if RepairPayment fails
 
         db.session.commit()
 

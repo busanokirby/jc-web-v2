@@ -49,13 +49,46 @@ def pos():
     products_list = Product.query.filter_by(is_active=True).order_by(Product.name).all()
     customers = Customer.query.order_by(Customer.name).all()
 
+    # convert products to JSON early so it is always available for rendering
+    products_json = [{
+        "id": p.id,
+        "name": p.name,
+        "sku": p.sku,
+        "sell_price": float(p.sell_price),
+        "stock_on_hand": p.stock_on_hand,
+        "is_service": p.is_service
+    } for p in products_list]
+
+    def render_pos_with_data(**extra):
+        # always include base context
+        return render_template(
+            "sales/pos.html",
+            products=products_json,
+            customers=customers,
+            preselected_customer=extra.pop('preselected_customer', None),
+            **extra
+        )
+
     if request.method == "POST":
         try:
             items_json = request.form.get("items", "[]")
             items = json.loads(items_json)
+            # collect preload data for re-render
+            preload = {
+                'preloaded_items_json': items_json,
+                'preloaded_customer_id': request.form.get('customer_id'),
+                'preloaded_discount': request.form.get('discount'),
+                'preloaded_payment_amount': request.form.get('payment_amount'),
+                'preloaded_notes': request.form.get('notes'),
+                'preloaded_apply_as_deposit': request.form.get('apply_as_deposit'),
+                'preloaded_claim_on_credit': request.form.get('claim_on_credit'),
+                'preloaded_department_id': request.form.get('department_id'),
+                'preloaded_new_department_name': request.form.get('new_department_name'),
+                'preloaded_new_department_contact': request.form.get('new_department_contact')
+            }
             if not items:
                 flash("Your cart is empty. Please add items before completing the sale.", "danger")
-                return redirect(url_for("sales.pos"))
+                return render_pos_with_data(**preload)
             
             # Optional customer info
             customer_id = request.form.get("customer_id")
@@ -73,7 +106,7 @@ def pos():
             claim_on_credit = request.form.get('claim_on_credit', 'no') == 'yes'
             if apply_as_deposit and claim_on_credit:
                 flash('Cannot record a deposit and claim on credit at the same time.', 'danger')
-                return redirect(url_for('sales.pos'))
+                return render_pos_with_data(**preload)
             
             subtotal = Decimal("0.00")
             items_with_products = []
@@ -85,14 +118,14 @@ def pos():
                 
                 if qty <= 0:
                     flash("Invalid quantity. Please enter a quantity greater than 0.", "danger")
-                    return redirect(url_for("sales.pos"))
+                    return render_pos_with_data(**preload)
                 
                 product = Product.query.get_or_404(product_id)
                 
                 # Check stock only for non-services
                 if not product.is_service and qty > product.stock_on_hand:
                     flash(f"Not enough stock for {product.name}. Available: {product.stock_on_hand}", "danger")
-                    return redirect(url_for("sales.pos"))
+                    return render_pos_with_data(**preload)
                 
                 # Use provided price or product's sell price
                 unit_price = item_price if item_price is not None else safe_decimal(product.sell_price, "0.00")
@@ -152,7 +185,7 @@ def pos():
                     except StockError as e:
                         db.session.rollback()
                         flash(f"Stock error: {str(e)}", "danger")
-                        return redirect(url_for("sales.pos"))
+                        return render_pos_with_data(**preload)
             
             # Record payment unless this is a credited sale (no immediate payment)
             if not claim_on_credit and payment_amount > 0:
@@ -170,11 +203,11 @@ def pos():
             
         except json.JSONDecodeError:
             flash("Invalid cart data. Please try again.", "danger")
-            return redirect(url_for("sales.pos"))
+            return render_pos_with_data(**preload)
         except Exception as e:
             db.session.rollback()
             flash(f"Error processing sale: {str(e)}", "danger")
-            return redirect(url_for("sales.pos"))
+            return render_pos_with_data(**preload)
 
     # Convert products to JSON for frontend
     products_json = [{
@@ -192,7 +225,20 @@ def pos():
     if preselected_customer_id:
         preselected_customer = Customer.query.get(preselected_customer_id)
     
-    return render_template("sales/pos.html", products=products_json, customers=customers, preselected_customer=preselected_customer)
+    # render GET with empty preload values
+    return render_pos_with_data(
+        preselected_customer=preselected_customer,
+        preloaded_items_json=None,
+        preloaded_customer_id=None,
+        preloaded_discount=None,
+        preloaded_payment_amount=None,
+        preloaded_notes=None,
+        preloaded_apply_as_deposit=None,
+        preloaded_claim_on_credit=None,
+        preloaded_department_id=None,
+        preloaded_new_department_name=None,
+        preloaded_new_department_contact=None
+    )
 
 
 @sales_bp.route("/list")
@@ -1275,28 +1321,43 @@ def bulk_delete_sales():
 
         deleted_count = 0
 
+        from app.models.repair import Device, RepairPartUsed
         for sid in sale_ids:
             sale = Sale.query.get(sid)
-            if not sale:
-                continue
-
-            invoice_no = sale.invoice_no
-
-            # Restore stock
-            for item in sale.items:
-                product = item.product
-                if product and not product.is_service:
-                    try:
-                        stock_in(
-                            product,
-                            item.qty,
-                            notes=f"Restore stock - bulk deleted sale {invoice_no}"
-                        )
-                    except Exception:
-                        pass
-
-            db.session.delete(sale)
-            deleted_count += 1
+            if sale:
+                invoice_no = sale.invoice_no
+                # Restore stock for sales
+                for item in sale.items:
+                    product = item.product
+                    if product and not product.is_service:
+                        try:
+                            stock_in(
+                                product,
+                                item.qty,
+                                notes=f"Restore stock - bulk deleted sale {invoice_no}"
+                            )
+                        except Exception:
+                            pass
+                db.session.delete(sale)
+                deleted_count += 1
+            else:
+                # Try to delete as a repair (Device)
+                device = Device.query.get(sid)
+                if device:
+                    # Restore stock for used parts
+                    for part_row in device.parts_used_rows:
+                        product = part_row.product
+                        if product and not product.is_service:
+                            try:
+                                stock_in(
+                                    product,
+                                    part_row.qty,
+                                    notes=f"Restore stock - bulk deleted repair {device.ticket_number}"
+                                )
+                            except Exception:
+                                pass
+                    db.session.delete(device)
+                    deleted_count += 1
 
         db.session.commit()
 
@@ -1387,6 +1448,111 @@ def revoke_sale_item(sale_id: int, item_id: int):
         db.session.rollback()
         logger.error(f"Error revoking sale item {item_id}: {str(e)}")
         return jsonify(success=False, message=f"Error revoking item: {str(e)}"), 500
+
+
+@sales_bp.route('/<int:sale_id>/reprocess', methods=['POST'])
+@login_required
+@roles_required('ADMIN', 'SALES')
+def reprocess_invoice(sale_id: int):
+    """Reprocess a sale invoice: restore stock, clear payments, and reset status.
+    
+    This allows users to:
+    1. Return all active items' stock to inventory
+    2. Clear all existing payments
+    3. Reset the sale status to PARTIAL for fresh payment processing
+    
+    This is useful when:
+    - Payment processing failed or needs to be redone
+    - Inventory consistency needs to be ensured
+    - A customer requests a fresh processing of their purchase
+    
+    Note: Revoked items are NOT restored (they are already handled separately)
+    """
+    from flask_login import current_user
+    
+    sale = Sale.query.get_or_404(sale_id)
+    
+    try:
+        # 1. Restore stock for all active (non-revoked) items
+        items_processed = 0
+        total_qty_restored = 0
+        
+        # track any restoration failures so we can abort instead of deleting the sale
+        restoration_errors = []
+        for item in (sale.active_items or []):
+            product = item.product
+            if product and not product.is_service:
+                qty_to_restore = item.qty
+                try:
+                    from app.services.stock import stock_in
+                    # stock_in only accepts product, qty, notes
+                    stock_in(
+                        product,
+                        qty_to_restore,
+                        notes=f"Invoice {sale.invoice_no} reprocessing - restored for fresh payment processing"
+                    )
+                    total_qty_restored += qty_to_restore
+                    items_processed += 1
+                except Exception as e:
+                    # record failure and continue looping to gather all errors
+                    err_msg = f"Item {item.id} ({product.name}) restoration error: {str(e)}"
+                    logger.error(err_msg)
+                    restoration_errors.append(err_msg)
+        # if any restoration errors occurred, abort and roll back so stock isn't lost
+        if restoration_errors:
+            raise Exception("; ".join(restoration_errors))
+        
+        # 2. Clear all payments
+        payments_cleared = len(sale.payments or [])
+        total_payments_cleared = sum((p.amount or Decimal("0.00")) for p in (sale.payments or []))
+        
+        # Collect item data before deletion (for reprocessing in POS)
+        items_data = []
+        for item in (sale.active_items or []):
+            items_data.append({
+                'product_id': item.product_id,
+                'product_name': item.product.name,
+                'qty': item.qty,
+                'price': float(item.unit_price)
+            })
+        
+        # Get customer info if available
+        customer_info = None
+        if sale.customer:
+            customer_info = {
+                'id': sale.customer.id,
+                'name': sale.customer.display_name
+            }
+        
+        # Store invoice number before deleting
+        invoice_no = sale.invoice_no
+        
+        # Delete all existing payment records
+        for payment in (sale.payments or []):
+            db.session.delete(payment)
+        
+        # Delete the sale record (stock already restored, ready for fresh processing)
+        db.session.delete(sale)
+        db.session.commit()
+        
+        return jsonify(
+            success=True,
+            message=f"Invoice {invoice_no} reprocessed successfully! {items_processed} items returned to stock ({total_qty_restored} units). Ready to process new transaction.",
+            data={
+                'invoice_no': invoice_no,
+                'items_processed': items_processed,
+                'total_qty_restored': total_qty_restored,
+                'payments_cleared': payments_cleared,
+                'total_payments_cleared': float(total_payments_cleared),
+                'items': items_data,
+                'customer': customer_info
+            }
+        ), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error reprocessing sale {sale_id}: {str(e)}")
+        return jsonify(success=False, message=f"Error reprocessing invoice: {str(e)}"), 500
 
 
 @sales_bp.route('/<int:sale_id>/items-summary', methods=['GET'])

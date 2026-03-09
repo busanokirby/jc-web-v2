@@ -19,7 +19,7 @@ class Device(BaseModel, db.Model):
     customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
     department_id = db.Column(db.Integer, db.ForeignKey("department.id"), nullable=True)  # Department within customer
 
-    device_type = db.Column(db.String(50), nullable=False)  # printer/laptop/desktop
+    device_type = db.Column(db.String(50), nullable=False)  # printer/laptop/system unit/monitor/other/or custom value
     brand = db.Column(db.String(100))
     model = db.Column(db.String(100))
     serial_number = db.Column(db.String(100))
@@ -91,6 +91,8 @@ class Device(BaseModel, db.Model):
     created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
     # Parts used with cascade delete to orphaned repair parts
     parts_used_rows = db.relationship("RepairPartUsed", cascade="all, delete-orphan", lazy=True)
+    # Repair payments with cascade delete
+    repair_payments = db.relationship("RepairPayment", cascade="all, delete-orphan", lazy=True)
 
 
 class Technician(BaseModel, db.Model):

@@ -8,13 +8,19 @@
         --jc-green: #1e7f43;
         --jc-green-dark: #145c32;
         --jc-green-light: #a8e6b0;
+        --jc-green-xlight: #e8f5e9;
+    }
+    
+    * {
+        transition: all 0.2s ease;
     }
     
     body {
         display: flex;
         flex-direction: column;
         min-height: 100vh;
-        background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+        background: linear-gradient(135deg, #0f3d21 0%, #1e7f43 50%, #e8f5e9 100%);
+        font-family: 'Segoe UI', 'Roboto', sans-serif;
     }
     
     main {
@@ -27,75 +33,217 @@
     
     .login-card {
         border: none;
-        border-top: 4px solid var(--jc-green);
-        border-radius: 10px;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(15, 61, 33, 0.2);
+        overflow: hidden;
+        max-width: 420px;
+        width: 100%;
+        backdrop-filter: blur(10px);
     }
     
     .login-header {
+        background: linear-gradient(135deg, var(--jc-green) 0%, var(--jc-green-dark) 100%);
+        color: white;
         text-align: center;
-        margin-bottom: 2rem;
-        padding-bottom: 1.5rem;
-        border-bottom: 2px solid var(--jc-green-light);
+        padding: 2.5rem 2rem 2rem;
+        margin: 0;
     }
     
     .jc-logo {
-        height: 80px;
+        height: 90px;
         margin-bottom: 1rem;
+        object-fit: contain;
     }
     
     .login-header h3 {
-        color: var(--jc-green-dark);
-        font-weight: 700;
+        color: white;
+        font-weight: 800;
         margin-bottom: 0.25rem;
+        letter-spacing: 0.5px;
+        font-size: 1.8rem;
     }
     
     .login-header p {
-        color: var(--jc-green);
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.9rem;
+        font-weight: 400;
+        letter-spacing: 0.3px;
+    }
+    
+    .card-body {
+        padding: 2.5rem 2rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: var(--jc-green-dark);
+        margin-bottom: 0.75rem;
         font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-control {
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 0.875rem 1rem;
+        font-size: 0.95rem;
+        background: #f9fafb;
+        color: #333;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control::placeholder {
+        color: #999;
+    }
+    
+    .form-control:hover {
+        border-color: var(--jc-green-light);
+        background: #fcfcfc;
+    }
+    
+    .form-control:focus {
+        border-color: var(--jc-green);
+        background: white;
+        box-shadow: 0 0 0 3px rgba(30, 127, 67, 0.1), 0 0 0 1px var(--jc-green);
+        outline: none;
+    }
+    
+    .mb-3 {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-check {
+        padding-left: 0;
+    }
+    
+    .form-check-input {
+        width: 1.1em;
+        height: 1.1em;
+        border-radius: 6px;
+        border: 2px solid #d0d0d0;
+        cursor: pointer;
+        accent-color: var(--jc-green);
+    }
+    
+    .form-check-input:hover {
+        border-color: var(--jc-green);
+    }
+    
+    .form-check-input:checked {
+        background-color: var(--jc-green);
+        border-color: var(--jc-green);
+        box-shadow: 0 0 0 3px rgba(30, 127, 67, 0.1);
+    }
+    
+    .form-check-label {
+        color: #555;
         font-weight: 500;
+        font-size: 0.95rem;
+        cursor: pointer;
+        margin-left: 0.5rem;
     }
     
     .btn-login {
         background: linear-gradient(135deg, var(--jc-green) 0%, var(--jc-green-dark) 100%);
         border: none;
         color: white;
-        font-weight: 600;
-        transition: all 0.3s ease;
+        font-weight: 700;
+        font-size: 1.05rem;
+        padding: 0.95rem 2rem;
+        border-radius: 10px;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 15px rgba(30, 127, 67, 0.2);
+        cursor: pointer;
     }
     
     .btn-login:hover {
         background: linear-gradient(135deg, var(--jc-green-dark) 0%, #0f3d21 100%);
         color: white;
         transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(30, 127, 67, 0.3);
+        box-shadow: 0 8px 25px rgba(30, 127, 67, 0.35);
     }
     
-    .form-control:focus {
-        border-color: var(--jc-green);
-        box-shadow: 0 0 0 0.2rem rgba(30, 127, 67, 0.15);
+    .btn-login:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 10px rgba(30, 127, 67, 0.25);
     }
     
-    .form-check-input:checked {
-        background-color: var(--jc-green);
-        border-color: var(--jc-green);
+    .btn-login:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
     }
     
-    /* Hide browser's native password reveal button for consistency */
-    input[type="password"]::-webkit-outer-spin-button,
-    input[type="password"]::-webkit-inner-spin-button {
-        display: none;
+    .alert {
+        border: none;
+        border-radius: 10px;
+        border-left: 4px solid;
+        font-weight: 500;
+        animation: slideIn 0.3s ease;
+    }
+    
+    .alert-danger {
+        background-color: #fdebee;
+        border-left-color: #f44336;
+        color: #c62828;
+    }
+    
+    .alert-success {
+        background-color: #e8f5e9;
+        border-left-color: #4caf50;
+        color: #2e7d32;
+    }
+    
+    .alert-warning {
+        background-color: #fff3e0;
+        border-left-color: #ff9800;
+        color: #e65100;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     .login-footer {
         text-align: center;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid #e0e0e0;
+        padding: 1.5rem 2rem;
+        background: #f5f7fa;
+        color: #666;
+        font-size: 0.85rem;
+        letter-spacing: 0.3px;
+        font-weight: 500;
     }
     
     /* Hide global alerts from base.html on login page */
     body > .container.mt-3 {
         display: none !important;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 576px) {
+        .card-body {
+            padding: 2rem 1.5rem;
+        }
+        
+        .login-header {
+            padding: 2rem 1.5rem 1.5rem;
+        }
+        
+        .jc-logo {
+            height: 70px;
+        }
+        
+        .login-header h3 {
+            font-size: 1.5rem;
+        }
     }
 </style>
 {% endblock %}
@@ -127,7 +275,9 @@
 
                     <form method="POST" action="{{ url_for('auth.login') }}" novalidate id="loginForm">
                         <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
+                            <label for="username" class="form-label">
+                                <i class="bi bi-person"></i> Username
+                            </label>
                             <input type="text" class="form-control" id="username" name="username" 
                                    required autofocus
                                    aria-required="true"
@@ -138,52 +288,56 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control" id="password" name="password" 
-                                       required aria-required="true" placeholder="Enter your password">
-                                <button class="btn btn-outline-secondary" type="button" id="togglePassword" aria-label="Show password">
-                                    <i class="bi bi-eye" id="toggleIcon"></i>
-                                </button>
-                                <div class="invalid-feedback">
-                                    Please enter your password.
-                                </div>
+                            <label for="password" class="form-label">
+                                <i class="bi bi-lock"></i> Password
+                            </label>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   required aria-required="true" placeholder="Enter your password">
+                            <div class="invalid-feedback">
+                                Please enter your password.
                             </div>
                         </div>
 
-                        <div class="mb-3 form-check">
+                        <div class="mb-4 form-check">
                             <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                            <label class="form-check-label" for="remember">Remember me</label>
+                            <label class="form-check-label" for="remember">Remember me on this device</label>
                         </div>
 
                         <div class="d-grid">
                             <button type="submit" class="btn btn-login btn-lg" id="loginButton">
-                                <i class="bi bi-box-arrow-in-right"></i> Login
+                                <i class="bi bi-box-arrow-in-right"></i> Sign In
                             </button>
                         </div>
                     </form>
                     <script>
-                        // password visibility toggle
+                        // Client-side validation using Bootstrap's utilities
                         document.addEventListener('DOMContentLoaded', function() {
-                            const pwd = document.getElementById('password');
-                            const toggle = document.getElementById('togglePassword');
-                            const icon = document.getElementById('toggleIcon');
-                            toggle.addEventListener('click', function () {
-                                const type = pwd.getAttribute('type') === 'password' ? 'text' : 'password';
-                                pwd.setAttribute('type', type);
-                                icon.classList.toggle('bi-eye');
-                                icon.classList.toggle('bi-eye-slash');
-                                toggle.setAttribute('aria-label', type === 'password' ? 'Show password' : 'Hide password');
+                            const form = document.getElementById('loginForm');
+                            const usernameInput = document.getElementById('username');
+                            const passwordInput = document.getElementById('password');
+                            const loginButton = document.getElementById('loginButton');
+
+                            // Real-time field validation
+                            usernameInput.addEventListener('blur', function() {
+                                this.classList.toggle('is-invalid', !this.value.trim());
                             });
 
-                            // client-side validation using Bootstrap's utilities
-                            const form = document.getElementById('loginForm');
+                            passwordInput.addEventListener('blur', function() {
+                                this.classList.toggle('is-invalid', !this.value.trim());
+                            });
+
+                            // Form submission validation
                             form.addEventListener('submit', function(event) {
                                 if (!form.checkValidity()) {
                                     event.preventDefault();
                                     event.stopPropagation();
                                 }
                                 form.classList.add('was-validated');
+                                
+                                if (form.checkValidity()) {
+                                    loginButton.disabled = true;
+                                    loginButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Signing in...';
+                                }
                             });
                         });
                     </script>
