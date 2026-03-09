@@ -3,289 +3,427 @@
 {% block title %}Sales Reports - JC Icons{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-graph-up"></i> Sales Reports</h1>
-    <div class="d-flex gap-2">
-        <a href="{{ url_for('sales.sales_list') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-list"></i> Sales List
-        </a>
-        <a href="{{ url_for('sales.pos') }}" class="btn btn-outline-primary">
-            <i class="bi bi-cart-check"></i> New Sale
-        </a>
-        <button id="refreshReportsBtn" type="button" class="btn btn-outline-info" title="Reload latest sales data">
-            <i class="bi bi-arrow-clockwise"></i> Refresh
+<div class="mb-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="m-0 d-flex align-items-center gap-2">
+        <i class="bi bi-graph-up"></i>
+        <span>Sales Reports</span>
+      </h1>
+      <small class="text-muted">Last {{ days_back }} days performance overview</small>
+    </div>
+    
+    <div class="d-flex gap-2 flex-wrap">
+      <button id="refreshReportsBtn" type="button" class="btn btn-outline-info" title="Reload latest sales data">
+        <i class="bi bi-arrow-clockwise"></i> 
+        <span class="d-none d-md-inline ms-1">Refresh</span>
+      </button>
+
+      <a href="{{ url_for('sales.sales_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-list"></i> 
+        <span class="d-none d-md-inline ms-1">Sales List</span>
+      </a>
+
+      <a href="{{ url_for('sales.pos') }}" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> 
+        <span class="d-none d-md-inline ms-1">New Sale</span>
+      </a>
+      
+      <!-- Reports Dropdown -->
+      {% if current_user.role in ['ADMIN'] %}
+      <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" 
+                aria-expanded="false" title="View additional reports">
+          <i class="bi bi-file-earmark-bar-graph"></i>
+          <span class="d-none d-md-inline ms-1">Reports</span>
         </button>
-        
-        <!-- Reports Dropdown -->
-        {% if current_user.role in ['ADMIN'] %}
-        <div class="btn-group" role="group">
-            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" 
-                    aria-expanded="false" title="View additional reports">
-                <i class="bi bi-file-earmark-bar-graph"></i> More Reports
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="{{ url_for('reports.reports_hub') }}">
-                    <i class="bi bi-collection"></i> Reports Hub
-                </a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="{{ url_for('reports.financial_report') }}">
-                    <i class="bi bi-cash-stack"></i> Financial Summary
-                </a></li>
-                <li><a class="dropdown-item" href="{{ url_for('reports.repairs_report') }}">
-                    <i class="bi bi-wrench"></i> Repairs by Status
-                </a></li>
-                <li><a class="dropdown-item" href="{{ url_for('reports.inventory_report') }}">
-                    <i class="bi bi-box-seam"></i> Inventory Report
-                </a></li>
-            </ul>
-        </div>
-        {% endif %}
-        
-        {% if current_user.role == 'ADMIN' %}
-        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#resetModal">
-            <i class="bi bi-trash"></i> Reset Sales
-        </button>
-        {% endif %}
+        <ul class="dropdown-menu dropdown-menu-end shadow">
+          <li><a class="dropdown-item" href="{{ url_for('reports.reports_hub') }}">
+            <i class="bi bi-collection"></i> Reports Hub
+          </a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="{{ url_for('reports.financial_report') }}">
+            <i class="bi bi-cash-stack"></i> Financial Summary
+          </a></li>
+          <li><a class="dropdown-item" href="{{ url_for('reports.repairs_report') }}">
+            <i class="bi bi-wrench"></i> Repairs by Status
+          </a></li>
+          <li><a class="dropdown-item" href="{{ url_for('reports.inventory_report') }}">
+            <i class="bi bi-box-seam"></i> Inventory Report
+          </a></li>
+        </ul>
+      </div>
+      {% endif %}
+      
+      {% if current_user.role == 'ADMIN' %}
+      <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#resetModal">
+        <i class="bi bi-trash"></i>
+        <span class="d-none d-md-inline ms-1">Reset</span>
+      </button>
+      {% endif %}
     </div>
+  </div>
+
+  <!-- Date Range Filter -->
+  <form method="GET" class="card card-body bg-light p-3" style="border-radius: 0.5rem;">
+    <div class="row g-2 align-items-end">
+      <div class="col-auto">
+        <small class="text-muted d-block mb-2"><i class="bi bi-calendar"></i> <strong>Select Period:</strong></small>
+      </div>
+      <div class="col-12 col-md-auto">
+        <select name="days" class="form-select form-select-sm" onchange="this.form.submit()" style="width: 180px;">
+          <option value="7" {% if days_back == 7 %}selected{% endif %}>Last 7 days</option>
+          <option value="14" {% if days_back == 14 %}selected{% endif %}>Last 14 days</option>
+          <option value="30" {% if days_back == 30 %}selected{% endif %}>Last 30 days</option>
+          <option value="60" {% if days_back == 60 %}selected{% endif %}>Last 60 days</option>
+          <option value="90" {% if days_back == 90 %}selected{% endif %}>Last 90 days</option>
+        </select>
+      </div>
+    </div>
+  </form>
 </div>
 
-<!-- Date Range Filter -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="GET" class="d-flex gap-2 align-items-end">
-            <div class="flex-grow-1">
-                <label class="form-label">Period</label>
-                <select name="days" class="form-select" onchange="this.form.submit()">
-                    <option value="7" {% if days_back == 7 %}selected{% endif %}>Last 7 days</option>
-                    <option value="14" {% if days_back == 14 %}selected{% endif %}>Last 14 days</option>
-                    <option value="30" {% if days_back == 30 %}selected{% endif %}>Last 30 days</option>
-                    <option value="60" {% if days_back == 60 %}selected{% endif %}>Last 60 days</option>
-                    <option value="90" {% if days_back == 90 %}selected{% endif %}>Last 90 days</option>
-                </select>
-            </div>
-        </form>
-    </div>
-</div>
 
-<!-- KPI Cards -->
+
+<!-- KPI Cards - Primary Metrics -->
 <div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-primary text-white">
-            <div class="card-body">
-                <h6 class="card-title text-uppercase small">Total Revenue</h6>
-                <h3 class="mb-0">₱{{ "%.2f"|format(total_revenue) }}</h3>
-                <small class="mt-2 d-block">{{ total_transactions }} transactions</small>
-            </div>
+  <!-- Total Revenue -->
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="card h-100 shadow-sm border-0 kpi-card kpi-primary">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <small class="text-muted text-uppercase fw-bold">Total Revenue</small>
+            <h3 class="mb-0 mt-2 fw-bold">₱{{ "%.2f"|format(total_revenue) }}</h3>
+          </div>
+          <div class="kpi-icon">
+            <i class="bi bi-cash-stack"></i>
+          </div>
         </div>
+        <small class="text-muted d-block mt-2">
+          <i class="bi bi-receipt"></i> {{ total_transactions }} transactions
+        </small>
+      </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-success text-white">
-            <div class="card-body">
-                <h6 class="card-title text-uppercase small">Avg Transaction</h6>
-                <h3 class="mb-0">₱{{ "%.2f"|format(avg_transaction) }}</h3>
-                <small class="mt-2 d-block">Per sale</small>
-            </div>
+  </div>
+
+  <!-- Avg Transaction -->
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="card h-100 shadow-sm border-0 kpi-card kpi-success">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <small class="text-muted text-uppercase fw-bold">Avg Transaction</small>
+            <h3 class="mb-0 mt-2 fw-bold">₱{{ "%.2f"|format(avg_transaction) }}</h3>
+          </div>
+          <div class="kpi-icon">
+            <i class="bi bi-graph-up"></i>
+          </div>
         </div>
+        <small class="text-muted d-block mt-2">
+          <i class="bi bi-arrow-right"></i> Per sale average
+        </small>
+      </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-info text-white">
-            <div class="card-body">
-                <h6 class="card-title text-uppercase small">Items Sold</h6>
-                <h3 class="mb-0">{{ total_items_sold }}</h3>
-                <small class="mt-2 d-block">Total units</small>
-            </div>
+  </div>
+
+  <!-- Items Sold -->
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="card h-100 shadow-sm border-0 kpi-card kpi-info">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <small class="text-muted text-uppercase fw-bold">Items Sold</small>
+            <h3 class="mb-0 mt-2 fw-bold">{{ total_items_sold }}</h3>
+          </div>
+          <div class="kpi-icon">
+            <i class="bi bi-box"></i>
+          </div>
         </div>
+        <small class="text-muted d-block mt-2">
+          <i class="bi bi-bag"></i> Total units
+        </small>
+      </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-warning text-dark">
-            <div class="card-body">
-                <h6 class="card-title text-uppercase small">Transactions</h6>
-                <h3 class="mb-0">{{ total_transactions }}</h3>
-                <small class="mt-2 d-block">Total sales</small>
-            </div>
+  </div>
+
+  <!-- Total Transactions -->
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="card h-100 shadow-sm border-0 kpi-card kpi-warning">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <small class="text-muted text-uppercase fw-bold">Total Sales</small>
+            <h3 class="mb-0 mt-2 fw-bold">{{ total_transactions }}</h3>
+          </div>
+          <div class="kpi-icon">
+            <i class="bi bi-calculator"></i>
+          </div>
         </div>
+        <small class="text-muted d-block mt-2">
+          <i class="bi bi-lightning"></i> Transactions
+        </small>
+      </div>
     </div>
-    <!-- Repairs summary card -->
-    <div class="col-md-3 mt-3">
-        <div class="card border-secondary">
-            <div class="card-body text-center">
-                <h6 class="card-title text-uppercase small">Total Repairs</h6>
-                <h4 class="mb-0">₱{{ "%.2f"|format(repairs_total if repairs_total is defined else 0) }}</h4>
-                <small class="mt-2 d-block">{{ repair_transactions if repair_transactions is defined else 0 }} completed</small>
-            </div>
-        </div>
-    </div>
-    <!-- Sales Balance Due (consolidated partial + credit) -->
-    <div class="col-md-3 mt-3">
-        <div class="card border-warning">
-            <div class="card-body text-center">
-                <h6 class="card-title text-uppercase small text-warning">Sales Balance Due</h6>
-                <h4 class="mb-0 text-warning">₱{{ "%.2f"|format((partial_sales_total if partial_sales_total is defined else 0) + (credit_sales_total if credit_sales_total is defined else 0)) }}</h4>
-                <small class="mt-2 d-block">Unpaid & partial sales</small>
-            </div>
-        </div>
-    </div>
-    <!-- Repairs Balance Due (consolidated partial + credit) -->
-    <div class="col-md-3 mt-3">
-        <div class="card border-warning">
-            <div class="card-body text-center">
-                <h6 class="card-title text-uppercase small text-warning">Repairs Balance Due</h6>
-                <h4 class="mb-0 text-warning">₱{{ "%.2f"|format((partial_repairs_balance if partial_repairs_balance is defined else 0) + (credit_repairs_total if credit_repairs_total is defined else 0)) }}</h4>
-                <small class="mt-2 d-block">Unpaid & partial repairs</small>
-            </div>
-        </div>
-    </div>
-    <!-- Total Outstanding to Collect -->
-    <div class="col-md-3 mt-3">
-        <div class="card border-dark bg-light">
-            <div class="card-body text-center">
-                <h6 class="card-title text-uppercase small">Total Outstanding</h6>
-                <h4 class="mb-0 fw-bold text-dark">₱{{ "%.2f"|format((pending_sales if pending_sales is defined else 0) + (partial_sales_total if partial_sales_total is defined else 0) + (credit_sales_total if credit_sales_total is defined else 0) + (pending_repairs if pending_repairs is defined else 0) + (partial_repairs_balance if partial_repairs_balance is defined else 0) + (credit_repairs_total if credit_repairs_total is defined else 0)) }}</h4>
-                <small class="mt-2 d-block">All accounts receivable</small>
-            </div>
-        </div>
-    </div>
+  </div>
 </div>
 
-<!-- Daily Sales lives in its own section: /sales/daily-sales -->
-
+<!-- KPI Cards - Repairs & Outstanding -->
 <div class="row mb-4">
-    <!-- Daily Sales Trend -->
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header bg-light">
-                <h5 class="mb-0">Daily Sales Trend</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="dailyTrendChart" height="80"></canvas>
-            </div>
+  <!-- Total Repairs -->
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="card h-100 shadow-sm border-0 kpi-card kpi-secondary">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <small class="text-muted text-uppercase fw-bold">Total Repairs</small>
+            <h3 class="mb-0 mt-2 fw-bold">₱{{ "%.2f"|format(repairs_total if repairs_total is defined else 0) }}</h3>
+          </div>
+          <div class="kpi-icon">
+            <i class="bi bi-tools"></i>
+          </div>
         </div>
+        <small class="text-muted d-block mt-2">
+          <i class="bi bi-check-circle"></i> {{ repair_transactions if repair_transactions is defined else 0 }} completed
+        </small>
+      </div>
     </div>
+  </div>
 
-    <!-- Payment Method Breakdown -->
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header bg-light">
-                <h5 class="mb-0">Payment Methods</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="paymentChart" height="130"></canvas>
-            </div>
+  <!-- Sales Balance Due -->
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="card h-100 shadow-sm border-0 kpi-card kpi-danger">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <small class="text-muted text-uppercase fw-bold">Sales Balance Due</small>
+            <h3 class="mb-0 mt-2 fw-bold text-danger">₱{{ "%.2f"|format((partial_sales_total if partial_sales_total is defined else 0) + (credit_sales_total if credit_sales_total is defined else 0)) }}</h3>
+          </div>
+          <div class="kpi-icon">
+            <i class="bi bi-exclamation-circle"></i>
+          </div>
         </div>
+        <small class="text-muted d-block mt-2">
+          <i class="bi bi-clock"></i> Unpaid & partial sales
+        </small>
+      </div>
     </div>
+  </div>
+
+  <!-- Repairs Balance Due -->
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="card h-100 shadow-sm border-0 kpi-card kpi-danger">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <small class="text-muted text-uppercase fw-bold">Repairs Balance Due</small>
+            <h3 class="mb-0 mt-2 fw-bold text-danger">₱{{ "%.2f"|format((partial_repairs_balance if partial_repairs_balance is defined else 0) + (credit_repairs_total if credit_repairs_total is defined else 0)) }}</h3>
+          </div>
+          <div class="kpi-icon">
+            <i class="bi bi-exclamation-circle"></i>
+          </div>
+        </div>
+        <small class="text-muted d-block mt-2">
+          <i class="bi bi-clock"></i> Unpaid & partial repairs
+        </small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Total Outstanding -->
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="card h-100 shadow-sm border-0 kpi-card kpi-highlight">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <small class="text-muted text-uppercase fw-bold">Total Outstanding</small>
+            <h3 class="mb-0 mt-2 fw-bold text-dark">₱{{ "%.2f"|format((pending_sales if pending_sales is defined else 0) + (partial_sales_total if partial_sales_total is defined else 0) + (credit_sales_total if credit_sales_total is defined else 0) + (pending_repairs if pending_repairs is defined else 0) + (partial_repairs_balance if partial_repairs_balance is defined else 0) + (credit_repairs_total if credit_repairs_total is defined else 0)) }}</h3>
+          </div>
+          <div class="kpi-icon">
+            <i class="bi bi-piggy-bank"></i>
+          </div>
+        </div>
+        <small class="text-muted d-block mt-2">
+          <i class="bi bi-funnel"></i> All accounts receivable
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row mb-4">
+  <!-- Daily Sales Trend -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-gradient border-0 py-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h5 class="mb-0 text-white d-flex align-items-center gap-2">
+          <i class="bi bi-graph-up"></i> Daily Sales Trend
+        </h5>
+      </div>
+      <div class="card-body p-4">
+        <canvas id="dailyTrendChart" height="80"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Method Breakdown -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-gradient border-0 py-3" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <h5 class="mb-0 text-white d-flex align-items-center gap-2">
+          <i class="bi bi-pie-chart"></i> Payment Methods
+        </h5>
+      </div>
+      <div class="card-body p-4">
+        <canvas id="paymentChart" height="130"></canvas>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Top Products -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h5 class="mb-0">Top Products Sold</h5>
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-header bg-gradient border-0 py-3" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+    <h5 class="mb-0 text-dark d-flex align-items-center gap-2">
+      <i class="bi bi-star"></i> Top Products Sold
+    </h5>
+  </div>
+  <div class="card-body p-4">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr class="border-bottom-2">
+            <th class="fw-bold text-dark">Product Name</th>
+            <th class="text-end fw-bold text-dark">Units Sold</th>
+            <th class="text-end fw-bold text-dark">Revenue</th>
+            <th class="text-end fw-bold text-dark">% of Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set revenue_total = top_products|map(attribute='amount')|sum %}
+          {% for product in top_products %}
+          <tr class="align-middle border-bottom">
+            <td><strong class="text-dark">{{ product.name }}</strong></td>
+            <td class="text-end"><span class="badge bg-info">{{ product.qty }}</span></td>
+            <td class="text-end"><strong class="text-success">₱{{ "%.2f"|format(product.amount) }}</strong></td>
+            <td class="text-end">
+              {% if revenue_total > 0 %}
+                <span class="badge bg-primary">{{ "%.1f"|format((product.amount / revenue_total) * 100) }}%</span>
+              {% else %}
+                <span class="badge bg-secondary">0%</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if top_products|length == 0 %}
+          <tr>
+            <td colspan="4" class="text-center text-muted py-4">
+              <i class="bi bi-inbox"></i> No sales data available
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
     </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Product Name</th>
-                        <th class="text-end">Units Sold</th>
-                        <th class="text-end">Revenue</th>
-                        <th class="text-end">% of Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% set revenue_total = top_products|map(attribute='amount')|sum %}
-                    {% for product in top_products %}
-                    <tr>
-                        <td><strong>{{ product.name }}</strong></td>
-                        <td class="text-end">{{ product.qty }}</td>
-                        <td class="text-end">₱{{ "%.2f"|format(product.amount) }}</td>
-                        <td class="text-end">
-                            {% if revenue_total > 0 %}
-                                <span class="badge bg-secondary">{{ "%.1f"|format((product.amount / revenue_total) * 100) }}%</span>
-                            {% else %}
-                                <span class="badge bg-secondary">0%</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    {% if top_products|length == 0 %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">No sales data available</td>
-                    </tr>
-                    {% endif %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+  </div>
 </div>
 
 <!-- Payment Methods Detailed -->
-<div class="card">
-    <div class="card-header bg-light">
-        <h5 class="mb-0">Payment Method Summary</h5>
+<div class="card shadow-sm border-0 mb-4 payment-methods-card">
+  <div class="card-header bg-gradient border-0 py-3" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+    <h5 class="mb-0 text-dark d-flex align-items-center gap-2">
+      <i class="bi bi-credit-card"></i> Payment Methods (Sales + Repairs)
+    </h5>
+  </div>
+  <div class="card-body p-4 bg-light">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr class="border-bottom-2 bg-white">
+            <th class="fw-bold text-dark">Payment Method</th>
+            <th class="text-end fw-bold text-dark">Transactions</th>
+            <th class="text-end fw-bold text-dark">Total Amount</th>
+            <th class="text-end fw-bold text-dark">Avg Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payment in payment_data %}
+          <tr class="align-middle border-bottom">
+            <td>
+              <strong class="text-dark">{{ payment.method }}</strong>
+            </td>
+            <td class="text-end"><span class="badge bg-info">{{ payment.count }}</span></td>
+            <td class="text-end"><strong class="text-success">₱{{ "%.2f"|format(payment.total) }}</strong></td>
+            <td class="text-end"><span class="badge bg-secondary">₱{{ "%.2f"|format(payment.total / payment.count if payment.count > 0 else 0) }}</span></td>
+          </tr>
+          {% endfor %}
+          {% if payment_data|length == 0 %}
+          <tr>
+            <td colspan="4" class="text-center text-muted py-4">
+              <i class="bi bi-inbox"></i> No payment data available
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
     </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Payment Method</th>
-                        <th class="text-end">Transactions</th>
-                        <th class="text-end">Total Amount</th>
-                        <th class="text-end">Avg Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for payment in payment_data %}
-                    <tr>
-                        <td><strong>{{ payment.method }}</strong></td>
-                        <td class="text-end">{{ payment.count }}</td>
-                        <td class="text-end">₱{{ "%.2f"|format(payment.total) }}</td>
-                        <td class="text-end">₱{{ "%.2f"|format(payment.total / payment.count if payment.count > 0 else 0) }}</td>
-                    </tr>
-                    {% endfor %}
-                    {% if payment_data|length == 0 %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">No payment data available</td>
-                    </tr>
-                    {% endif %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+  </div>
 </div>
 
 <!-- Reset Sales Modal -->
-<div class="modal fade" id="resetModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content border-danger">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">
-                    <i class="bi bi-exclamation-triangle"></i> Reset All Sales Data
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-danger fw-bold mb-3">⚠️ This action cannot be undone!</p>
-                <p>This will permanently delete:</p>
-                <ul>
-                    <li>All sales records</li>
-                    <li>All sale items</li>
-                    <li>All payment records</li>
-                    <li>All invoices</li>
-                </ul>
-                <p class="text-muted">Are you absolutely sure you want to proceed?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form method="POST" action="{{ url_for('sales.reset_sales') }}" style="display: inline;">
-                    <input type="hidden" name="confirm" value="yes">
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash"></i> Delete All Sales Data
-                    </button>
-                </form>
-            </div>
+<div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-danger text-white border-0">
+        <h5 class="modal-title" id="resetModalLabel">
+          <i class="bi bi-exclamation-triangle-fill"></i> Reset Sales Data
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-light p-4">
+        <div class="alert alert-danger d-flex gap-2 align-items-start" role="alert">
+          <i class="bi bi-exclamation-circle-fill" style="font-size: 1.5rem; flex-shrink: 0;"></i>
+          <div>
+            <strong>This action cannot be undone!</strong>
+            <p class="mb-0 small mt-1">Please ensure you have backups before proceeding.</p>
+          </div>
         </div>
+
+        <p class="mb-3 fw-bold">This will permanently delete:</p>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item d-flex gap-2 align-items-center">
+            <i class="bi bi-receipt text-danger"></i> All sales records
+          </li>
+          <li class="list-group-item d-flex gap-2 align-items-center">
+            <i class="bi bi-box text-danger"></i> All sale items
+          </li>
+          <li class="list-group-item d-flex gap-2 align-items-center">
+            <i class="bi bi-cash text-danger"></i> All payment records
+          </li>
+          <li class="list-group-item d-flex gap-2 align-items-center">
+            <i class="bi bi-file-earmark-pdf text-danger"></i> All invoices
+          </li>
+        </ul>
+
+        <p class="mt-3 text-muted text-center">
+          <strong>Are you absolutely sure?</strong>
+        </p>
+      </div>
+      <div class="modal-footer border-0 bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle"></i> Cancel
+        </button>
+        <form method="POST" action="{{ url_for('sales.reset_sales') }}" style="display: inline;">
+          <input type="hidden" name="confirm" value="yes">
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash"></i> Delete All Data
+          </button>
+        </form>
+      </div>
     </div>
+  </div>
 </div>
 
 {% endblock %}
@@ -392,4 +530,328 @@ if (paymentData.length > 0) {
     });
 }
 </script>
+
+<style>
+  /* Header and Typography */
+  h1 {
+    color: #2c3e50;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  /* KPI Cards Styling */
+  .kpi-card {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+  }
+
+  .kpi-card.kpi-primary::before {
+    background: linear-gradient(90deg, #667eea, #764ba2);
+  }
+
+  .kpi-card.kpi-success::before {
+    background: linear-gradient(90deg, #11998e, #38ef7d);
+  }
+
+  .kpi-card.kpi-info::before {
+    background: linear-gradient(90deg, #4facfe, #00f2fe);
+  }
+
+  .kpi-card.kpi-warning::before {
+    background: linear-gradient(90deg, #fa709a, #fee140);
+  }
+
+  .kpi-card.kpi-secondary::before {
+    background: linear-gradient(90deg, #6c757d, #868e96);
+  }
+
+  .kpi-card.kpi-danger::before {
+    background: linear-gradient(90deg, #f5576c, #f093fb);
+  }
+
+  .kpi-card.kpi-highlight::before {
+    background: linear-gradient(90deg, #ffd89b, #19547b);
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  .kpi-icon {
+    font-size: 2.5rem;
+    opacity: 0.15;
+    position: absolute;
+    right: 12px;
+    top: 8px;
+  }
+
+  .kpi-card .card-body {
+    position: relative;
+  }
+
+  /* Cards General */
+  .card {
+    transition: all 0.3s ease;
+    border-radius: 0.5rem;
+  }
+
+  .card:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.10) !important;
+  }
+
+  /* Gradients - don't force color globally; let individual headers define their text color */
+  .bg-gradient {
+    /* removed: color: white; */
+  }
+
+  /* Override text-dark to have high specificity */
+  h5.text-dark,
+  .text-dark {
+    color: #2c3e50 !important;
+  }
+
+  /* Ensure light gradient backgrounds have dark text */
+  .payment-methods-card .card-header h5,
+  .card-header[style*="4facfe"] h5 {
+    color: #2c3e50 !important;
+  }
+
+  /* Tables */
+  .table {
+    font-size: 0.95rem;
+  }
+
+  .table thead tr {
+    border-bottom: 2px solid #dee2e6;
+  }
+
+  .table thead th {
+    vertical-align: middle;
+    font-weight: 600;
+    color: #2c3e50;
+    padding: 1rem 0.75rem;
+  }
+
+  .table tbody td {
+    vertical-align: middle;
+    padding: 1rem 0.75rem;
+  }
+
+  .table tbody tr {
+    transition: all 0.15s ease;
+  }
+
+  .table tbody tr:hover {
+    background-color: #f8fafc;
+    border-left: 3px solid #667eea;
+    padding-left: 0.45rem;
+  }
+
+  .table-responsive {
+    border-radius: 0.5rem;
+  }
+
+  /* Badges */
+  .badge {
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  /* Buttons */
+  .btn {
+    transition: all 0.2s ease;
+    font-weight: 500;
+  }
+
+  .btn-sm {
+    padding: 0.4rem 0.75rem;
+  }
+
+  .btn:not(.btn-check):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  }
+
+  .btn-success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    border: none;
+  }
+
+  .btn-success:hover {
+    background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+  }
+
+  /* Empty States */
+  .alert {
+    border-radius: 0.5rem;
+  }
+
+  .alert-info {
+    background-color: #e7f5ff;
+    border-left: 4px solid #0d6efd;
+  }
+
+  .alert-warning {
+    background-color: #fff3bf;
+    border-left: 4px solid #ffc107;
+  }
+
+  .alert-danger {
+    background-color: #f8d7da;
+    border-left: 4px solid #dc3545;
+  }
+
+  /* List Group */
+  .list-group-item {
+    border-left: 3px solid transparent;
+    transition: all 0.15s ease;
+  }
+
+  .list-group-item:hover {
+    border-left-color: #dc3545;
+    background-color: #fff5f5;
+  }
+
+  /* Modal improvements */
+  .modal-content {
+    border-radius: 0.75rem;
+  }
+
+  .modal-header {
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+
+  /* Date filter region */
+  #sales-filter-form,
+  form[method="GET"] {
+    border-radius: 0.5rem;
+  }
+
+  /* Responsive design */
+  @media (max-width: 768px) {
+    .kpi-icon {
+      font-size: 2rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+    }
+
+    .table {
+      font-size: 0.85rem;
+    }
+
+    .badge {
+      padding: 0.4rem 0.6rem;
+      font-size: 0.75rem;
+    }
+
+    .btn-sm {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.75rem;
+    }
+  }
+
+  /* Chart containers */
+  #dailyTrendChart,
+  #paymentChart {
+    max-height: 300px;
+  }
+
+  /* Enhanced visual feedback */
+  .table-hover tbody tr:focus-within {
+    background-color: #e7f2ff;
+  }
+
+  /* Text alignment for monetary values */
+  td.text-end {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Better spacing */
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .card-header {
+    padding: 1rem 1.5rem;
+  }
+
+  /* Small text styling */
+  small {
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+
+  /* Dropdown improvements */
+  .dropdown-menu {
+    border-radius: 0.5rem;
+    border: 1px solid #e9ecef;
+  }
+
+  .dropdown-item {
+    transition: all 0.2s ease;
+  }
+
+  .dropdown-item:hover {
+    background-color: #f8f9fa;
+    padding-left: 2rem;
+  }
+
+  .dropdown-item i {
+    margin-right: 0.5rem;
+    width: 16px;
+    text-align: center;
+  }
+
+  /* Header styling */
+  div > h1 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Border utilities */
+  .border-bottom-2 {
+    border-bottom: 2px solid #dee2e6 !important;
+  }
+
+  /* Payment Methods Card Enhancement */
+  .payment-methods-card {
+    background: linear-gradient(135deg, rgba(250, 112, 154, 0.02) 0%, rgba(254, 225, 64, 0.02) 100%);
+  }
+
+  .payment-methods-card .card-body {
+    background-color: #ffffff;
+  }
+
+  .payment-methods-card .card-header {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  .payment-methods-card .table thead tr {
+    background-color: #f8f9fa;
+  }
+</style>
 {% endblock %}

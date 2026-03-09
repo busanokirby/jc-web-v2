@@ -3,84 +3,128 @@
 {% block title %}Sales History - JC Icons{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <div class="d-flex align-items-center gap-3">
-    <h1 class="m-0">
-      <i class="bi bi-receipt"></i>
-      {% if credits_only %}Credit Claims{% else %}Sales History{% endif %}
-    </h1>
+<div class="mb-4">
+  <!-- Header with Title and Action Buttons -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-outline-secondary" onclick="window.history.back();" title="Go back to previous page">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+      <h1 class="m-0 d-flex align-items-center gap-2">
+        <i class="bi bi-receipt"></i>
+        <span>{% if credits_only %}Credit Claims{% else %}Sales History{% endif %}</span>
+      </h1>
+    </div>
+    
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('sales.credits') }}" class="btn btn-warning">
+        <i class="bi bi-wallet2"></i> 
+        <span class="d-none d-md-inline ms-1">Credits</span>
+        <span class="badge bg-light text-warning ms-2 fw-bold">{{ credits_count or 0 }}</span>
+      </a>
 
-    <form id="sales-filter-form" class="d-flex" method="get" action="{{ url_for('sales.sales_list') }}" style="min-width:360px;">
-      <input id="sales-search" type="search" name="q"
-             class="form-control form-control-sm me-2"
-             placeholder="Search invoice, ticket, SKU, product, customer, service"
-             value="{{ q or '' }}">
-
-      <select id="sales-status" name="status"
-              class="form-select form-select-sm me-2"
-              style="width:140px;"
-              data-auto-submit="true">
-        <option value="">All statuses</option>
-        <option value="PAID" {% if request.args.get('status') == 'PAID' %}selected{% endif %}>Paid</option>
-        <option value="PARTIAL" {% if request.args.get('status') == 'PARTIAL' %}selected{% endif %}>Partial</option>
-        <option value="VOID" {% if request.args.get('status') == 'VOID' %}selected{% endif %}>Void</option>
-      </select>
-
-      <input id="sales-date-from" type="date" name="date_from"
-             class="form-control form-control-sm me-2"
-             value="{{ request.args.get('date_from', '') }}"
-             style="max-width:140px;"
-             data-auto-submit="true">
-
-      <input id="sales-date-to" type="date" name="date_to"
-             class="form-control form-control-sm me-2"
-             value="{{ request.args.get('date_to', '') }}"
-             style="max-width:140px;"
-             data-auto-submit="true">
-
-      <button class="btn btn-sm btn-outline-secondary me-2" type="submit">Search</button>
-
-      {% if q or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') %}
-        <a href="{{ url_for('sales.sales_list') }}" class="btn btn-sm btn-outline-light">Clear</a>
-      {% endif %}
-    </form>
+      <a href="{{ url_for('sales.pos') }}" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> 
+        <span class="d-none d-md-inline ms-1">New Sale</span>
+      </a>
+    </div>
   </div>
 
-  <div class="d-flex align-items-center gap-2">
-    <a href="{{ url_for('sales.credits') }}" class="btn btn-outline-warning">
-      <i class="bi bi-wallet2"></i> Credits
-      <span class="badge bg-warning text-dark ms-2">{{ credits_count or 0 }}</span>
-    </a>
+  <!-- Filter Bar -->
+  <form id="sales-filter-form" class="card card-body bg-light p-3 mb-3" method="get" action="{{ url_for('sales.sales_list') }}">
+    <div class="row g-2">
+      <!-- Search Input -->
+      <div class="col-12 col-lg-4">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white">
+            <i class="bi bi-search"></i>
+          </span>
+          <input id="sales-search" type="search" name="q"
+                 class="form-control form-control-sm"
+                 placeholder="Invoice, SKU, product, customer..."
+                 value="{{ q or '' }}">
+        </div>
+      </div>
 
-    <a href="{{ url_for('sales.pos') }}" class="btn btn-primary">
-      <i class="bi bi-plus-circle"></i> New Sale
-    </a>
-  </div>
+      <!-- Status Filter -->
+      <div class="col-12 col-md-6 col-lg-2">
+        <select id="sales-status" name="status"
+                class="form-select form-select-sm"
+                data-auto-submit="true">
+          <option value="">All Statuses</option>
+          <option value="PAID" {% if request.args.get('status') == 'PAID' %}selected{% endif %}>✓ Paid</option>
+          <option value="PARTIAL" {% if request.args.get('status') == 'PARTIAL' %}selected{% endif %}>◐ Partial</option>
+          <option value="VOID" {% if request.args.get('status') == 'VOID' %}selected{% endif %}>✕ Void</option>
+        </select>
+      </div>
+
+      <!-- Date Range -->
+      <div class="col-12 col-md-6 col-lg-2">
+        <input id="sales-date-from" type="date" name="date_from"
+               class="form-control form-control-sm"
+               value="{{ request.args.get('date_from', '') }}"
+               data-auto-submit="true"
+               title="From date">
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-2">
+        <input id="sales-date-to" type="date" name="date_to"
+               class="form-control form-control-sm"
+               value="{{ request.args.get('date_to', '') }}"
+               data-auto-submit="true"
+               title="To date">
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="col-12 col-lg-2 d-flex gap-2">
+        <button class="btn btn-sm btn-primary flex-grow-1" type="submit">
+          <i class="bi bi-search"></i> <span class="d-none d-md-inline">Search</span>
+        </button>
+
+        {% if q or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') %}
+          <a href="{{ url_for('sales.sales_list') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-x-circle"></i>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </form>
 </div>
 
 {% if history and history.total > 0 %}
   {% if credits_only %}
-    <div class="alert alert-warning d-flex justify-content-between align-items-center">
-      <div>
-        <strong>Credits outstanding:</strong>
-        <span class="ms-2">₱{{ "%.2f"|format(credits_total or 0) }}</span>
-        <span class="text-muted ms-3">({{ credits_count or 0 }} items)</span>
-      </div>
-      <div>
-        <a href="{{ url_for('sales.sales_list') }}" class="btn btn-sm btn-outline-secondary">Back to Sales</a>
+    <div class="alert alert-warning border-0 shadow-sm mb-3" role="alert">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-exclamation-circle" style="font-size: 1.5rem;"></i>
+          <div>
+            <strong>Credits Outstanding</strong>
+            <div class="small text-muted mt-1">{{ credits_count or 0 }} credit claim(s)</div>
+          </div>
+        </div>
+        <div class="text-end">
+          <div class="fs-5 fw-bold text-warning">₱{{ "%.2f"|format(credits_total or 0) }}</div>
+          <a href="{{ url_for('sales.sales_list') }}" class="btn btn-sm btn-outline-secondary mt-2">
+            <i class="bi bi-arrow-left"></i> Back to Sales
+          </a>
+        </div>
       </div>
     </div>
   {% endif %}
 
-  <div class="card">
-    <div id="bulk-actions-bar-sales" class="p-2 border-bottom d-none" style="display:none;">
+  <div class="card shadow-sm">
+    <div id="bulk-actions-bar-sales" class="p-3 border-bottom d-none" style="display:none; background-color: #f7f9fb;">
       <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <strong id="bulk-selected-count">0</strong> selected
+        <div class="fw-bold text-primary">
+          <i class="bi bi-check-circle"></i> <strong id="bulk-selected-count">0</strong> selected
         </div>
-        <div>
-          <button id="bulk-delete-sales-btn" class="btn btn-danger btn-sm">Delete Selected</button>
-          <button id="bulk-clear-sales-btn" class="btn btn-outline-secondary btn-sm ms-2">Clear</button>
+        <div class="d-flex gap-2">
+          <button id="bulk-delete-sales-btn" class="btn btn-danger btn-sm">
+            <i class="bi bi-trash"></i> Delete Selected
+          </button>
+          <button id="bulk-clear-sales-btn" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-x-circle"></i> Clear
+          </button>
         </div>
       </div>
     </div>
@@ -91,46 +135,48 @@
             <th style="width:40px;">
               <input id="select-all-sales" class="form-check-input" type="checkbox" aria-label="Select all">
             </th>
-            <th>Invoice / Ticket</th>
-            <th>Customer</th>
-            <th>Date</th>
-            <th>Items</th>
-            <th>Total</th>
-            <th>Status</th>
-            <th>Balance Due</th>
-            <th>Actions</th>
+            <th><strong>Invoice / Ticket</strong></th>
+            <th><strong>Customer</strong></th>
+            <th><strong>Date</strong></th>
+            <th><strong>Items</strong></th>
+            <th class="text-end"><strong>Total</strong></th>
+            <th><strong>Status</strong></th>
+            <th class="text-end"><strong>Balance Due</strong></th>
+            <th class="text-center"><strong>Actions</strong></th>
           </tr>
         </thead>
 
         <tbody>
           {% for entry in history.items %}
-          <tr>
+          <tr class="align-middle">
             <td>
               <input type="checkbox" class="form-check-input sale-checkbox" value="{{ entry.id }}" aria-label="Select sale {{ entry.invoice }}">
             </td>
             <td>
-              <strong>{{ entry.invoice }}</strong>
+              <strong class="text-dark">{{ entry.invoice }}</strong>
               <br><small class="text-muted">{{ entry.type|capitalize }}</small>
             </td>
 
             <td>
               {% if entry.customer_name %}
-                <strong>{{ entry.customer_name }}</strong>
+                <strong class="text-dark">{{ entry.customer_name }}</strong>
                 {% if entry.customer_business %}
                   <br><small class="text-muted">{{ entry.customer_business }}</small>
                 {% endif %}
               {% else %}
-                <span class="text-muted">Walk-in</span>
+                <span class="badge bg-light text-muted">Walk-in</span>
               {% endif %}
             </td>
 
             <td>
+              <small>
               {# Display latest payment date if available, otherwise show creation date #}
               {% if entry.latest_payment_date %}
                 {{ entry.latest_payment_date.strftime('%Y-%m-%d %H:%M') }}
               {% elif entry.created_at %}
                 {{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}
               {% endif %}
+              </small>
             </td>
 
             <td>
@@ -139,19 +185,19 @@
               <span class="badge bg-warning" data-bs-toggle="tooltip" title="Revoked items"><i class="bi bi-trash"></i> {{ entry.revoked_items_count }}</span>
               {% endif %}
               {% if entry.itemized_products|default(None) %}
-              <div class="small text-muted mt-1" style="font-size: 0.75rem; max-width: 200px;">
+              <div class="small text-muted mt-2" style="font-size: 0.75rem; max-width: 250px;">
                 {% for prod in entry.itemized_products[:3] %}
-                  <div><strong>{{ prod.qty }}×</strong> {{ prod.name }}</div>
+                  <div><span class="badge bg-secondary">{{ prod.qty }}×</span> {{ prod.name }}</div>
                 {% endfor %}
                 {% if entry.itemized_products|length > 3 %}
-                  <div><em>+{{ entry.itemized_products|length - 3 }} more</em></div>
+                  <div class="mt-1"><em class="text-secondary">+{{ entry.itemized_products|length - 3 }} more</em></div>
                 {% endif %}
               </div>
               {% endif %}
             </td>
 
-            <td>
-              <strong>₱{{ "%.2f"|format(entry.total) }}</strong>
+            <td class="text-end">
+              <strong class="text-primary">₱{{ "%.2f"|format(entry.total) }}</strong>
             </td>
 
             <td>
@@ -166,7 +212,7 @@
               </span>
             </td>
 
-            <td>
+            <td class="text-end">
               {% if entry.balance_due and entry.balance_due > 0 %}
                 <span class="text-danger fw-bold">₱{{ "%.2f"|format(entry.balance_due) }}</span>
               {% else %}
@@ -174,69 +220,75 @@
               {% endif %}
             </td>
 
-            <td>
-              {% if entry.type == 'sale' %}
-                {# View Invoice #}
-                <a href="{{ url_for('sales.invoice', sale_id=entry.id, redirect_to='sales.sales_list') }}"
-                   class="btn btn-sm btn-outline-primary"
-                   title="View Invoice">
-                  <i class="bi bi-file-earmark-pdf"></i>
-                </a>
-
-                {# ✅ Always go to modal for any sale with balance due (safe: no accidents) #}
-                {% if entry.balance_due and entry.balance_due > 0 %}
-                  <button type="button"
-                          class="btn btn-sm btn-success ms-1"
-                          title="Record payment"
-                          data-bs-toggle="modal"
-                          data-bs-target="#salePaymentModal"
-                          data-sale-id="{{ entry.id }}"
-                          data-invoice="{{ entry.invoice }}"
-                          data-balance="{{ entry.balance_due }}"
-                          data-customer="{{ entry.customer_name or 'Walk-in' }}">
-                    <i class="bi bi-cash-stack"></i>
-                  </button>
-                {% endif %}
-
-                {% if current_user.role == 'ADMIN' %}
-                  <form method="POST"
-                        action="{{ url_for('sales.delete_sale', sale_id=entry.id) }}"
-                        style="display:inline; margin-left:6px;">
-                    <button type="submit"
-                            class="btn btn-sm btn-outline-danger"
-                            onclick="return confirm('Delete this sale? This will restore stock for sold items.');"
-                            title="Delete Sale">
-                      <i class="bi bi-trash"></i>
-                    </button>
-                  </form>
-                {% endif %}
-
-              {% else %}
-                {# View Repair Receipt #}
-                <a href="{{ url_for('repairs.print_receipt', device_id=entry.id, redirect_to='sales.sales_list') }}"
-                   class="btn btn-sm btn-outline-primary"
-                   title="View Repair Receipt">
-                  <i class="bi bi-file-earmark-pdf"></i>
-                </a>
-
-                {# ✅ Repairs: NO full payment button here.
-                   Show ONE payment button whenever repair needs payment,
-                   and redirect to repair detail to process payment there.
-                #}
-                {% set needs_repair_payment =
-                      (entry.balance_due|default(0) > 0)
-                      or (entry.claimed_on_credit|default(false))
-                      or ('PARTIAL' in (entry.status_display|default(entry.status|default(''))|upper))
-                %}
-
-                {% if needs_repair_payment %}
-                  <a href="{{ url_for('repairs.repair_detail', device_id=entry.id) }}"
-                     class="btn btn-sm btn-success ms-1"
-                     title="Proceed to repair to process payment">
-                    <i class="bi bi-cash-stack"></i>
+            <td class="text-center">
+              <div class="d-flex gap-2 justify-content-center flex-wrap">
+                {% if entry.type == 'sale' %}
+                  {# View Invoice #}
+                  <a href="{{ url_for('sales.invoice', sale_id=entry.id, redirect_to='sales.sales_list') }}"
+                     class="btn btn-sm btn-outline-info"
+                     title="View Invoice"
+                     data-bs-toggle="tooltip">
+                    <i class="bi bi-file-earmark-pdf"></i>
                   </a>
+
+                  {# ✅ Always go to modal for any sale with balance due (safe: no accidents) #}
+                  {% if entry.balance_due and entry.balance_due > 0 %}
+                    <button type="button"
+                            class="btn btn-sm btn-success"
+                            title="Record payment"
+                            data-bs-toggle="modal"
+                            data-bs-target="#salePaymentModal"
+                            data-sale-id="{{ entry.id }}"
+                            data-invoice="{{ entry.invoice }}"
+                            data-balance="{{ entry.balance_due }}"
+                            data-customer="{{ entry.customer_name or 'Walk-in' }}"
+                            data-bs-toggle="tooltip">
+                      <i class="bi bi-cash-stack"></i>
+                    </button>
+                  {% endif %}
+
+                  {% if current_user.role == 'ADMIN' %}
+                    <form method="POST"
+                          action="{{ url_for('sales.delete_sale', sale_id=entry.id) }}"
+                          style="display:inline;">
+                      <button type="submit"
+                              class="btn btn-sm btn-outline-danger"
+                              onclick="return confirm('Delete this sale? This will restore stock for sold items.');"
+                              title="Delete Sale"
+                              data-bs-toggle="tooltip">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  {% endif %}
+
+                {% else %}
+                  {# View Repair Receipt #}
+                  <a href="{{ url_for('repairs.print_receipt', device_id=entry.id, redirect_to='sales.sales_list') }}"
+                     class="btn btn-sm btn-outline-info"
+                     title="View Repair Receipt"
+                     data-bs-toggle="tooltip">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                  </a>
+
+                  {# ✅ Repairs: NO full payment button here.
+                     Show ONE payment button whenever repair needs payment,
+                     and redirect to repair detail to process payment there.
+                  #}
+                  {% set needs_repair_payment =
+                        (entry.balance_due|default(0) > 0)
+                        or (entry.claimed_on_credit|default(false))
+                        or ('PARTIAL' in (entry.status_display|default(entry.status|default(''))|upper))
+                  %}
+
+                  {% if needs_repair_payment %}
+                    <a href="{{ url_for('repairs.repair_detail', device_id=entry.id, back_url=request.base_url + ('?' + request.query_string.decode() if request.query_string else '')) }}"
+                       class="btn btn-sm btn-success"
+                       title="Process payment">
+                      <i class="bi bi-cash-stack"></i>
+                    </a>
+                  {% endif %}
                 {% endif %}
-              {% endif %}
+              </div>
             </td>
           </tr>
           {% endfor %}
@@ -249,76 +301,230 @@
     {% include 'layouts/pagination.html' %}
   </div>
 {% else %}
-  <div class="alert alert-info">
-    <i class="bi bi-info-circle"></i>
-    {% if credits_only %}
-      No credit claims found.
-    {% else %}
-      No sales or repair-part records found.
-      <a href="{{ url_for('sales.pos') }}" class="alert-link">Create your first sale</a>
-      <a href="{{ url_for('repairs.add_repair') }}" class="alert-link ms-3">Create a repair ticket</a>
-    {% endif %}
+  <div class="alert alert-info border-0 shadow-sm" role="alert">
+    <div class="d-flex align-items-center gap-3">
+      <div style="font-size: 2rem;">
+        <i class="bi bi-inbox"></i>
+      </div>
+      <div class="flex-grow-1">
+        <h5 class="alert-heading mb-2">
+          {% if credits_only %}
+            No credit claims yet
+          {% else %}
+            No sales or repair records found
+          {% endif %}
+        </h5>
+        <p class="mb-0 small">
+          {% if credits_only %}
+            There are no credit claims to display.
+          {% else %}
+            Get started by creating your first transaction.
+          {% endif %}
+        </p>
+      </div>
+      {% if not credits_only %}
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('sales.pos') }}" class="btn btn-sm btn-primary" style="white-space: nowrap;">
+          <i class="bi bi-plus-circle"></i> New Sale
+        </a>
+        <a href="{{ url_for('repairs.add_repair') }}" class="btn btn-sm btn-outline-primary" style="white-space: nowrap;">
+          <i class="bi bi-tools"></i> New Repair
+        </a>
+      </div>
+      {% endif %}
+    </div>
   </div>
 {% endif %}
 
 <style>
-  tbody tr { transition: background-color 0.15s ease-in-out; }
-  tbody tr:hover { background-color: #f8f9fa; }
+  /* Table styling */
+  .table thead {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  tbody tr { 
+    transition: all 0.2s ease-in-out;
+  }
+
+  tbody tr:hover { 
+    background-color: #f8faff;
+    box-shadow: inset 0 0 0 1px rgba(102, 126, 234, 0.1);
+  }
+
+  /* Button styling */
+  .btn-sm {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn-sm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+
+  /* Badge styling */
+  .badge {
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Card styling */
+  .card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+  }
+
+  .card-body.bg-light {
+    background-color: #f8fafc !important;
+  }
+
+  /* Filter form styling */
+  #sales-filter-form {
+    border-radius: 0.5rem;
+  }
+
+  #sales-filter-form .input-group-text {
+    border: 1px solid #dee2e6;
+  }
+
+  /* Header improvements */
+  h1 {
+    color: #2c3e50;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  /* Modal improvements */
+  .modal-header.bg-gradient {
+    border-bottom: none;
+  }
+
+  .modal-content {
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .btn-sm {
+      padding: 0.35rem 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    .table {
+      font-size: 0.9rem;
+    }
+
+    .d-flex.gap-2 {
+      gap: 0.5rem !important;
+    }
+  }
+
+  /* Action buttons container */
+  td .d-flex.gap-2 {
+    justify-content: center;
+  }
+
+  /* Better alignment for status badges */
+  .badge.bg-success,
+  .badge.bg-warning,
+  .badge.bg-danger {
+    font-size: 0.9rem;
+  }
+
+  /* Enhanced visual feedback */
+  .table-hover tbody tr:focus-within {
+    background-color: #e7f2ff;
+  }
+
+  /* Text alignment for monetary values */
+  td.text-end {
+    font-variant-numeric: tabular-nums;
+  }
 </style>
 
 <!-- ✅ Sale Payment Modal (Sales only) -->
 <div class="modal fade" id="salePaymentModal" tabindex="-1" aria-labelledby="salePaymentModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-dialog-centered">
     <form id="salePaymentForm" method="POST">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="salePaymentModalLabel">Record Sale Payment</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-content shadow-lg">
+        <div class="modal-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+          <h5 class="modal-title" id="salePaymentModalLabel">
+            <i class="bi bi-cash-stack"></i> Record Payment
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
 
-        <div class="modal-body">
-          <div class="small text-muted mb-3">
-            Invoice: <span id="spInvoice"></span><br>
-            Customer: <span id="spCustomer"></span><br>
-            Balance Due: ₱<span id="spBalance"></span>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">Amount</label>
-            <input type="number"
-                   class="form-control"
-                   id="paymentAmount"
-                   name="amount"
-                   min="0.01"
-                   step="0.01"
-                   required>
-            <div class="form-text">
-              Starts blank to avoid accidents. Max is the current balance.
+        <div class="modal-body bg-light">
+          <div class="card card-sm mb-3" style="border-left: 4px solid #667eea;">
+            <div class="card-body p-2">
+              <div class="row g-2 text-sm">
+                <div class="col-6">
+                  <small class="d-block text-muted">Invoice</small>
+                  <strong class="text-dark" id="spInvoice">—</strong>
+                </div>
+                <div class="col-6">
+                  <small class="d-block text-muted">Customer</small>
+                  <strong class="text-dark" id="spCustomer">—</strong>
+                </div>
+                <div class="col-12">
+                  <small class="d-block text-muted">Balance Due</small>
+                  <strong class="text-danger fs-5">₱<span id="spBalance">0.00</span></strong>
+                </div>
+              </div>
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Payment Method</label>
-            <select class="form-select" name="payment_method" id="paymentMethod">
-              <option value="Cash">Cash</option>
-              <option value="GCash">GCash</option>
-              <option value="Card">Card</option>
-              <option value="Bank">Bank</option>
+            <label class="form-label fw-bold">Amount to Pay</label>
+            <div class="input-group input-group-lg">
+              <span class="input-group-text">₱</span>
+              <input type="number"
+                     class="form-control form-control-lg"
+                     id="paymentAmount"
+                     name="amount"
+                     min="0.01"
+                     step="0.01"
+                     required
+                     placeholder="0.00">
+            </div>
+            <div class="form-text mt-2">
+              <i class="bi bi-info-circle"></i> Amount starts blank to prevent accidents
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Payment Method</label>
+            <select class="form-select form-select-lg" name="payment_method" id="paymentMethod">
+              <option value="Cash">💰 Cash</option>
+              <option value="GCash">📱 GCash</option>
+              <option value="Card">💳 Card</option>
+              <option value="Bank">🏦 Bank Transfer</option>
             </select>
           </div>
 
-          <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPayHalf">50%</button>
-            <button type="button" class="btn btn-outline-warning btn-sm" id="btnPayFull">Fill Full Balance</button>
+          <div class="d-grid gap-2 mb-3">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="btnPayHalf">
+              <i class="bi bi-percent"></i> 50%
+            </button>
+            <button type="button" class="btn btn-outline-success btn-sm" id="btnPayFull">
+              <i class="bi bi-check-circle"></i> Full Balance
+            </button>
           </div>
 
           {# If you use CSRF tokens (Flask-WTF), place token INSIDE form (uncomment if applicable): #}
           {# {{ csrf_token() }} #}
         </div>
 
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-success">Save Payment</button>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle"></i> Cancel
+          </button>
+          <button type="submit" class="btn btn-success btn-lg">
+            <i class="bi bi-check-circle"></i> Save Payment
+          </button>
         </div>
       </div>
     </form>

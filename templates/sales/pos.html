@@ -98,6 +98,19 @@
 .card-header {
     transition: none !important;
 }
+
+/* cart item tweaks */
+#cart-items .card {
+    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+}
+#cart-items .card-body {
+    padding: 0.5rem;
+}
+#cart-items {
+    max-height: 240px; /* ensure scroll appears around 3 items */
+    overflow-y: auto;
+}
 </style>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-cart-check"></i> Point of Sale System</h1>
@@ -130,9 +143,15 @@
                 </div>
                 
                 <select id="customer-select" class="form-select" style="display: none;">
-                    <option value="">-- Walk-in Customer --</option>
+                    {# mark the walk-in option selected if no customer is preloaded/selected #}
+                    <option value="" {% if not preloaded_customer_id and not preselected_customer %}selected{% endif %}>
+                        -- Walk-in Customer --
+                    </option>
                     {% for customer in customers %}
-                    <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.phone }})</option>
+                    <option value="{{ customer.id }}" 
+                        {% if preloaded_customer_id and preloaded_customer_id|int == customer.id %}selected{% endif %}
+                        {% if not preloaded_customer_id and preselected_customer and preselected_customer.id == customer.id %}selected{% endif %}
+                    >{{ customer.name }} ({{ customer.phone }})</option>
                     {% endfor %}
                 </select>
                 
@@ -245,7 +264,7 @@
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0"><i class="bi bi-cart"></i> Shopping Cart</h5>
             </div>
-            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+            <div class="card-body" style="max-height: 250px; overflow-y: auto; padding:0.5rem;">
                 <div id="cart-items">
                     <p class="text-muted text-center py-4">Your cart is empty</p>
                 </div>
@@ -341,8 +360,57 @@
 {{ products | tojson }}
 </script>
 <script>
+// preload values from server when validation fails
+window.preloaded_items_json = {{ preloaded_items_json | tojson }};
+window.preloaded_customer_id = {{ preloaded_customer_id | tojson }};
+window.preloaded_discount = {{ preloaded_discount | tojson }};
+window.preloaded_payment_amount = {{ preloaded_payment_amount | tojson }};
+window.preloaded_notes = {{ preloaded_notes | tojson }};
+window.preloaded_apply_as_deposit = {{ preloaded_apply_as_deposit | tojson }};
+window.preloaded_claim_on_credit = {{ preloaded_claim_on_credit | tojson }};
+window.preloaded_department_id = {{ preloaded_department_id | tojson }};
+window.preloaded_new_department_name = {{ preloaded_new_department_name | tojson }};
+window.preloaded_new_department_contact = {{ preloaded_new_department_contact | tojson }};
+
 let cart = [];
 const products = JSON.parse(document.getElementById('products-data').textContent);
+
+// restore any preloaded cart items from server
+if (window.preloaded_items_json) {
+    try {
+        const data = JSON.parse(window.preloaded_items_json);
+        if (Array.isArray(data) && data.length) {
+            data.forEach(item => cart.push(item));
+        }
+    } catch (e) {
+        console.error('Error parsing preloaded cart:', e);
+    }
+    // immediately render restored items
+    updateCart();
+}
+// Check for reprocessed items in sessionStorage
+let reprocessedItems = [];
+const reprocessedItemsData = sessionStorage.getItem('reprocessedItems');
+if (reprocessedItemsData) {
+    try {
+        reprocessedItems = JSON.parse(reprocessedItemsData);
+        sessionStorage.removeItem('reprocessedItems');
+    } catch (e) {
+        console.error('Error parsing reprocessed items:', e);
+    }
+}
+
+// Check for reprocessed customer in sessionStorage
+let reprocessedCustomer = null;
+const reprocessedCustomerData = sessionStorage.getItem('reprocessedCustomer');
+if (reprocessedCustomerData) {
+    try {
+        reprocessedCustomer = JSON.parse(reprocessedCustomerData);
+        sessionStorage.removeItem('reprocessedCustomer');
+    } catch (e) {
+        console.error('Error parsing reprocessed customer:', e);
+    }
+}
 let productSelect, productQty, addBtn, checkoutBtn, clearBtn, discountInput, paymentMethodSelect, 
     searchInput, searchBtn, searchResults, customerSelect, claimOnCreditCheckbox;
 
@@ -814,6 +882,97 @@ document.addEventListener('DOMContentLoaded', function(){
             alert('Error adding customer: ' + err);
         });
     });
+    
+    // Load reprocessed items into cart
+    if (reprocessedItems && reprocessedItems.length > 0) {
+        reprocessedItems.forEach(item => {
+            cart.push({
+                product_id: item.product_id,
+                product_name: item.product_name,
+                price: item.price,
+                qty: item.qty
+            });
+        });
+        updateCart();
+        
+        // Show notification that items were loaded (but keep it hidden by default)
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-info alert-dismissible fade show';
+        alert.role = 'alert';
+        alert.innerHTML = `
+            <strong>Invoice Reprocessing:</strong> ${reprocessedItems.length} item(s) loaded from the reprocessed invoice. Adjust quantities and payments as needed.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        // keep the alert hidden; it can be shown later if needed
+        alert.style.display = 'none';
+        // optionally append into a dedicated container for non-intrusive placement
+        const alertContainer = document.getElementById('reprocess-alert-container');
+        if (alertContainer) {
+            alertContainer.appendChild(alert);
+        } else {
+            // if container doesn't exist, append to body but remain hidden
+            document.body.appendChild(alert);
+        }
+    }
+    
+    // restore preloaded values (from failed submit)
+    if (window.preloaded_customer_id !== undefined && window.preloaded_customer_id !== null && window.preloaded_customer_id !== "") {
+        // use selectCustomer helper when option exists
+        setTimeout(() => {
+            const opt = Array.from(customerSelect.options).find(o => o.value == window.preloaded_customer_id);
+            if (opt) {
+                selectCustomer(window.preloaded_customer_id, opt.text);
+                updateDepartmentOptions(window.preloaded_customer_id);
+            }
+        }, 100);
+    }
+    if (window.preloaded_discount) {
+        discountInput.value = window.preloaded_discount;
+    }
+    if (window.preloaded_payment_amount) {
+        const pa = parseFloat(window.preloaded_payment_amount);
+        if (!isNaN(pa)) document.getElementById('payment-amount').value = pa.toFixed(2);
+    }
+    if (window.preloaded_notes) {
+        document.getElementById('notes-input').value = window.preloaded_notes;
+    }
+    if (window.preloaded_apply_as_deposit === 'yes') {
+        const cb = document.getElementById('apply-as-deposit-pos');
+        if (cb) cb.checked = true;
+    }
+    if (window.preloaded_claim_on_credit === 'yes') {
+        const cb = document.getElementById('claim-on-credit-pos');
+        if (cb) cb.checked = true;
+    }
+    if (window.preloaded_department_id) {
+        const deptSel = document.getElementById('department-select');
+        if (deptSel) {
+            deptSel.value = window.preloaded_department_id;
+            toggleNewDepartmentSection();
+        }
+    }
+    if (window.preloaded_new_department_name) {
+        const inp = document.getElementById('new-department-name');
+        if (inp) inp.value = window.preloaded_new_department_name;
+    }
+    if (window.preloaded_new_department_contact) {
+        const inp = document.getElementById('new-department-contact');
+        if (inp) inp.value = window.preloaded_new_department_contact;
+    }
+
+    // Preselect reprocessed customer
+    if (reprocessedCustomer && customerSelect) {
+        // Wait a moment for customer options to be loaded
+        setTimeout(() => {
+            const customerOption = Array.from(customerSelect.options).find(opt => opt.value == reprocessedCustomer.id);
+            if (customerOption) {
+                // use helper so UI reflects selection (show badge, clear search, etc.)
+                selectCustomer(reprocessedCustomer.id, reprocessedCustomer.name);
+                // departments also need updating
+                updateDepartmentOptions(reprocessedCustomer.id);
+            }
+        }, 100);
+    }
 });
 
 function toggleModalPhoneRequirement() {

@@ -133,10 +133,18 @@
               {% endif %}
             </td>
           </tr>
+          {% set change_amount = (device.deposit_paid - device.total_cost) if device.deposit_paid > device.total_cost else 0 %}
+          {% if change_amount > 0 %}
+          <tr class="table-success">
+            <td class="fw-bold">Change</td>
+            <td class="text-end fw-bold">₱{{ "%.2f"|format(change_amount) }}</td>
+          </tr>
+          {% else %}
           <tr>
             <td class="fw-bold">Balance</td>
             <td class="text-end fw-bold">₱{{ "%.2f"|format(device.balance_due) }}</td>
           </tr>
+          {% endif %}
         </tbody>
       </table>
 

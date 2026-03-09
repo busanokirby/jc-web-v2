@@ -124,33 +124,33 @@
                         <div class="row g-2">
                             <div class="col-md-4">
                                 <label class="form-label">Device Type</label>
-                                <input name="device_type" class="form-control" value="{{ device.device_type }}" required>
+                                <input name="device_type" class="form-control" value="{{ form_data.get('device_type') if form_data else device.device_type }}" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Brand</label>
-                                <input name="brand" class="form-control" value="{{ device.brand or '' }}">
+                                <input name="brand" class="form-control" value="{{ form_data.get('brand') if form_data else (device.brand or '') }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Model</label>
-                                <input name="model" class="form-control" value="{{ device.model or '' }}">
+                                <input name="model" class="form-control" value="{{ form_data.get('model') if form_data else (device.model or '') }}">
                             </div>
 
                             <div class="col-md-6">
                                 <label class="form-label">Serial Number</label>
-                                <input name="serial_number" class="form-control" value="{{ device.serial_number or '' }}">
+                                <input name="serial_number" class="form-control" value="{{ form_data.get('serial_number') if form_data else (device.serial_number or '') }}">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Device Age</label>
-                                <input name="device_age" class="form-control" value="{{ device.device_age or '' }}">
+                                <input name="device_age" class="form-control" value="{{ form_data.get('device_age') if form_data else (device.device_age or '') }}">
                             </div>
 
                             <div class="col-12">
                                 <label class="form-label">Issue Description</label>
-                                <textarea name="issue_description" class="form-control" rows="2">{{ device.issue_description or '' }}</textarea>
+                                <textarea name="issue_description" class="form-control" rows="2">{{ form_data.get('issue_description') if form_data else (device.issue_description or '') }}</textarea>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Accessories</label>
-                                <input name="accessories" class="form-control" value="{{ device.accessories or '' }}">
+                                <input name="accessories" class="form-control" value="{{ form_data.get('accessories') if form_data else (device.accessories or '') }}">
                             </div>
                         </div>
 
@@ -185,14 +185,14 @@
                         <div class="col-md-6">
                             <label for="status" class="form-label">Current Status</label>
                             <select class="form-select" id="status" name="status">
-                                <option value="Received" {% if device.status == 'Received' %}selected{% endif %}>Received - Initial intake</option>
-                                <option value="Diagnosing" {% if device.status == 'Diagnosing' %}selected{% endif %}>Diagnosing - Testing in progress</option>
-                                <option value="Repairing" {% if device.status == 'Repairing' %}selected{% endif %}>Repairing - Work in progress</option>
-                                <option value="Waiting Parts" {% if device.status == 'Waiting Parts' %}selected{% endif %}>Waiting Parts - Parts on order</option>
-                                <option value="Ready" {% if device.status == 'Ready' %}selected{% endif %}>Ready - Ready for pickup</option>
-                                <option value="Completed" {% if device.status == 'Completed' %}selected{% endif %}>Completed - Customer collected</option>
-                                <option value="Beyond repair" {% if device.status == 'Beyond repair' %}selected{% endif %}>Beyond repair</option>
-                                <option value="Pulled out" {% if device.status == 'Pulled out' %}selected{% endif %}>Pulled out - Customer took device (no charge)</option>
+                                <option value="Received" {% if (form_data and form_data.get('status') == 'Received') or (not form_data and device.status == 'Received') %}selected{% endif %}>Received - Initial intake</option>
+                                <option value="Diagnosing" {% if (form_data and form_data.get('status') == 'Diagnosing') or (not form_data and device.status == 'Diagnosing') %}selected{% endif %}>Diagnosing - Testing in progress</option>
+                                <option value="Repairing" {% if (form_data and form_data.get('status') == 'Repairing') or (not form_data and device.status == 'Repairing') %}selected{% endif %}>Repairing - Work in progress</option>
+                                <option value="Waiting Parts" {% if (form_data and form_data.get('status') == 'Waiting Parts') or (not form_data and device.status == 'Waiting Parts') %}selected{% endif %}>Waiting Parts - Parts on order</option>
+                                <option value="Ready" {% if (form_data and form_data.get('status') == 'Ready') or (not form_data and device.status == 'Ready') %}selected{% endif %}>Ready - Ready for pickup</option>
+                                <option value="Completed" {% if (form_data and form_data.get('status') == 'Completed') or (not form_data and device.status == 'Completed') %}selected{% endif %}>Completed - Customer collected</option>
+                                <option value="Beyond repair" {% if (form_data and form_data.get('status') == 'Beyond repair') or (not form_data and device.status == 'Beyond repair') %}selected{% endif %}>Beyond repair</option>
+                                <option value="Pulled out" {% if (form_data and form_data.get('status') == 'Pulled out') or (not form_data and device.status == 'Pulled out') %}selected{% endif %}>Pulled out - Customer took device (no charge)</option>
                             </select>
                         </div>
                     </div>
@@ -200,23 +200,23 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="diagnostic_fee" class="form-label">Diagnostic Fee (₱)</label>
-                            <input type="number" class="form-control" id="diagnostic_fee" name="diagnostic_fee" step="0.01" value="{{ device.diagnostic_fee or 0 }}" placeholder="0.00">
+                            <input type="number" class="form-control" id="diagnostic_fee" name="diagnostic_fee" step="0.01" value="{{ form_data.get('diagnostic_fee') if form_data else (device.diagnostic_fee or 0) }}" placeholder="0.00">
                         </div>
                         <div class="col-md-6">
                             <label for="repair_cost" class="form-label">Repair/Labor Cost (₱)</label>
-                            <input type="number" class="form-control" id="repair_cost" name="repair_cost" step="0.01" value="{{ device.repair_cost or 0 }}" placeholder="0.00">
+                            <input type="number" class="form-control" id="repair_cost" name="repair_cost" step="0.01" value="{{ form_data.get('repair_cost') if form_data else (device.repair_cost or 0) }}" placeholder="0.00">
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="technician_notes" class="form-label">Technician Notes</label>
-                        <textarea class="form-control" id="technician_notes" name="technician_notes" rows="2" placeholder="Record findings, work done, or any issues">{{ device.technician_notes or '' }}</textarea>
+                        <textarea class="form-control" id="technician_notes" name="technician_notes" rows="2" placeholder="Record findings, work done, or any issues">{{ form_data.get('technician_notes') if form_data else (device.technician_notes or '') }}</textarea>
                         <small class="text-muted">Internal notes for reference</small>
                     </div>
 
                     <div class="mb-3">
                         <label for="solution_applied" class="form-label">Solution Applied</label>
-                        <textarea class="form-control" id="solution_applied" name="solution_applied" rows="2" placeholder="Describe the solution implemented">{{ device.solution_applied or '' }}</textarea>
+                        <textarea class="form-control" id="solution_applied" name="solution_applied" rows="2" placeholder="Describe the solution implemented">{{ form_data.get('solution_applied') if form_data else (device.solution_applied or '') }}</textarea>
                         <small class="text-muted">Summary of what was fixed</small>
                     </div>
 
@@ -297,17 +297,17 @@
                     <div class="row">
                         <div class="col-md-6">
                             <label for="product_search" class="form-label">Search & Add Part</label>
-                            <input type="text" class="form-control mb-2" id="product_search" placeholder="Search by part name...">
+                            <input type="text" class="form-control mb-2" id="product_search" placeholder="Search by part name..." value="{{ form_data.get('product_search') if form_data else '' }}">
                             <select class="form-select" id="product_id" name="product_id" required>
-                                <option value="">-- Select Product --</option>
+                                <option value="" {% if not form_data or not form_data.get('product_id') %}selected{% endif %}>-- Select Product --</option>
                                 {% for product in products %}
-                                <option value="{{ product.id }}" data-name="{{ product.name|lower }}">{{ product.name }} ({{ product.sell_price|currency }})</option>
+                                <option value="{{ product.id }}" data-name="{{ product.name|lower }}" {% if form_data and form_data.get('product_id') and form_data.get('product_id')|int == product.id %}selected{% endif %}>{{ product.name }} ({{ product.sell_price|currency }})</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-3">
                             <label for="qty" class="form-label">Quantity</label>
-                            <input type="number" class="form-control" id="qty" name="qty" min="1" value="1" required>
+                            <input type="number" class="form-control" id="qty" name="qty" min="1" value="{{ form_data.get('qty') if form_data else '1' }}" required>
                         </div>
                         <div class="col-md-3 d-flex align-items-end">
                             <button type="submit" class="btn btn-success w-100">
@@ -424,7 +424,7 @@
                 <form method="POST" action="{{ url_for('repairs.update_deposit', device_id=device.id) }}" id="depositForm">
                     <div class="mb-3">
                         <label for="deposit_amount" class="form-label">Deposit Amount</label>
-                        <input type="number" class="form-control" id="deposit_amount" name="deposit_amount" step="0.01" min="0" value="{{ device.deposit_paid or '0.00' }}" required>
+                        <input type="number" class="form-control" id="deposit_amount" name="deposit_amount" step="0.01" min="0" value="{{ form_data.get('deposit_amount') if form_data else (device.deposit_paid or '0.00') }}" required>
                         <small class="form-text text-muted">Current total cost: ₱{{ "%.2f"|format(device.total_cost) }}</small>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
@@ -445,20 +445,20 @@
                 <form method="POST" action="{{ url_for('repairs.add_payment', device_id=device.id) }}">
                     <div class="mb-3">
                         <label for="amount" class="form-label">Amount</label>
-                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" required>
+                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" value="{{ form_data.get('amount') if form_data else '' }}" required>
                     </div>
                     <div class="mb-3">
                         <label for="payment_method" class="form-label">Payment Method</label>
                         <select class="form-select" id="payment_method" name="payment_method">
-                            <option value="Cash">Cash</option>
-                            <option value="Card">Card</option>
-                            <option value="Check">Check</option>
-                            <option value="Bank Transfer">Bank Transfer</option>
-                            <option value="Credit">Credit</option>
+                            <option value="Cash" {% if form_data and form_data.get('payment_method') == 'Cash' %}selected{% endif %}>Cash</option>
+                            <option value="Card" {% if form_data and form_data.get('payment_method') == 'Card' %}selected{% endif %}>Card</option>
+                            <option value="Check" {% if form_data and form_data.get('payment_method') == 'Check' %}selected{% endif %}>Check</option>
+                            <option value="Bank Transfer" {% if form_data and form_data.get('payment_method') == 'Bank Transfer' %}selected{% endif %}>Bank Transfer</option>
+                            <option value="Credit" {% if form_data and form_data.get('payment_method') == 'Credit' %}selected{% endif %}>Credit</option>
                         </select>
                     </div>
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="apply_as_deposit" name="apply_as_deposit" value="yes">
+                        <input class="form-check-input" type="checkbox" id="apply_as_deposit" name="apply_as_deposit" value="yes" {% if form_data and form_data.get('apply_as_deposit') == 'yes' %}checked{% endif %}>
                         <input type="hidden" name="apply_as_deposit" value="no">
                         <label class="form-check-label" for="apply_as_deposit">Apply payment as deposit (keep deposit record)</label>
                     </div>

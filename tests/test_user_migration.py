@@ -52,20 +52,20 @@ def test_initialize_adds_company_column(tmp_path, tmp_path_factory, monkeypatch)
         # now exercise the migration logic
         initialize_database()
 
-        cols = [row[1] for row in db.engine.execute(text("PRAGMA table_info('users')")).fetchall()]
+        cols = [row[1] for row in db.session.execute(text("PRAGMA table_info('users')")).fetchall()]
         assert 'company' in cols, "company column should have been added"
 
         # and we should be able to query without error
         assert User.query.count() == 0
 
-    def test_device_migration_adds_deposit_timestamp(self, tmp_path, tmp_path_factory):
-        """initialize_database should add deposit_paid_at column if missing."""
-        db_file = tmp_path / "device.db"
-        engine = create_engine(f"sqlite:///{db_file.as_posix()}")
+def test_device_migration_adds_deposit_timestamp(tmp_path, tmp_path_factory):
+    """initialize_database should add deposit_paid_at column if missing."""
+    db_file = tmp_path / "device.db"
+    engine = create_engine(f"sqlite:///{db_file.as_posix()}")
 
-        # create minimal device table without deposit_paid_at
-        with engine.begin() as conn:
-            conn.execute(text(
+    # create minimal device table without deposit_paid_at
+    with engine.begin() as conn:
+        conn.execute(text(
                 """
                 CREATE TABLE device (
                     id INTEGER PRIMARY KEY,
@@ -88,8 +88,9 @@ def test_initialize_adds_company_column(tmp_path, tmp_path_factory, monkeypatch)
             db.create_all()
             # call initializer which should add the column
             initialize_database()
-            cols = [row[1] for row in db.engine.execute(text("PRAGMA table_info('device')")).fetchall()]
+            cols = [row[1] for row in db.session.execute(text("PRAGMA table_info('device')")).fetchall()]
             assert 'deposit_paid_at' in cols
             # running a simple query should now succeed
             from app.models.repair import Device
             assert Device.query.count() == 0
+

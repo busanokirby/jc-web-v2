@@ -15,7 +15,7 @@ from app.models.repair import Device
 from app.models.user import User
 
 
-class RepairPayment(BaseModel, db.Model):
+class RepairPayment(db.Model):
     """
     Individual payment transaction for a repair.
     
@@ -35,15 +35,9 @@ class RepairPayment(BaseModel, db.Model):
     
     # Audit trail
     recorded_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
-    # hints for static analysis
-    device: "Device"
-    recorded_by: "User"
-
-    device = db.relationship("Device", backref="repair_payments", cascade="all")  # type: ignore[assignment]
+    device = db.relationship("Device")  # type: ignore[assignment]
     recorded_by = db.relationship("User")  # type: ignore[assignment]
 
     def __repr__(self) -> str:
