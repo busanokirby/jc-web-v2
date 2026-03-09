@@ -101,14 +101,6 @@
 </style>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-cart-check"></i> Point of Sale System</h1>
-    <div>
-        <a href="{{ url_for('sales.sales_list') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-list"></i> Sales History
-        </a>
-        <a href="{{ url_for('sales.reports') }}" class="btn btn-outline-info">
-            <i class="bi bi-graph-up"></i> Reports
-        </a>
-    </div>
 </div>
 
 <div class="row">
@@ -340,9 +332,21 @@
 <script id="products-data" type="application/json">
 {{ products | tojson }}
 </script>
+<script id="preselected-customer-data" type="application/json">
+{% if preselected_customer %}
+{
+  "id": "{{ preselected_customer.id }}",
+  "name": "{{ preselected_customer.name }}",
+  "phone": "{{ preselected_customer.phone }}"
+}
+{% else %}
+null
+{% endif %}
+</script>
 <script>
 let cart = [];
 const products = JSON.parse(document.getElementById('products-data').textContent);
+const preselectedCustomer = JSON.parse(document.getElementById('preselected-customer-data').textContent);
 let productSelect, productQty, addBtn, checkoutBtn, clearBtn, discountInput, paymentMethodSelect, 
     searchInput, searchBtn, searchResults, customerSelect, claimOnCreditCheckbox;
 
@@ -773,47 +777,159 @@ document.addEventListener('DOMContentLoaded', function(){
     };
 
     // Auto-select customer if passed via URL parameter (must be after selectCustomer definition)
-    {% if preselected_customer %}
-    window.selectCustomer('{{ preselected_customer.id }}', '{{ preselected_customer.name }} ({{ preselected_customer.phone }})');
-    {% endif %}
+    if (preselectedCustomer) {
+        const customerDisplay = preselectedCustomer.name + ' (' + preselectedCustomer.phone + ')';
+        window.selectCustomer(preselectedCustomer.id, customerDisplay);
+    }
 
     // Handle add customer form submission
     const addCustomerForm = document.getElementById('add-customer-form');
     const addCustomerModal = document.getElementById('addCustomerModal');
+    
+    if (!addCustomerForm) {
+        console.error('Add customer form not found in DOM');
+    } else {
+        console.log('Add customer form found, attaching event listener');
+    }
+    
     const modalInstance = new bootstrap.Modal(addCustomerModal);
-
-    addCustomerForm.addEventListener('submit', function(e){
-        e.preventDefault();
-
-        const formData = new FormData(this);
-        fetch('{{ url_for("customers.add_customer") }}', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Add new customer to the select dropdown
-                const newOption = document.createElement('option');
-                newOption.value = data.customer.id;
-                newOption.text = `${data.customer.name} (${data.customer.phone})`;
-                customerSelect.appendChild(newOption);
-
-                // Select the new customer
-                selectCustomer(data.customer.id, newOption.text);
-
-                // Close the modal and reset the form
-                modalInstance.hide();
-                addCustomerForm.reset();
-                alert('Customer added successfully!');
-            } else {
-                alert('Error adding customer: ' + (data.message || 'Unknown error'));
-            }
-        })
-        .catch(err => {
-            alert('Error adding customer: ' + err);
-        });
+    
+    // Reset modal form when it's hidden
+    addCustomerModal.addEventListener('hidden.bs.modal', function () {
+        console.log('Modal hidden, resetting form state');
+        
+        // Reset the form
+        if (addCustomerForm) {
+            addCustomerForm.reset();
+        }
+        
+        // Reset to Individual customer type
+        const customerTypeSelect = document.getElementById('modal-customer-type');
+        if (customerTypeSelect) {
+            customerTypeSelect.value = 'Individual';
+        }
+        
+        // Reset phone checkbox
+        const skipPhoneCheckbox = document.getElementById('modal-skip-phone');
+        if (skipPhoneCheckbox) {
+            skipPhoneCheckbox.checked = false;
+        }
+        
+        // Re-enable phone field
+        const phoneInput = document.getElementById('modal-customer-phone');
+        if (phoneInput) {
+            phoneInput.disabled = false;
+            phoneInput.required = true;
+        }
+        
+        // Reset field visibility to Individual state
+        updateModalFieldsForCustomerType();
     });
+
+    if (addCustomerForm) {
+        addCustomerForm.addEventListener('submit', function(e){
+            e.preventDefault();
+            console.log('Add customer form submitted');
+            
+            // Validate form fields before submission
+            const customerType = document.getElementById('modal-customer-type').value;
+            const skipPhone = document.getElementById('modal-skip-phone').checked;
+            const phoneInput = document.getElementById('modal-customer-phone');
+            const individualNameInput = document.getElementById('modal-customer-name');
+            const companyNameInput = document.getElementById('modal-company-name');
+            
+            // Validate customer name/company based on type
+            if (customerType === 'Individual') {
+                if (!individualNameInput.value.trim()) {
+                    alert('Please enter a full name');
+                    return;
+                }
+            } else {
+                if (!companyNameInput.value.trim()) {
+                    alert('Please enter a company/organization name');
+                    return;
+                }
+            }
+            
+            // Validate phone if not skipped
+            if (!skipPhone) {
+                const phone = phoneInput.value.trim();
+                if (!phone) {
+                    alert('Please enter a phone number or select "Skip phone number"');
+                    return;
+                }
+                if (!/^\d{11}$/.test(phone)) {
+                    alert('Phone number must be exactly 11 digits');
+                    return;
+                }
+            }
+
+            const formData = new FormData(this);
+            const url = '{{ url_for("customers.add_customer") }}';
+            console.log('Sending request to:', url);
+            
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Response status:', response.status, response.ok);
+                if (!response.ok) {
+                    // Handle HTTP errors (403, 400, 500, etc.)
+                    return response.text().then(text => {
+                        console.error('Error response text:', text);
+                        // Try to parse as JSON, fall back to text
+                        try {
+                            return Promise.reject(JSON.parse(text));
+                        } catch (e) {
+                            return Promise.reject({
+                                success: false,
+                                message: `Server error (${response.status}): ${text.substring(0, 200)}`
+                            });
+                        }
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.success) {
+                    // Add new customer to the select dropdown
+                    const newOption = document.createElement('option');
+                    newOption.value = data.customer.id;
+                    newOption.text = `${data.customer.name} (${data.customer.phone})`;
+                    customerSelect.appendChild(newOption);
+
+                    // Select the new customer
+                    selectCustomer(data.customer.id, newOption.text);
+
+                    // Close the modal and reset the form
+                    modalInstance.hide();
+                    addCustomerForm.reset();
+                    alert('Customer added successfully!');
+                } else {
+                    alert('Error adding customer: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Add customer error:', err);
+                const errorMsg = err.message || (typeof err === 'string' ? err : JSON.stringify(err));
+                alert('Error adding customer: ' + errorMsg);
+            });
+        });
+    }
+    
+    // Initialize modal field required states
+    const modalIndividualNameInput = document.getElementById('modal-customer-name');
+    const modalCompanyNameInput = document.getElementById('modal-company-name');
+    const modalPhoneInput = document.getElementById('modal-customer-phone');
+    
+    if (modalIndividualNameInput && modalCompanyNameInput && modalPhoneInput) {
+        // Set initial state for Individual (the default)
+        modalIndividualNameInput.required = true;
+        modalCompanyNameInput.required = false;
+        modalPhoneInput.required = true;
+    }
 });
 
 function toggleModalPhoneRequirement() {
@@ -865,6 +981,9 @@ function updateModalFieldsForCustomerType() {
       </div>
       <form id="add-customer-form">
         <div class="modal-body">
+          <!-- CSRF Token -->
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          
           <div class="mb-3">
             <label for="modal-customer-type" class="form-label">Customer Type *</label>
             <select class="form-select" id="modal-customer-type" name="customer_type" required onchange="updateModalFieldsForCustomerType()">
@@ -877,18 +996,18 @@ function updateModalFieldsForCustomerType() {
           <!-- Name Field (Individual) -->
           <div class="mb-3" id="modal-individual-name-section">
             <label for="modal-customer-name" class="form-label">Full Name *</label>
-            <input type="text" class="form-control" id="modal-customer-name" name="name" required>
+            <input type="text" class="form-control" id="modal-customer-name" name="name">
           </div>
 
           <!-- Company Name Field (Business/Government) -->
           <div class="mb-3" id="modal-company-name-section" style="display: none;">
             <label for="modal-company-name" class="form-label">Company/Organization Name *</label>
-            <input type="text" class="form-control" id="modal-company-name" name="company_name" placeholder="Company or organization name" required>
+            <input type="text" class="form-control" id="modal-company-name" name="company_name" placeholder="Company or organization name">
           </div>
 
           <div class="mb-3">
             <label for="modal-customer-phone" class="form-label">Phone Number *</label>
-            <input type="tel" class="form-control" id="modal-customer-phone" name="phone" pattern="[0-9]{11}" placeholder="Enter 11-digit number" required>
+            <input type="tel" class="form-control" id="modal-customer-phone" name="phone" pattern="[0-9]{11}" placeholder="Enter 11-digit number">
             <small class="text-muted">11 digits required</small>
           </div>
           <div class="mb-3">
